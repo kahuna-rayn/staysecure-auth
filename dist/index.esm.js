@@ -1,13 +1,14 @@
 import { jsx, jsxs } from "react/jsx-runtime";
-import { createContext, useState, useEffect, useContext } from "react";
+import { createContext, useState, useEffect, useContext, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { EyeOff, Eye, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { EyeOff, Eye, Loader2 } from "lucide-react";
 import raynLogo from "@/assets/rayn-logo.png";
+import { supabase } from "@/integrations/supabase/client";
 const AuthContext = createContext(null);
 const defaultAuthContext = {
   user: null,
@@ -215,146 +216,6 @@ const useAuth = () => {
     return defaultAuthContext;
   }
   return context;
-};
-const AuthPage = ({
-  authError,
-  Button: Button2,
-  Input: Input2,
-  Label: Label2,
-  Card: Card2,
-  CardContent: CardContent2,
-  CardDescription: CardDescription2,
-  CardHeader: CardHeader2,
-  CardTitle: CardTitle2,
-  Alert: Alert2,
-  AlertDescription: AlertDescription2,
-  logoUrl
-}) => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [resetMessage, setResetMessage] = useState("");
-  const [activationMessage, setActivationMessage] = useState("");
-  const { signIn, signOut, user, loading, error, resetPassword } = useAuth();
-  const location = useLocation();
-  console.log("[AuthPage] src/components rendered", { href: window.location.href, ts: (/* @__PURE__ */ new Date()).toISOString(), state: location.state });
-  useEffect(() => {
-    var _a;
-    if ((_a = location.state) == null ? void 0 : _a.message) {
-      setActivationMessage(location.state.message);
-      window.history.replaceState({}, document.title);
-    }
-  }, [location.state]);
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    await signIn(email, password);
-  };
-  const handleForgotPassword = async () => {
-    if (!email) {
-      setResetMessage("Please enter your email address first");
-      return;
-    }
-    try {
-      setResetMessage("");
-      await resetPassword(email);
-      setResetMessage("Password reset email sent! Check your inbox.");
-    } catch (error2) {
-      setResetMessage(`Error: ${error2.message}`);
-    }
-  };
-  if (user) {
-    return /* @__PURE__ */ jsx("div", { className: "min-h-screen bg-learning-background flex items-center justify-center p-4", children: /* @__PURE__ */ jsxs(Card2, { className: "w-full max-w-md", children: [
-      /* @__PURE__ */ jsxs(CardHeader2, { children: [
-        /* @__PURE__ */ jsx(CardTitle2, { children: "Welcome!" }),
-        /* @__PURE__ */ jsxs(CardDescription2, { children: [
-          "You are logged in as ",
-          user.email
-        ] })
-      ] }),
-      /* @__PURE__ */ jsx(CardContent2, { children: /* @__PURE__ */ jsx(Button2, { onClick: signOut, variant: "outline", className: "w-full", children: "Sign Out" }) })
-    ] }) });
-  }
-  return /* @__PURE__ */ jsx("div", { className: "min-h-screen bg-learning-background flex items-center justify-center p-4", children: /* @__PURE__ */ jsxs("div", { className: "w-full max-w-md space-y-6", children: [
-    /* @__PURE__ */ jsxs("div", { className: "text-center", children: [
-      /* @__PURE__ */ jsx(
-        "img",
-        {
-          src: logoUrl || "/rayn-logo.png",
-          alt: "RAYN Secure Logo",
-          className: "mx-auto h-20 w-auto mb-4"
-        }
-      ),
-      /* @__PURE__ */ jsx("h1", { className: "text-3xl font-bold text-learning-primary", children: "RAYN Secure" }),
-      /* @__PURE__ */ jsx("p", { className: "text-muted-foreground mt-2", children: "Behavioural Science Based Cybersecurity Learning" })
-    ] }),
-    /* @__PURE__ */ jsxs(Card2, { children: [
-      /* @__PURE__ */ jsxs(CardHeader2, { children: [
-        /* @__PURE__ */ jsx(CardTitle2, { children: "Sign In" }),
-        /* @__PURE__ */ jsx(CardDescription2, { children: "Enter your credentials to access your account" })
-      ] }),
-      /* @__PURE__ */ jsxs(CardContent2, { children: [
-        /* @__PURE__ */ jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
-          /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
-            /* @__PURE__ */ jsx(Label2, { htmlFor: "email", children: "Email" }),
-            /* @__PURE__ */ jsx(
-              Input2,
-              {
-                id: "email",
-                type: "email",
-                placeholder: "Enter your email",
-                value: email,
-                onChange: (e) => setEmail(e.target.value),
-                required: true
-              }
-            )
-          ] }),
-          /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
-            /* @__PURE__ */ jsx(Label2, { htmlFor: "password", children: "Password" }),
-            /* @__PURE__ */ jsxs("div", { className: "relative", children: [
-              /* @__PURE__ */ jsx(
-                Input2,
-                {
-                  id: "password",
-                  type: showPassword ? "text" : "password",
-                  placeholder: "Enter your password",
-                  value: password,
-                  onChange: (e) => setPassword(e.target.value),
-                  required: true
-                }
-              ),
-              /* @__PURE__ */ jsx(
-                Button2,
-                {
-                  type: "button",
-                  variant: "ghost",
-                  size: "sm",
-                  className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
-                  onClick: () => setShowPassword(!showPassword),
-                  children: showPassword ? /* @__PURE__ */ jsx(EyeOff, { className: "h-4 w-4" }) : /* @__PURE__ */ jsx(Eye, { className: "h-4 w-4" })
-                }
-              )
-            ] })
-          ] }),
-          activationMessage && /* @__PURE__ */ jsx(Alert2, { children: /* @__PURE__ */ jsx(AlertDescription2, { children: activationMessage }) }),
-          (error || authError) && /* @__PURE__ */ jsx(Alert2, { variant: "destructive", children: /* @__PURE__ */ jsx(AlertDescription2, { children: authError || error }) }),
-          resetMessage && /* @__PURE__ */ jsx(Alert2, { variant: resetMessage.includes("Error") ? "destructive" : "default", children: /* @__PURE__ */ jsx(AlertDescription2, { children: resetMessage }) }),
-          /* @__PURE__ */ jsxs(Button2, { type: "submit", className: "w-full", disabled: loading, children: [
-            loading && /* @__PURE__ */ jsx(Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
-            "Sign In"
-          ] })
-        ] }),
-        /* @__PURE__ */ jsx("div", { className: "mt-4 text-center", children: /* @__PURE__ */ jsx(
-          Button2,
-          {
-            variant: "link",
-            className: "p-0 h-auto text-teal-600",
-            onClick: handleForgotPassword,
-            children: "Forgot Password?"
-          }
-        ) })
-      ] })
-    ] })
-  ] }) });
 };
 const ActivateAccount = ({ supabaseClient }) => {
   const location = useLocation();
@@ -614,6 +475,159 @@ const ActivateAccount = ({ supabaseClient }) => {
     ] })
   ] }) });
 };
+const AuthEventRedirect = () => {
+  const navigate = useNavigate();
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        const hash = window.location.hash || "";
+        navigate("/reset-password" + hash, { replace: true });
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+  return null;
+};
+const AuthPage = ({
+  authError,
+  Button: Button2,
+  Input: Input2,
+  Label: Label2,
+  Card: Card2,
+  CardContent: CardContent2,
+  CardDescription: CardDescription2,
+  CardHeader: CardHeader2,
+  CardTitle: CardTitle2,
+  Alert: Alert2,
+  AlertDescription: AlertDescription2,
+  logoUrl
+}) => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [resetMessage, setResetMessage] = useState("");
+  const [activationMessage, setActivationMessage] = useState("");
+  const { signIn, signOut, user, loading, error, resetPassword } = useAuth();
+  const location = useLocation();
+  console.log("[AuthPage] src/components rendered", { href: window.location.href, ts: (/* @__PURE__ */ new Date()).toISOString(), state: location.state });
+  useEffect(() => {
+    var _a;
+    if ((_a = location.state) == null ? void 0 : _a.message) {
+      setActivationMessage(location.state.message);
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    await signIn(email, password);
+  };
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setResetMessage("Please enter your email address first");
+      return;
+    }
+    try {
+      setResetMessage("");
+      await resetPassword(email);
+      setResetMessage("Password reset email sent! Check your inbox.");
+    } catch (error2) {
+      setResetMessage(`Error: ${error2.message}`);
+    }
+  };
+  if (user) {
+    return /* @__PURE__ */ jsx("div", { className: "min-h-screen bg-learning-background flex items-center justify-center p-4", children: /* @__PURE__ */ jsxs(Card2, { className: "w-full max-w-md", children: [
+      /* @__PURE__ */ jsxs(CardHeader2, { children: [
+        /* @__PURE__ */ jsx(CardTitle2, { children: "Welcome!" }),
+        /* @__PURE__ */ jsxs(CardDescription2, { children: [
+          "You are logged in as ",
+          user.email
+        ] })
+      ] }),
+      /* @__PURE__ */ jsx(CardContent2, { children: /* @__PURE__ */ jsx(Button2, { onClick: signOut, variant: "outline", className: "w-full", children: "Sign Out" }) })
+    ] }) });
+  }
+  return /* @__PURE__ */ jsx("div", { className: "min-h-screen bg-learning-background flex items-center justify-center p-4", children: /* @__PURE__ */ jsxs("div", { className: "w-full max-w-md space-y-6", children: [
+    /* @__PURE__ */ jsxs("div", { className: "text-center", children: [
+      /* @__PURE__ */ jsx(
+        "img",
+        {
+          src: logoUrl || "/rayn-logo.png",
+          alt: "RAYN Secure Logo",
+          className: "mx-auto h-20 w-auto mb-4"
+        }
+      ),
+      /* @__PURE__ */ jsx("h1", { className: "text-3xl font-bold text-learning-primary", children: "RAYN Secure" }),
+      /* @__PURE__ */ jsx("p", { className: "text-muted-foreground mt-2", children: "Behavioural Science Based Cybersecurity Learning" })
+    ] }),
+    /* @__PURE__ */ jsxs(Card2, { children: [
+      /* @__PURE__ */ jsxs(CardHeader2, { children: [
+        /* @__PURE__ */ jsx(CardTitle2, { children: "Sign In" }),
+        /* @__PURE__ */ jsx(CardDescription2, { children: "Enter your credentials to access your account" })
+      ] }),
+      /* @__PURE__ */ jsxs(CardContent2, { children: [
+        /* @__PURE__ */ jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
+          /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
+            /* @__PURE__ */ jsx(Label2, { htmlFor: "email", children: "Email" }),
+            /* @__PURE__ */ jsx(
+              Input2,
+              {
+                id: "email",
+                type: "email",
+                placeholder: "Enter your email",
+                value: email,
+                onChange: (e) => setEmail(e.target.value),
+                required: true
+              }
+            )
+          ] }),
+          /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
+            /* @__PURE__ */ jsx(Label2, { htmlFor: "password", children: "Password" }),
+            /* @__PURE__ */ jsxs("div", { className: "relative", children: [
+              /* @__PURE__ */ jsx(
+                Input2,
+                {
+                  id: "password",
+                  type: showPassword ? "text" : "password",
+                  placeholder: "Enter your password",
+                  value: password,
+                  onChange: (e) => setPassword(e.target.value),
+                  required: true
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                Button2,
+                {
+                  type: "button",
+                  variant: "ghost",
+                  size: "sm",
+                  className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
+                  onClick: () => setShowPassword(!showPassword),
+                  children: showPassword ? /* @__PURE__ */ jsx(EyeOff, { className: "h-4 w-4" }) : /* @__PURE__ */ jsx(Eye, { className: "h-4 w-4" })
+                }
+              )
+            ] })
+          ] }),
+          activationMessage && /* @__PURE__ */ jsx(Alert2, { children: /* @__PURE__ */ jsx(AlertDescription2, { children: activationMessage }) }),
+          (error || authError) && /* @__PURE__ */ jsx(Alert2, { variant: "destructive", children: /* @__PURE__ */ jsx(AlertDescription2, { children: authError || error }) }),
+          resetMessage && /* @__PURE__ */ jsx(Alert2, { variant: resetMessage.includes("Error") ? "destructive" : "default", children: /* @__PURE__ */ jsx(AlertDescription2, { children: resetMessage }) }),
+          /* @__PURE__ */ jsxs(Button2, { type: "submit", className: "w-full", disabled: loading, children: [
+            loading && /* @__PURE__ */ jsx(Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
+            "Sign In"
+          ] })
+        ] }),
+        /* @__PURE__ */ jsx("div", { className: "mt-4 text-center", children: /* @__PURE__ */ jsx(
+          Button2,
+          {
+            variant: "link",
+            className: "p-0 h-auto text-teal-600",
+            onClick: handleForgotPassword,
+            children: "Forgot Password?"
+          }
+        ) })
+      ] })
+    ] })
+  ] }) });
+};
 const ResetPassword = ({ supabaseClient }) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -832,7 +846,7 @@ const ResetPassword = ({ supabaseClient }) => {
   ] }) });
 };
 const AuthModuleWrapper = ({
-  supabase,
+  supabase: supabase2,
   Button: Button2,
   Input: Input2,
   Label: Label2,
@@ -864,9 +878,9 @@ const AuthModuleWrapper = ({
     case "AuthPage":
       return /* @__PURE__ */ jsx(AuthPage, { ...commonProps, authError });
     case "ActivateAccount":
-      return /* @__PURE__ */ jsx(ActivateAccount, { ...commonProps, supabase });
+      return /* @__PURE__ */ jsx(ActivateAccount, { ...commonProps, supabase: supabase2 });
     case "ResetPassword":
-      return /* @__PURE__ */ jsx(ResetPassword, { ...commonProps, supabase });
+      return /* @__PURE__ */ jsx(ResetPassword, { ...commonProps, supabase: supabase2 });
     default:
       return null;
   }
@@ -964,13 +978,393 @@ const ForgotPassword = ({
     ] })
   ] }) });
 };
+const LoginForm = () => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [showActivateAccount, setShowActivateAccount] = useState(false);
+  const [success, setSuccess] = useState("");
+  const { signIn, resetPassword, sendActivationEmail, error, loading: authLoading } = useAuth();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setSuccess("");
+    try {
+      await signIn(email, password);
+    } catch (error2) {
+      console.log("Login error caught:", error2);
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setSuccess("");
+    try {
+      await resetPassword(email);
+      setSuccess("Password reset instructions have been sent to your email.");
+      setShowForgotPassword(false);
+    } catch (error2) {
+      console.log("Reset password error:", error2);
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleActivateAccount = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setSuccess("");
+    try {
+      await sendActivationEmail(email);
+      setSuccess("Account activation link has been sent to your email.");
+      setShowActivateAccount(false);
+    } catch (error2) {
+      console.log("Activation email error:", error2);
+    } finally {
+      setLoading(false);
+    }
+  };
+  return /* @__PURE__ */ jsxs(Card, { className: "w-full max-w-md mx-auto", children: [
+    /* @__PURE__ */ jsxs(CardHeader, { children: [
+      /* @__PURE__ */ jsx(CardTitle, { children: showForgotPassword ? "Reset Password" : showActivateAccount ? "Activate Account" : "Sign In" }),
+      /* @__PURE__ */ jsx(CardDescription, { children: showForgotPassword ? "Enter your email address to receive password reset instructions" : showActivateAccount ? "Enter your organization email address to receive account activation instructions" : "Enter your email and password to access your learning dashboard" })
+    ] }),
+    /* @__PURE__ */ jsx(CardContent, { children: /* @__PURE__ */ jsxs("form", { onSubmit: showForgotPassword ? handleForgotPassword : showActivateAccount ? handleActivateAccount : handleSubmit, className: "space-y-4", children: [
+      error && /* @__PURE__ */ jsx(Alert, { variant: "destructive", children: /* @__PURE__ */ jsx(AlertDescription, { children: error }) }),
+      success && /* @__PURE__ */ jsx(Alert, { children: /* @__PURE__ */ jsx(AlertDescription, { children: success }) }),
+      /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
+        /* @__PURE__ */ jsx(Label, { htmlFor: "email", children: "Email" }),
+        /* @__PURE__ */ jsx(
+          Input,
+          {
+            id: "email",
+            type: "email",
+            value: email,
+            onChange: (e) => setEmail(e.target.value),
+            required: true
+          }
+        )
+      ] }),
+      !showForgotPassword && !showActivateAccount && /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
+        /* @__PURE__ */ jsx(Label, { htmlFor: "password", children: "Password" }),
+        /* @__PURE__ */ jsxs("div", { className: "relative", children: [
+          /* @__PURE__ */ jsx(
+            Input,
+            {
+              id: "password",
+              type: showPassword ? "text" : "password",
+              value: password,
+              onChange: (e) => setPassword(e.target.value),
+              required: true,
+              className: "pr-10"
+            }
+          ),
+          /* @__PURE__ */ jsx(
+            Button,
+            {
+              type: "button",
+              variant: "ghost",
+              size: "sm",
+              className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
+              onClick: () => setShowPassword(!showPassword),
+              children: showPassword ? /* @__PURE__ */ jsx(EyeOff, { className: "h-4 w-4 text-muted-foreground" }) : /* @__PURE__ */ jsx(Eye, { className: "h-4 w-4 text-muted-foreground" })
+            }
+          )
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxs(Button, { type: "submit", className: "w-full", disabled: loading || authLoading, children: [
+        (loading || authLoading) && /* @__PURE__ */ jsx(Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
+        showForgotPassword ? "Send Reset Instructions" : showActivateAccount ? "Send Activation Link" : "Sign In"
+      ] }),
+      /* @__PURE__ */ jsx("div", { className: "text-center", children: showForgotPassword ? /* @__PURE__ */ jsx(
+        Button,
+        {
+          variant: "link",
+          type: "button",
+          onClick: () => {
+            setShowForgotPassword(false);
+            setSuccess("");
+          },
+          children: "Back to Sign In"
+        }
+      ) : showActivateAccount ? /* @__PURE__ */ jsx(
+        Button,
+        {
+          variant: "link",
+          type: "button",
+          onClick: () => {
+            setShowActivateAccount(false);
+            setSuccess("");
+          },
+          children: "Back to Sign In"
+        }
+      ) : /* @__PURE__ */ jsxs("div", { className: "flex justify-center space-x-4", children: [
+        /* @__PURE__ */ jsx(
+          Button,
+          {
+            variant: "link",
+            type: "button",
+            onClick: () => {
+              setShowForgotPassword(true);
+              setShowActivateAccount(false);
+              setSuccess("");
+            },
+            children: "Forgot Password?"
+          }
+        ),
+        /* @__PURE__ */ jsx(
+          Button,
+          {
+            variant: "link",
+            type: "button",
+            onClick: () => {
+              setShowActivateAccount(true);
+              setShowForgotPassword(false);
+              setSuccess("");
+            },
+            children: "Activate Account"
+          }
+        )
+      ] }) })
+    ] }) })
+  ] });
+};
+const SignUpForm = ({ onSwitchToLogin }) => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const { signUp } = useAuth();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    setSuccess("");
+    try {
+      const { error: error2 } = await signUp(email, password, fullName);
+      if (error2) throw error2;
+      setSuccess("Please check your email to confirm your account!");
+    } catch (error2) {
+      setError(error2.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  return /* @__PURE__ */ jsxs(Card, { className: "w-full max-w-md mx-auto", children: [
+    /* @__PURE__ */ jsxs(CardHeader, { children: [
+      /* @__PURE__ */ jsx(CardTitle, { children: "Sign Up" }),
+      /* @__PURE__ */ jsx(CardDescription, { children: "Create a new account to start your learning journey" })
+    ] }),
+    /* @__PURE__ */ jsx(CardContent, { children: /* @__PURE__ */ jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
+      error && /* @__PURE__ */ jsx(Alert, { variant: "destructive", children: /* @__PURE__ */ jsx(AlertDescription, { children: error }) }),
+      success && /* @__PURE__ */ jsx(Alert, { children: /* @__PURE__ */ jsx(AlertDescription, { children: success }) }),
+      /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
+        /* @__PURE__ */ jsx(Label, { htmlFor: "fullName", children: "Full Name" }),
+        /* @__PURE__ */ jsx(
+          Input,
+          {
+            id: "fullName",
+            type: "text",
+            value: fullName,
+            onChange: (e) => setFullName(e.target.value),
+            required: true
+          }
+        )
+      ] }),
+      /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
+        /* @__PURE__ */ jsx(Label, { htmlFor: "email", children: "Email" }),
+        /* @__PURE__ */ jsx(
+          Input,
+          {
+            id: "email",
+            type: "email",
+            value: email,
+            onChange: (e) => setEmail(e.target.value),
+            required: true
+          }
+        )
+      ] }),
+      /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
+        /* @__PURE__ */ jsx(Label, { htmlFor: "password", children: "Password" }),
+        /* @__PURE__ */ jsx(
+          Input,
+          {
+            id: "password",
+            type: "password",
+            value: password,
+            onChange: (e) => setPassword(e.target.value),
+            required: true,
+            minLength: 6
+          }
+        )
+      ] }),
+      /* @__PURE__ */ jsxs(Button, { type: "submit", className: "w-full", disabled: loading, children: [
+        loading && /* @__PURE__ */ jsx(Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
+        "Sign Up"
+      ] }),
+      /* @__PURE__ */ jsx("div", { className: "text-center", children: /* @__PURE__ */ jsx(Button, { variant: "link", onClick: onSwitchToLogin, children: "Already have an account? Sign in" }) })
+    ] }) })
+  ] });
+};
+const createUseAuth = (dependencies) => {
+  return () => {
+    const { supabaseClient } = dependencies;
+    const [authState, setAuthState] = useState({
+      user: null,
+      loading: true,
+      error: null
+    });
+    const signIn = useCallback(async (email, password) => {
+      try {
+        setAuthState((prev) => ({ ...prev, loading: true, error: null }));
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
+          email,
+          password
+        });
+        if (error) {
+          throw error;
+        }
+        setAuthState((prev) => ({ ...prev, loading: false }));
+      } catch (error) {
+        setAuthState((prev) => ({
+          ...prev,
+          loading: false,
+          error: error.message
+        }));
+      }
+    }, [supabaseClient]);
+    const signUp = useCallback(async (email, password, fullName) => {
+      try {
+        setAuthState((prev) => ({ ...prev, loading: true, error: null }));
+        const { data, error } = await supabaseClient.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: fullName
+            }
+          }
+        });
+        if (error) {
+          throw error;
+        }
+        setAuthState((prev) => ({ ...prev, loading: false }));
+      } catch (error) {
+        setAuthState((prev) => ({
+          ...prev,
+          loading: false,
+          error: error.message
+        }));
+      }
+    }, [supabaseClient]);
+    const signOut = useCallback(async () => {
+      try {
+        setAuthState((prev) => ({ ...prev, loading: true, error: null }));
+        const { error } = await supabaseClient.auth.signOut();
+        if (error) {
+          throw error;
+        }
+        setAuthState((prev) => ({ ...prev, loading: false }));
+      } catch (error) {
+        setAuthState((prev) => ({
+          ...prev,
+          loading: false,
+          error: error.message
+        }));
+      }
+    }, [supabaseClient]);
+    const resetPassword = useCallback(async (email) => {
+      try {
+        setAuthState((prev) => ({ ...prev, loading: true, error: null }));
+        const { error } = await supabaseClient.auth.resetPasswordForEmail(email);
+        if (error) {
+          throw error;
+        }
+        setAuthState((prev) => ({ ...prev, loading: false }));
+      } catch (error) {
+        setAuthState((prev) => ({
+          ...prev,
+          loading: false,
+          error: error.message
+        }));
+      }
+    }, [supabaseClient]);
+    const activateUser = useCallback(async (password) => {
+      try {
+        setAuthState((prev) => ({ ...prev, loading: true, error: null }));
+        const { error } = await supabaseClient.auth.updateUser({
+          password
+        });
+        if (error) {
+          throw error;
+        }
+        setAuthState((prev) => ({ ...prev, loading: false }));
+      } catch (error) {
+        setAuthState((prev) => ({
+          ...prev,
+          loading: false,
+          error: error.message
+        }));
+      }
+    }, [supabaseClient]);
+    useEffect(() => {
+      const getInitialSession = async () => {
+        try {
+          const { data: { session }, error } = await supabaseClient.auth.getSession();
+          if (error) {
+            throw error;
+          }
+          setAuthState((prev) => ({
+            ...prev,
+            user: (session == null ? void 0 : session.user) || null,
+            loading: false
+          }));
+        } catch (error) {
+          setAuthState((prev) => ({
+            ...prev,
+            loading: false,
+            error: error.message
+          }));
+        }
+      };
+      getInitialSession();
+      const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(
+        async (event, session) => {
+          setAuthState((prev) => ({
+            ...prev,
+            user: (session == null ? void 0 : session.user) || null,
+            loading: false
+          }));
+        }
+      );
+      return () => subscription.unsubscribe();
+    }, [supabaseClient]);
+    return {
+      ...authState,
+      signIn,
+      signUp,
+      signOut,
+      resetPassword,
+      activateUser
+    };
+  };
+};
 export {
   ActivateAccount,
+  AuthEventRedirect,
   AuthModuleWrapper,
   AuthPage,
   AuthProvider,
   ForgotPassword,
+  LoginForm,
   ResetPassword,
+  SignUpForm,
+  createUseAuth,
   useAuth
 };
 //# sourceMappingURL=index.esm.js.map

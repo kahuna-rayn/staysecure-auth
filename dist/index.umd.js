@@ -1,6 +1,6 @@
 (function(global, factory) {
-  typeof exports === "object" && typeof module !== "undefined" ? factory(exports, require("react/jsx-runtime"), require("react"), require("react-router-dom"), require("lucide-react"), require("@/components/ui/button"), require("@/components/ui/input"), require("@/components/ui/label"), require("@/components/ui/card"), require("@/components/ui/alert"), require("@/assets/rayn-logo.png")) : typeof define === "function" && define.amd ? define(["exports", "react/jsx-runtime", "react", "react-router-dom", "lucide-react", "@/components/ui/button", "@/components/ui/input", "@/components/ui/label", "@/components/ui/card", "@/components/ui/alert", "@/assets/rayn-logo.png"], factory) : (global = typeof globalThis !== "undefined" ? globalThis : global || self, factory(global.StaySecureAuth = {}, global["react/jsx-runtime"], global.React, global.reactRouterDom, global.lucideReact, global.button, global.input, global.label, global.card, global.alert, global.raynLogo));
-})(this, function(exports2, jsxRuntime, react, reactRouterDom, lucideReact, button, input, label, card, alert, raynLogo) {
+  typeof exports === "object" && typeof module !== "undefined" ? factory(exports, require("react/jsx-runtime"), require("react"), require("react-router-dom"), require("@/components/ui/button"), require("@/components/ui/input"), require("@/components/ui/label"), require("@/components/ui/card"), require("@/components/ui/alert"), require("lucide-react"), require("@/assets/rayn-logo.png"), require("@/integrations/supabase/client")) : typeof define === "function" && define.amd ? define(["exports", "react/jsx-runtime", "react", "react-router-dom", "@/components/ui/button", "@/components/ui/input", "@/components/ui/label", "@/components/ui/card", "@/components/ui/alert", "lucide-react", "@/assets/rayn-logo.png", "@/integrations/supabase/client"], factory) : (global = typeof globalThis !== "undefined" ? globalThis : global || self, factory(global.StaySecureAuth = {}, global["react/jsx-runtime"], global.React, global.reactRouterDom, global.button, global.input, global.label, global.card, global.alert, global.lucideReact, global.raynLogo, global.client));
+})(this, function(exports2, jsxRuntime, react, reactRouterDom, button, input, label, card, alert, lucideReact, raynLogo, client) {
   "use strict";
   const AuthContext = react.createContext(null);
   const defaultAuthContext = {
@@ -209,146 +209,6 @@
       return defaultAuthContext;
     }
     return context;
-  };
-  const AuthPage = ({
-    authError,
-    Button,
-    Input,
-    Label,
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-    Alert,
-    AlertDescription,
-    logoUrl
-  }) => {
-    const [email, setEmail] = react.useState("");
-    const [password, setPassword] = react.useState("");
-    const [showPassword, setShowPassword] = react.useState(false);
-    const [resetMessage, setResetMessage] = react.useState("");
-    const [activationMessage, setActivationMessage] = react.useState("");
-    const { signIn, signOut, user, loading, error, resetPassword } = useAuth();
-    const location = reactRouterDom.useLocation();
-    console.log("[AuthPage] src/components rendered", { href: window.location.href, ts: (/* @__PURE__ */ new Date()).toISOString(), state: location.state });
-    react.useEffect(() => {
-      var _a;
-      if ((_a = location.state) == null ? void 0 : _a.message) {
-        setActivationMessage(location.state.message);
-        window.history.replaceState({}, document.title);
-      }
-    }, [location.state]);
-    const handleSubmit = async (e) => {
-      e.preventDefault();
-      await signIn(email, password);
-    };
-    const handleForgotPassword = async () => {
-      if (!email) {
-        setResetMessage("Please enter your email address first");
-        return;
-      }
-      try {
-        setResetMessage("");
-        await resetPassword(email);
-        setResetMessage("Password reset email sent! Check your inbox.");
-      } catch (error2) {
-        setResetMessage(`Error: ${error2.message}`);
-      }
-    };
-    if (user) {
-      return /* @__PURE__ */ jsxRuntime.jsx("div", { className: "min-h-screen bg-learning-background flex items-center justify-center p-4", children: /* @__PURE__ */ jsxRuntime.jsxs(Card, { className: "w-full max-w-md", children: [
-        /* @__PURE__ */ jsxRuntime.jsxs(CardHeader, { children: [
-          /* @__PURE__ */ jsxRuntime.jsx(CardTitle, { children: "Welcome!" }),
-          /* @__PURE__ */ jsxRuntime.jsxs(CardDescription, { children: [
-            "You are logged in as ",
-            user.email
-          ] })
-        ] }),
-        /* @__PURE__ */ jsxRuntime.jsx(CardContent, { children: /* @__PURE__ */ jsxRuntime.jsx(Button, { onClick: signOut, variant: "outline", className: "w-full", children: "Sign Out" }) })
-      ] }) });
-    }
-    return /* @__PURE__ */ jsxRuntime.jsx("div", { className: "min-h-screen bg-learning-background flex items-center justify-center p-4", children: /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "w-full max-w-md space-y-6", children: [
-      /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "text-center", children: [
-        /* @__PURE__ */ jsxRuntime.jsx(
-          "img",
-          {
-            src: logoUrl || "/rayn-logo.png",
-            alt: "RAYN Secure Logo",
-            className: "mx-auto h-20 w-auto mb-4"
-          }
-        ),
-        /* @__PURE__ */ jsxRuntime.jsx("h1", { className: "text-3xl font-bold text-learning-primary", children: "RAYN Secure" }),
-        /* @__PURE__ */ jsxRuntime.jsx("p", { className: "text-muted-foreground mt-2", children: "Behavioural Science Based Cybersecurity Learning" })
-      ] }),
-      /* @__PURE__ */ jsxRuntime.jsxs(Card, { children: [
-        /* @__PURE__ */ jsxRuntime.jsxs(CardHeader, { children: [
-          /* @__PURE__ */ jsxRuntime.jsx(CardTitle, { children: "Sign In" }),
-          /* @__PURE__ */ jsxRuntime.jsx(CardDescription, { children: "Enter your credentials to access your account" })
-        ] }),
-        /* @__PURE__ */ jsxRuntime.jsxs(CardContent, { children: [
-          /* @__PURE__ */ jsxRuntime.jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
-            /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
-              /* @__PURE__ */ jsxRuntime.jsx(Label, { htmlFor: "email", children: "Email" }),
-              /* @__PURE__ */ jsxRuntime.jsx(
-                Input,
-                {
-                  id: "email",
-                  type: "email",
-                  placeholder: "Enter your email",
-                  value: email,
-                  onChange: (e) => setEmail(e.target.value),
-                  required: true
-                }
-              )
-            ] }),
-            /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
-              /* @__PURE__ */ jsxRuntime.jsx(Label, { htmlFor: "password", children: "Password" }),
-              /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "relative", children: [
-                /* @__PURE__ */ jsxRuntime.jsx(
-                  Input,
-                  {
-                    id: "password",
-                    type: showPassword ? "text" : "password",
-                    placeholder: "Enter your password",
-                    value: password,
-                    onChange: (e) => setPassword(e.target.value),
-                    required: true
-                  }
-                ),
-                /* @__PURE__ */ jsxRuntime.jsx(
-                  Button,
-                  {
-                    type: "button",
-                    variant: "ghost",
-                    size: "sm",
-                    className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
-                    onClick: () => setShowPassword(!showPassword),
-                    children: showPassword ? /* @__PURE__ */ jsxRuntime.jsx(lucideReact.EyeOff, { className: "h-4 w-4" }) : /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Eye, { className: "h-4 w-4" })
-                  }
-                )
-              ] })
-            ] }),
-            activationMessage && /* @__PURE__ */ jsxRuntime.jsx(Alert, { children: /* @__PURE__ */ jsxRuntime.jsx(AlertDescription, { children: activationMessage }) }),
-            (error || authError) && /* @__PURE__ */ jsxRuntime.jsx(Alert, { variant: "destructive", children: /* @__PURE__ */ jsxRuntime.jsx(AlertDescription, { children: authError || error }) }),
-            resetMessage && /* @__PURE__ */ jsxRuntime.jsx(Alert, { variant: resetMessage.includes("Error") ? "destructive" : "default", children: /* @__PURE__ */ jsxRuntime.jsx(AlertDescription, { children: resetMessage }) }),
-            /* @__PURE__ */ jsxRuntime.jsxs(Button, { type: "submit", className: "w-full", disabled: loading, children: [
-              loading && /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
-              "Sign In"
-            ] })
-          ] }),
-          /* @__PURE__ */ jsxRuntime.jsx("div", { className: "mt-4 text-center", children: /* @__PURE__ */ jsxRuntime.jsx(
-            Button,
-            {
-              variant: "link",
-              className: "p-0 h-auto text-teal-600",
-              onClick: handleForgotPassword,
-              children: "Forgot Password?"
-            }
-          ) })
-        ] })
-      ] })
-    ] }) });
   };
   const ActivateAccount = ({ supabaseClient }) => {
     const location = reactRouterDom.useLocation();
@@ -605,6 +465,159 @@
             }
           ) })
         ] }) })
+      ] })
+    ] }) });
+  };
+  const AuthEventRedirect = () => {
+    const navigate = reactRouterDom.useNavigate();
+    react.useEffect(() => {
+      const { data: { subscription } } = client.supabase.auth.onAuthStateChange((event) => {
+        if (event === "PASSWORD_RECOVERY") {
+          const hash = window.location.hash || "";
+          navigate("/reset-password" + hash, { replace: true });
+        }
+      });
+      return () => subscription.unsubscribe();
+    }, [navigate]);
+    return null;
+  };
+  const AuthPage = ({
+    authError,
+    Button,
+    Input,
+    Label,
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+    Alert,
+    AlertDescription,
+    logoUrl
+  }) => {
+    const [email, setEmail] = react.useState("");
+    const [password, setPassword] = react.useState("");
+    const [showPassword, setShowPassword] = react.useState(false);
+    const [resetMessage, setResetMessage] = react.useState("");
+    const [activationMessage, setActivationMessage] = react.useState("");
+    const { signIn, signOut, user, loading, error, resetPassword } = useAuth();
+    const location = reactRouterDom.useLocation();
+    console.log("[AuthPage] src/components rendered", { href: window.location.href, ts: (/* @__PURE__ */ new Date()).toISOString(), state: location.state });
+    react.useEffect(() => {
+      var _a;
+      if ((_a = location.state) == null ? void 0 : _a.message) {
+        setActivationMessage(location.state.message);
+        window.history.replaceState({}, document.title);
+      }
+    }, [location.state]);
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      await signIn(email, password);
+    };
+    const handleForgotPassword = async () => {
+      if (!email) {
+        setResetMessage("Please enter your email address first");
+        return;
+      }
+      try {
+        setResetMessage("");
+        await resetPassword(email);
+        setResetMessage("Password reset email sent! Check your inbox.");
+      } catch (error2) {
+        setResetMessage(`Error: ${error2.message}`);
+      }
+    };
+    if (user) {
+      return /* @__PURE__ */ jsxRuntime.jsx("div", { className: "min-h-screen bg-learning-background flex items-center justify-center p-4", children: /* @__PURE__ */ jsxRuntime.jsxs(Card, { className: "w-full max-w-md", children: [
+        /* @__PURE__ */ jsxRuntime.jsxs(CardHeader, { children: [
+          /* @__PURE__ */ jsxRuntime.jsx(CardTitle, { children: "Welcome!" }),
+          /* @__PURE__ */ jsxRuntime.jsxs(CardDescription, { children: [
+            "You are logged in as ",
+            user.email
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxRuntime.jsx(CardContent, { children: /* @__PURE__ */ jsxRuntime.jsx(Button, { onClick: signOut, variant: "outline", className: "w-full", children: "Sign Out" }) })
+      ] }) });
+    }
+    return /* @__PURE__ */ jsxRuntime.jsx("div", { className: "min-h-screen bg-learning-background flex items-center justify-center p-4", children: /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "w-full max-w-md space-y-6", children: [
+      /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "text-center", children: [
+        /* @__PURE__ */ jsxRuntime.jsx(
+          "img",
+          {
+            src: logoUrl || "/rayn-logo.png",
+            alt: "RAYN Secure Logo",
+            className: "mx-auto h-20 w-auto mb-4"
+          }
+        ),
+        /* @__PURE__ */ jsxRuntime.jsx("h1", { className: "text-3xl font-bold text-learning-primary", children: "RAYN Secure" }),
+        /* @__PURE__ */ jsxRuntime.jsx("p", { className: "text-muted-foreground mt-2", children: "Behavioural Science Based Cybersecurity Learning" })
+      ] }),
+      /* @__PURE__ */ jsxRuntime.jsxs(Card, { children: [
+        /* @__PURE__ */ jsxRuntime.jsxs(CardHeader, { children: [
+          /* @__PURE__ */ jsxRuntime.jsx(CardTitle, { children: "Sign In" }),
+          /* @__PURE__ */ jsxRuntime.jsx(CardDescription, { children: "Enter your credentials to access your account" })
+        ] }),
+        /* @__PURE__ */ jsxRuntime.jsxs(CardContent, { children: [
+          /* @__PURE__ */ jsxRuntime.jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
+            /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
+              /* @__PURE__ */ jsxRuntime.jsx(Label, { htmlFor: "email", children: "Email" }),
+              /* @__PURE__ */ jsxRuntime.jsx(
+                Input,
+                {
+                  id: "email",
+                  type: "email",
+                  placeholder: "Enter your email",
+                  value: email,
+                  onChange: (e) => setEmail(e.target.value),
+                  required: true
+                }
+              )
+            ] }),
+            /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
+              /* @__PURE__ */ jsxRuntime.jsx(Label, { htmlFor: "password", children: "Password" }),
+              /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "relative", children: [
+                /* @__PURE__ */ jsxRuntime.jsx(
+                  Input,
+                  {
+                    id: "password",
+                    type: showPassword ? "text" : "password",
+                    placeholder: "Enter your password",
+                    value: password,
+                    onChange: (e) => setPassword(e.target.value),
+                    required: true
+                  }
+                ),
+                /* @__PURE__ */ jsxRuntime.jsx(
+                  Button,
+                  {
+                    type: "button",
+                    variant: "ghost",
+                    size: "sm",
+                    className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
+                    onClick: () => setShowPassword(!showPassword),
+                    children: showPassword ? /* @__PURE__ */ jsxRuntime.jsx(lucideReact.EyeOff, { className: "h-4 w-4" }) : /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Eye, { className: "h-4 w-4" })
+                  }
+                )
+              ] })
+            ] }),
+            activationMessage && /* @__PURE__ */ jsxRuntime.jsx(Alert, { children: /* @__PURE__ */ jsxRuntime.jsx(AlertDescription, { children: activationMessage }) }),
+            (error || authError) && /* @__PURE__ */ jsxRuntime.jsx(Alert, { variant: "destructive", children: /* @__PURE__ */ jsxRuntime.jsx(AlertDescription, { children: authError || error }) }),
+            resetMessage && /* @__PURE__ */ jsxRuntime.jsx(Alert, { variant: resetMessage.includes("Error") ? "destructive" : "default", children: /* @__PURE__ */ jsxRuntime.jsx(AlertDescription, { children: resetMessage }) }),
+            /* @__PURE__ */ jsxRuntime.jsxs(Button, { type: "submit", className: "w-full", disabled: loading, children: [
+              loading && /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
+              "Sign In"
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxRuntime.jsx("div", { className: "mt-4 text-center", children: /* @__PURE__ */ jsxRuntime.jsx(
+            Button,
+            {
+              variant: "link",
+              className: "p-0 h-auto text-teal-600",
+              onClick: handleForgotPassword,
+              children: "Forgot Password?"
+            }
+          ) })
+        ] })
       ] })
     ] }) });
   };
@@ -958,12 +971,392 @@
       ] })
     ] }) });
   };
+  const LoginForm = () => {
+    const [email, setEmail] = react.useState("");
+    const [password, setPassword] = react.useState("");
+    const [loading, setLoading] = react.useState(false);
+    const [showPassword, setShowPassword] = react.useState(false);
+    const [showForgotPassword, setShowForgotPassword] = react.useState(false);
+    const [showActivateAccount, setShowActivateAccount] = react.useState(false);
+    const [success, setSuccess] = react.useState("");
+    const { signIn, resetPassword, sendActivationEmail, error, loading: authLoading } = useAuth();
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      setLoading(true);
+      setSuccess("");
+      try {
+        await signIn(email, password);
+      } catch (error2) {
+        console.log("Login error caught:", error2);
+      } finally {
+        setLoading(false);
+      }
+    };
+    const handleForgotPassword = async (e) => {
+      e.preventDefault();
+      setLoading(true);
+      setSuccess("");
+      try {
+        await resetPassword(email);
+        setSuccess("Password reset instructions have been sent to your email.");
+        setShowForgotPassword(false);
+      } catch (error2) {
+        console.log("Reset password error:", error2);
+      } finally {
+        setLoading(false);
+      }
+    };
+    const handleActivateAccount = async (e) => {
+      e.preventDefault();
+      setLoading(true);
+      setSuccess("");
+      try {
+        await sendActivationEmail(email);
+        setSuccess("Account activation link has been sent to your email.");
+        setShowActivateAccount(false);
+      } catch (error2) {
+        console.log("Activation email error:", error2);
+      } finally {
+        setLoading(false);
+      }
+    };
+    return /* @__PURE__ */ jsxRuntime.jsxs(card.Card, { className: "w-full max-w-md mx-auto", children: [
+      /* @__PURE__ */ jsxRuntime.jsxs(card.CardHeader, { children: [
+        /* @__PURE__ */ jsxRuntime.jsx(card.CardTitle, { children: showForgotPassword ? "Reset Password" : showActivateAccount ? "Activate Account" : "Sign In" }),
+        /* @__PURE__ */ jsxRuntime.jsx(card.CardDescription, { children: showForgotPassword ? "Enter your email address to receive password reset instructions" : showActivateAccount ? "Enter your organization email address to receive account activation instructions" : "Enter your email and password to access your learning dashboard" })
+      ] }),
+      /* @__PURE__ */ jsxRuntime.jsx(card.CardContent, { children: /* @__PURE__ */ jsxRuntime.jsxs("form", { onSubmit: showForgotPassword ? handleForgotPassword : showActivateAccount ? handleActivateAccount : handleSubmit, className: "space-y-4", children: [
+        error && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { variant: "destructive", children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: error }) }),
+        success && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: success }) }),
+        /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
+          /* @__PURE__ */ jsxRuntime.jsx(label.Label, { htmlFor: "email", children: "Email" }),
+          /* @__PURE__ */ jsxRuntime.jsx(
+            input.Input,
+            {
+              id: "email",
+              type: "email",
+              value: email,
+              onChange: (e) => setEmail(e.target.value),
+              required: true
+            }
+          )
+        ] }),
+        !showForgotPassword && !showActivateAccount && /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
+          /* @__PURE__ */ jsxRuntime.jsx(label.Label, { htmlFor: "password", children: "Password" }),
+          /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "relative", children: [
+            /* @__PURE__ */ jsxRuntime.jsx(
+              input.Input,
+              {
+                id: "password",
+                type: showPassword ? "text" : "password",
+                value: password,
+                onChange: (e) => setPassword(e.target.value),
+                required: true,
+                className: "pr-10"
+              }
+            ),
+            /* @__PURE__ */ jsxRuntime.jsx(
+              button.Button,
+              {
+                type: "button",
+                variant: "ghost",
+                size: "sm",
+                className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
+                onClick: () => setShowPassword(!showPassword),
+                children: showPassword ? /* @__PURE__ */ jsxRuntime.jsx(lucideReact.EyeOff, { className: "h-4 w-4 text-muted-foreground" }) : /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Eye, { className: "h-4 w-4 text-muted-foreground" })
+              }
+            )
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxRuntime.jsxs(button.Button, { type: "submit", className: "w-full", disabled: loading || authLoading, children: [
+          (loading || authLoading) && /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
+          showForgotPassword ? "Send Reset Instructions" : showActivateAccount ? "Send Activation Link" : "Sign In"
+        ] }),
+        /* @__PURE__ */ jsxRuntime.jsx("div", { className: "text-center", children: showForgotPassword ? /* @__PURE__ */ jsxRuntime.jsx(
+          button.Button,
+          {
+            variant: "link",
+            type: "button",
+            onClick: () => {
+              setShowForgotPassword(false);
+              setSuccess("");
+            },
+            children: "Back to Sign In"
+          }
+        ) : showActivateAccount ? /* @__PURE__ */ jsxRuntime.jsx(
+          button.Button,
+          {
+            variant: "link",
+            type: "button",
+            onClick: () => {
+              setShowActivateAccount(false);
+              setSuccess("");
+            },
+            children: "Back to Sign In"
+          }
+        ) : /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "flex justify-center space-x-4", children: [
+          /* @__PURE__ */ jsxRuntime.jsx(
+            button.Button,
+            {
+              variant: "link",
+              type: "button",
+              onClick: () => {
+                setShowForgotPassword(true);
+                setShowActivateAccount(false);
+                setSuccess("");
+              },
+              children: "Forgot Password?"
+            }
+          ),
+          /* @__PURE__ */ jsxRuntime.jsx(
+            button.Button,
+            {
+              variant: "link",
+              type: "button",
+              onClick: () => {
+                setShowActivateAccount(true);
+                setShowForgotPassword(false);
+                setSuccess("");
+              },
+              children: "Activate Account"
+            }
+          )
+        ] }) })
+      ] }) })
+    ] });
+  };
+  const SignUpForm = ({ onSwitchToLogin }) => {
+    const [email, setEmail] = react.useState("");
+    const [password, setPassword] = react.useState("");
+    const [fullName, setFullName] = react.useState("");
+    const [loading, setLoading] = react.useState(false);
+    const [error, setError] = react.useState("");
+    const [success, setSuccess] = react.useState("");
+    const { signUp } = useAuth();
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      setLoading(true);
+      setError("");
+      setSuccess("");
+      try {
+        const { error: error2 } = await signUp(email, password, fullName);
+        if (error2) throw error2;
+        setSuccess("Please check your email to confirm your account!");
+      } catch (error2) {
+        setError(error2.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    return /* @__PURE__ */ jsxRuntime.jsxs(card.Card, { className: "w-full max-w-md mx-auto", children: [
+      /* @__PURE__ */ jsxRuntime.jsxs(card.CardHeader, { children: [
+        /* @__PURE__ */ jsxRuntime.jsx(card.CardTitle, { children: "Sign Up" }),
+        /* @__PURE__ */ jsxRuntime.jsx(card.CardDescription, { children: "Create a new account to start your learning journey" })
+      ] }),
+      /* @__PURE__ */ jsxRuntime.jsx(card.CardContent, { children: /* @__PURE__ */ jsxRuntime.jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
+        error && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { variant: "destructive", children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: error }) }),
+        success && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: success }) }),
+        /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
+          /* @__PURE__ */ jsxRuntime.jsx(label.Label, { htmlFor: "fullName", children: "Full Name" }),
+          /* @__PURE__ */ jsxRuntime.jsx(
+            input.Input,
+            {
+              id: "fullName",
+              type: "text",
+              value: fullName,
+              onChange: (e) => setFullName(e.target.value),
+              required: true
+            }
+          )
+        ] }),
+        /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
+          /* @__PURE__ */ jsxRuntime.jsx(label.Label, { htmlFor: "email", children: "Email" }),
+          /* @__PURE__ */ jsxRuntime.jsx(
+            input.Input,
+            {
+              id: "email",
+              type: "email",
+              value: email,
+              onChange: (e) => setEmail(e.target.value),
+              required: true
+            }
+          )
+        ] }),
+        /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
+          /* @__PURE__ */ jsxRuntime.jsx(label.Label, { htmlFor: "password", children: "Password" }),
+          /* @__PURE__ */ jsxRuntime.jsx(
+            input.Input,
+            {
+              id: "password",
+              type: "password",
+              value: password,
+              onChange: (e) => setPassword(e.target.value),
+              required: true,
+              minLength: 6
+            }
+          )
+        ] }),
+        /* @__PURE__ */ jsxRuntime.jsxs(button.Button, { type: "submit", className: "w-full", disabled: loading, children: [
+          loading && /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
+          "Sign Up"
+        ] }),
+        /* @__PURE__ */ jsxRuntime.jsx("div", { className: "text-center", children: /* @__PURE__ */ jsxRuntime.jsx(button.Button, { variant: "link", onClick: onSwitchToLogin, children: "Already have an account? Sign in" }) })
+      ] }) })
+    ] });
+  };
+  const createUseAuth = (dependencies) => {
+    return () => {
+      const { supabaseClient } = dependencies;
+      const [authState, setAuthState] = react.useState({
+        user: null,
+        loading: true,
+        error: null
+      });
+      const signIn = react.useCallback(async (email, password) => {
+        try {
+          setAuthState((prev) => ({ ...prev, loading: true, error: null }));
+          const { data, error } = await supabaseClient.auth.signInWithPassword({
+            email,
+            password
+          });
+          if (error) {
+            throw error;
+          }
+          setAuthState((prev) => ({ ...prev, loading: false }));
+        } catch (error) {
+          setAuthState((prev) => ({
+            ...prev,
+            loading: false,
+            error: error.message
+          }));
+        }
+      }, [supabaseClient]);
+      const signUp = react.useCallback(async (email, password, fullName) => {
+        try {
+          setAuthState((prev) => ({ ...prev, loading: true, error: null }));
+          const { data, error } = await supabaseClient.auth.signUp({
+            email,
+            password,
+            options: {
+              data: {
+                full_name: fullName
+              }
+            }
+          });
+          if (error) {
+            throw error;
+          }
+          setAuthState((prev) => ({ ...prev, loading: false }));
+        } catch (error) {
+          setAuthState((prev) => ({
+            ...prev,
+            loading: false,
+            error: error.message
+          }));
+        }
+      }, [supabaseClient]);
+      const signOut = react.useCallback(async () => {
+        try {
+          setAuthState((prev) => ({ ...prev, loading: true, error: null }));
+          const { error } = await supabaseClient.auth.signOut();
+          if (error) {
+            throw error;
+          }
+          setAuthState((prev) => ({ ...prev, loading: false }));
+        } catch (error) {
+          setAuthState((prev) => ({
+            ...prev,
+            loading: false,
+            error: error.message
+          }));
+        }
+      }, [supabaseClient]);
+      const resetPassword = react.useCallback(async (email) => {
+        try {
+          setAuthState((prev) => ({ ...prev, loading: true, error: null }));
+          const { error } = await supabaseClient.auth.resetPasswordForEmail(email);
+          if (error) {
+            throw error;
+          }
+          setAuthState((prev) => ({ ...prev, loading: false }));
+        } catch (error) {
+          setAuthState((prev) => ({
+            ...prev,
+            loading: false,
+            error: error.message
+          }));
+        }
+      }, [supabaseClient]);
+      const activateUser = react.useCallback(async (password) => {
+        try {
+          setAuthState((prev) => ({ ...prev, loading: true, error: null }));
+          const { error } = await supabaseClient.auth.updateUser({
+            password
+          });
+          if (error) {
+            throw error;
+          }
+          setAuthState((prev) => ({ ...prev, loading: false }));
+        } catch (error) {
+          setAuthState((prev) => ({
+            ...prev,
+            loading: false,
+            error: error.message
+          }));
+        }
+      }, [supabaseClient]);
+      react.useEffect(() => {
+        const getInitialSession = async () => {
+          try {
+            const { data: { session }, error } = await supabaseClient.auth.getSession();
+            if (error) {
+              throw error;
+            }
+            setAuthState((prev) => ({
+              ...prev,
+              user: (session == null ? void 0 : session.user) || null,
+              loading: false
+            }));
+          } catch (error) {
+            setAuthState((prev) => ({
+              ...prev,
+              loading: false,
+              error: error.message
+            }));
+          }
+        };
+        getInitialSession();
+        const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(
+          async (event, session) => {
+            setAuthState((prev) => ({
+              ...prev,
+              user: (session == null ? void 0 : session.user) || null,
+              loading: false
+            }));
+          }
+        );
+        return () => subscription.unsubscribe();
+      }, [supabaseClient]);
+      return {
+        ...authState,
+        signIn,
+        signUp,
+        signOut,
+        resetPassword,
+        activateUser
+      };
+    };
+  };
   exports2.ActivateAccount = ActivateAccount;
+  exports2.AuthEventRedirect = AuthEventRedirect;
   exports2.AuthModuleWrapper = AuthModuleWrapper;
   exports2.AuthPage = AuthPage;
   exports2.AuthProvider = AuthProvider;
   exports2.ForgotPassword = ForgotPassword;
+  exports2.LoginForm = LoginForm;
   exports2.ResetPassword = ResetPassword;
+  exports2.SignUpForm = SignUpForm;
+  exports2.createUseAuth = createUseAuth;
   exports2.useAuth = useAuth;
   Object.defineProperty(exports2, Symbol.toStringTag, { value: "Module" });
 });
