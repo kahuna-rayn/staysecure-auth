@@ -481,403 +481,6 @@
     }, [navigate]);
     return null;
   };
-  const AuthPage = ({
-    authError,
-    Button,
-    Input,
-    Label,
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-    Alert,
-    AlertDescription,
-    logoUrl
-  }) => {
-    const [email, setEmail] = react.useState("");
-    const [password, setPassword] = react.useState("");
-    const [showPassword, setShowPassword] = react.useState(false);
-    const [resetMessage, setResetMessage] = react.useState("");
-    const [activationMessage, setActivationMessage] = react.useState("");
-    const { signIn, signOut, user, loading, error, resetPassword } = useAuth();
-    const location = reactRouterDom.useLocation();
-    console.log("[AuthPage] src/components rendered", { href: window.location.href, ts: (/* @__PURE__ */ new Date()).toISOString(), state: location.state });
-    react.useEffect(() => {
-      var _a;
-      if ((_a = location.state) == null ? void 0 : _a.message) {
-        setActivationMessage(location.state.message);
-        window.history.replaceState({}, document.title);
-      }
-    }, [location.state]);
-    const handleSubmit = async (e) => {
-      e.preventDefault();
-      await signIn(email, password);
-    };
-    const handleForgotPassword = async () => {
-      if (!email) {
-        setResetMessage("Please enter your email address first");
-        return;
-      }
-      try {
-        setResetMessage("");
-        await resetPassword(email);
-        setResetMessage("Password reset email sent! Check your inbox.");
-      } catch (error2) {
-        setResetMessage(`Error: ${error2.message}`);
-      }
-    };
-    if (user) {
-      return /* @__PURE__ */ jsxRuntime.jsx("div", { className: "min-h-screen bg-learning-background flex items-center justify-center p-4", children: /* @__PURE__ */ jsxRuntime.jsxs(Card, { className: "w-full max-w-md", children: [
-        /* @__PURE__ */ jsxRuntime.jsxs(CardHeader, { children: [
-          /* @__PURE__ */ jsxRuntime.jsx(CardTitle, { children: "Welcome!" }),
-          /* @__PURE__ */ jsxRuntime.jsxs(CardDescription, { children: [
-            "You are logged in as ",
-            user.email
-          ] })
-        ] }),
-        /* @__PURE__ */ jsxRuntime.jsx(CardContent, { children: /* @__PURE__ */ jsxRuntime.jsx(Button, { onClick: signOut, variant: "outline", className: "w-full", children: "Sign Out" }) })
-      ] }) });
-    }
-    return /* @__PURE__ */ jsxRuntime.jsx("div", { className: "min-h-screen bg-learning-background flex items-center justify-center p-4", children: /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "w-full max-w-md space-y-6", children: [
-      /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "text-center", children: [
-        /* @__PURE__ */ jsxRuntime.jsx(
-          "img",
-          {
-            src: logoUrl || "/rayn-logo.png",
-            alt: "RAYN Secure Logo",
-            className: "mx-auto h-20 w-auto mb-4"
-          }
-        ),
-        /* @__PURE__ */ jsxRuntime.jsx("h1", { className: "text-3xl font-bold text-learning-primary", children: "RAYN Secure" }),
-        /* @__PURE__ */ jsxRuntime.jsx("p", { className: "text-muted-foreground mt-2", children: "Behavioural Science Based Cybersecurity Learning" })
-      ] }),
-      /* @__PURE__ */ jsxRuntime.jsxs(Card, { children: [
-        /* @__PURE__ */ jsxRuntime.jsxs(CardHeader, { children: [
-          /* @__PURE__ */ jsxRuntime.jsx(CardTitle, { children: "Sign In" }),
-          /* @__PURE__ */ jsxRuntime.jsx(CardDescription, { children: "Enter your credentials to access your account" })
-        ] }),
-        /* @__PURE__ */ jsxRuntime.jsxs(CardContent, { children: [
-          /* @__PURE__ */ jsxRuntime.jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
-            /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
-              /* @__PURE__ */ jsxRuntime.jsx(Label, { htmlFor: "email", children: "Email" }),
-              /* @__PURE__ */ jsxRuntime.jsx(
-                Input,
-                {
-                  id: "email",
-                  type: "email",
-                  placeholder: "Enter your email",
-                  value: email,
-                  onChange: (e) => setEmail(e.target.value),
-                  required: true
-                }
-              )
-            ] }),
-            /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
-              /* @__PURE__ */ jsxRuntime.jsx(Label, { htmlFor: "password", children: "Password" }),
-              /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "relative", children: [
-                /* @__PURE__ */ jsxRuntime.jsx(
-                  Input,
-                  {
-                    id: "password",
-                    type: showPassword ? "text" : "password",
-                    placeholder: "Enter your password",
-                    value: password,
-                    onChange: (e) => setPassword(e.target.value),
-                    required: true
-                  }
-                ),
-                /* @__PURE__ */ jsxRuntime.jsx(
-                  Button,
-                  {
-                    type: "button",
-                    variant: "ghost",
-                    size: "sm",
-                    className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
-                    onClick: () => setShowPassword(!showPassword),
-                    children: showPassword ? /* @__PURE__ */ jsxRuntime.jsx(lucideReact.EyeOff, { className: "h-4 w-4" }) : /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Eye, { className: "h-4 w-4" })
-                  }
-                )
-              ] })
-            ] }),
-            activationMessage && /* @__PURE__ */ jsxRuntime.jsx(Alert, { children: /* @__PURE__ */ jsxRuntime.jsx(AlertDescription, { children: activationMessage }) }),
-            (error || authError) && /* @__PURE__ */ jsxRuntime.jsx(Alert, { variant: "destructive", children: /* @__PURE__ */ jsxRuntime.jsx(AlertDescription, { children: authError || error }) }),
-            resetMessage && /* @__PURE__ */ jsxRuntime.jsx(Alert, { variant: resetMessage.includes("Error") ? "destructive" : "default", children: /* @__PURE__ */ jsxRuntime.jsx(AlertDescription, { children: resetMessage }) }),
-            /* @__PURE__ */ jsxRuntime.jsxs(Button, { type: "submit", className: "w-full", disabled: loading, children: [
-              loading && /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
-              "Sign In"
-            ] })
-          ] }),
-          /* @__PURE__ */ jsxRuntime.jsx("div", { className: "mt-4 text-center", children: /* @__PURE__ */ jsxRuntime.jsx(
-            Button,
-            {
-              variant: "link",
-              className: "p-0 h-auto text-teal-600",
-              onClick: handleForgotPassword,
-              children: "Forgot Password?"
-            }
-          ) })
-        ] })
-      ] })
-    ] }) });
-  };
-  const ResetPassword = ({ supabaseClient }) => {
-    const location = reactRouterDom.useLocation();
-    const navigate = reactRouterDom.useNavigate();
-    const [email, setEmail] = react.useState("");
-    const [password, setPassword] = react.useState("");
-    const [confirmPassword, setConfirmPassword] = react.useState("");
-    const [loading, setLoading] = react.useState(false);
-    const [error, setError] = react.useState("");
-    const [success, setSuccess] = react.useState("");
-    const [showPassword, setShowPassword] = react.useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = react.useState(false);
-    react.useEffect(() => {
-      const run = async () => {
-        console.log("ResetPassword: URL hash:", window.location.hash);
-        console.log("ResetPassword: URL search:", window.location.search);
-        console.log("ResetPassword: Full URL:", window.location.href);
-        console.log("ResetPassword: URL hash:", window.location.hash);
-        console.log("ResetPassword: URL search:", window.location.search);
-        console.log("ResetPassword: Full URL:", window.location.href);
-        const hash = location.hash || window.location.hash;
-        const hashParams = new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash);
-        const searchParams = new URLSearchParams(location.search);
-        const type = hashParams.get("type") || searchParams.get("type");
-        const tokenHash = searchParams.get("token_hash");
-        console.log("ResetPassword: Parsed params:", {
-          type,
-          hasTokenHash: !!tokenHash,
-          hashParams: Array.from(hashParams.entries()),
-          searchParams: Array.from(searchParams.entries())
-        });
-        if (tokenHash && type === "recovery") {
-          console.log("ResetPassword: Processing recovery token");
-          try {
-            const { data, error: verifyError } = await supabaseClient.auth.verifyOtp({
-              token_hash: tokenHash,
-              type: "recovery"
-            });
-            if (verifyError) {
-              console.error("ResetPassword: verifyOtp error:", verifyError);
-              setError("Invalid or expired password reset link. Please request a new one.");
-            } else if (data.user) {
-              console.log("ResetPassword: Recovery verified successfully for:", data.user.email);
-              setEmail(data.user.email || "");
-            }
-          } catch (e) {
-            console.error("ResetPassword: verifyOtp exception:", e);
-            setError("Failed to verify password reset link. Please try again.");
-          }
-          return;
-        }
-        console.log("ResetPassword: No valid recovery token found");
-      };
-      void run();
-    }, [location.hash, location.search, supabaseClient]);
-    const handleSubmit = async (e) => {
-      e.preventDefault();
-      setLoading(true);
-      setError("");
-      setSuccess("");
-      if (password !== confirmPassword) {
-        setError("Passwords do not match");
-        setLoading(false);
-        return;
-      }
-      const hasLowercase = /[a-z]/.test(password);
-      const hasUppercase = /[A-Z]/.test(password);
-      const hasDigit = /\d/.test(password);
-      const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"|,.<>?`~]/.test(password);
-      if (password.length < 12 || !hasLowercase || !hasUppercase || !hasDigit || !hasSpecial) {
-        setError("Password must be at least 12 characters long and contain at least one lowercase letter, one uppercase letter, one digit, and one special character");
-        setLoading(false);
-        return;
-      }
-      try {
-        const { error: updateError } = await supabaseClient.auth.updateUser({
-          password
-        });
-        if (updateError) {
-          const errorMsg = updateError.message;
-          if (errorMsg.toLowerCase().includes("weak") || errorMsg.toLowerCase().includes("password") && errorMsg.toLowerCase().includes("strong")) {
-            throw new Error("Password is too weak. Please use a stronger password with at least 12 characters, including uppercase, lowercase, numbers, and special characters.");
-          } else if (errorMsg.toLowerCase().includes("same")) {
-            throw new Error("New password cannot be the same as your current password. Please choose a different password.");
-          } else if (errorMsg.toLowerCase().includes("session") || errorMsg.toLowerCase().includes("expired")) {
-            throw new Error("Your password reset link has expired. Please request a new one.");
-          } else {
-            throw new Error(errorMsg);
-          }
-        }
-        setSuccess("Password reset successfully! Redirecting to login...");
-        await supabaseClient.auth.signOut();
-        setTimeout(() => {
-          navigate("/", { replace: true });
-        }, 2e3);
-      } catch (error2) {
-        setError(error2.message || "Failed to reset password. Please try again or request a new reset link.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    return /* @__PURE__ */ jsxRuntime.jsx("div", { className: "min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 py-12 px-4 sm:px-6 lg:px-8", children: /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "max-w-md w-full space-y-8", children: [
-      /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "text-center mb-8", children: [
-        /* @__PURE__ */ jsxRuntime.jsx(
-          "img",
-          {
-            src: raynLogo,
-            alt: "RAYN Secure Logo",
-            className: "mx-auto h-20 w-auto mb-4"
-          }
-        ),
-        /* @__PURE__ */ jsxRuntime.jsx("h1", { className: "text-3xl font-bold text-primary", children: "RAYN Secure" }),
-        /* @__PURE__ */ jsxRuntime.jsx("p", { className: "text-muted-foreground mt-2", children: "Cybersecurity Training Platform" })
-      ] }),
-      /* @__PURE__ */ jsxRuntime.jsxs(card.Card, { className: "border-primary/20 shadow-lg", children: [
-        /* @__PURE__ */ jsxRuntime.jsxs(card.CardHeader, { className: "text-center", children: [
-          /* @__PURE__ */ jsxRuntime.jsx(card.CardTitle, { className: "text-2xl font-bold text-primary", children: "Reset Your Password" }),
-          /* @__PURE__ */ jsxRuntime.jsx(card.CardDescription, { children: "Enter your new password below" })
-        ] }),
-        /* @__PURE__ */ jsxRuntime.jsx(card.CardContent, { children: /* @__PURE__ */ jsxRuntime.jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
-          error && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { variant: "destructive", children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: error }) }),
-          success && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: success }) }),
-          email && /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
-            /* @__PURE__ */ jsxRuntime.jsx(label.Label, { htmlFor: "email", children: "Email" }),
-            /* @__PURE__ */ jsxRuntime.jsx(
-              input.Input,
-              {
-                id: "email",
-                type: "email",
-                value: email,
-                disabled: true,
-                className: "bg-gray-50"
-              }
-            )
-          ] }),
-          /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
-            /* @__PURE__ */ jsxRuntime.jsx(label.Label, { htmlFor: "password", children: "New Password" }),
-            /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "relative", children: [
-              /* @__PURE__ */ jsxRuntime.jsx(
-                input.Input,
-                {
-                  id: "password",
-                  type: showPassword ? "text" : "password",
-                  value: password,
-                  onChange: (e) => setPassword(e.target.value),
-                  required: true,
-                  minLength: 12,
-                  className: "pr-10",
-                  placeholder: "Enter your new password"
-                }
-              ),
-              /* @__PURE__ */ jsxRuntime.jsx(
-                button.Button,
-                {
-                  type: "button",
-                  variant: "ghost",
-                  size: "sm",
-                  className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
-                  onClick: () => setShowPassword(!showPassword),
-                  children: showPassword ? /* @__PURE__ */ jsxRuntime.jsx(lucideReact.EyeOff, { className: "h-4 w-4 text-muted-foreground" }) : /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Eye, { className: "h-4 w-4 text-muted-foreground" })
-                }
-              )
-            ] })
-          ] }),
-          /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
-            /* @__PURE__ */ jsxRuntime.jsx(label.Label, { htmlFor: "confirmPassword", children: "Confirm New Password" }),
-            /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "relative", children: [
-              /* @__PURE__ */ jsxRuntime.jsx(
-                input.Input,
-                {
-                  id: "confirmPassword",
-                  type: showConfirmPassword ? "text" : "password",
-                  value: confirmPassword,
-                  onChange: (e) => setConfirmPassword(e.target.value),
-                  required: true,
-                  minLength: 12,
-                  className: "pr-10",
-                  placeholder: "Confirm your new password"
-                }
-              ),
-              /* @__PURE__ */ jsxRuntime.jsx(
-                button.Button,
-                {
-                  type: "button",
-                  variant: "ghost",
-                  size: "sm",
-                  className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
-                  onClick: () => setShowConfirmPassword(!showConfirmPassword),
-                  children: showConfirmPassword ? /* @__PURE__ */ jsxRuntime.jsx(lucideReact.EyeOff, { className: "h-4 w-4 text-muted-foreground" }) : /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Eye, { className: "h-4 w-4 text-muted-foreground" })
-                }
-              )
-            ] })
-          ] }),
-          /* @__PURE__ */ jsxRuntime.jsxs(
-            button.Button,
-            {
-              type: "submit",
-              className: "w-full bg-primary hover:bg-primary/90 text-primary-foreground",
-              disabled: loading,
-              children: [
-                loading && /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
-                "Reset Password"
-              ]
-            }
-          ),
-          /* @__PURE__ */ jsxRuntime.jsx("div", { className: "text-center", children: /* @__PURE__ */ jsxRuntime.jsx(
-            button.Button,
-            {
-              variant: "outline",
-              onClick: () => navigate("/"),
-              className: "w-full border-primary/20 text-primary hover:bg-primary/10",
-              children: "Back to Login"
-            }
-          ) })
-        ] }) })
-      ] })
-    ] }) });
-  };
-  const AuthModuleWrapper = ({
-    supabase,
-    Button,
-    Input,
-    Label,
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-    Alert,
-    AlertDescription,
-    logoUrl,
-    component,
-    authError
-  }) => {
-    const commonProps = {
-      Button,
-      Input,
-      Label,
-      Card,
-      CardContent,
-      CardDescription,
-      CardHeader,
-      CardTitle,
-      Alert,
-      AlertDescription,
-      logoUrl
-    };
-    switch (component) {
-      case "AuthPage":
-        return /* @__PURE__ */ jsxRuntime.jsx(AuthPage, { ...commonProps, authError });
-      case "ActivateAccount":
-        return /* @__PURE__ */ jsxRuntime.jsx(ActivateAccount, { ...commonProps, supabase });
-      case "ResetPassword":
-        return /* @__PURE__ */ jsxRuntime.jsx(ResetPassword, { ...commonProps, supabase });
-      default:
-        return null;
-    }
-  };
   const ForgotPassword = ({
     Button,
     Input,
@@ -1125,6 +728,223 @@
       ] }) })
     ] });
   };
+  const ResetPassword = ({ supabaseClient }) => {
+    const location = reactRouterDom.useLocation();
+    const navigate = reactRouterDom.useNavigate();
+    const [email, setEmail] = react.useState("");
+    const [password, setPassword] = react.useState("");
+    const [confirmPassword, setConfirmPassword] = react.useState("");
+    const [loading, setLoading] = react.useState(false);
+    const [error, setError] = react.useState("");
+    const [success, setSuccess] = react.useState("");
+    const [showPassword, setShowPassword] = react.useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = react.useState(false);
+    react.useEffect(() => {
+      const run = async () => {
+        console.log("ResetPassword: URL hash:", window.location.hash);
+        console.log("ResetPassword: URL search:", window.location.search);
+        console.log("ResetPassword: Full URL:", window.location.href);
+        console.log("ResetPassword: URL hash:", window.location.hash);
+        console.log("ResetPassword: URL search:", window.location.search);
+        console.log("ResetPassword: Full URL:", window.location.href);
+        const hash = location.hash || window.location.hash;
+        const hashParams = new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash);
+        const searchParams = new URLSearchParams(location.search);
+        const type = hashParams.get("type") || searchParams.get("type");
+        const tokenHash = searchParams.get("token_hash");
+        console.log("ResetPassword: Parsed params:", {
+          type,
+          hasTokenHash: !!tokenHash,
+          hashParams: Array.from(hashParams.entries()),
+          searchParams: Array.from(searchParams.entries())
+        });
+        if (tokenHash && type === "recovery") {
+          console.log("ResetPassword: Processing recovery token");
+          try {
+            const { data, error: verifyError } = await supabaseClient.auth.verifyOtp({
+              token_hash: tokenHash,
+              type: "recovery"
+            });
+            if (verifyError) {
+              console.error("ResetPassword: verifyOtp error:", verifyError);
+              setError("Invalid or expired password reset link. Please request a new one.");
+            } else if (data.user) {
+              console.log("ResetPassword: Recovery verified successfully for:", data.user.email);
+              setEmail(data.user.email || "");
+            }
+          } catch (e) {
+            console.error("ResetPassword: verifyOtp exception:", e);
+            setError("Failed to verify password reset link. Please try again.");
+          }
+          return;
+        }
+        console.log("ResetPassword: No valid recovery token found");
+      };
+      void run();
+    }, [location.hash, location.search, supabaseClient]);
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      setLoading(true);
+      setError("");
+      setSuccess("");
+      if (password !== confirmPassword) {
+        setError("Passwords do not match");
+        setLoading(false);
+        return;
+      }
+      const hasLowercase = /[a-z]/.test(password);
+      const hasUppercase = /[A-Z]/.test(password);
+      const hasDigit = /\d/.test(password);
+      const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"|,.<>?`~]/.test(password);
+      if (password.length < 12 || !hasLowercase || !hasUppercase || !hasDigit || !hasSpecial) {
+        setError("Password must be at least 12 characters long and contain at least one lowercase letter, one uppercase letter, one digit, and one special character");
+        setLoading(false);
+        return;
+      }
+      try {
+        const { error: updateError } = await supabaseClient.auth.updateUser({
+          password
+        });
+        if (updateError) {
+          const errorMsg = updateError.message;
+          if (errorMsg.toLowerCase().includes("weak") || errorMsg.toLowerCase().includes("password") && errorMsg.toLowerCase().includes("strong")) {
+            throw new Error("Password is too weak. Please use a stronger password with at least 12 characters, including uppercase, lowercase, numbers, and special characters.");
+          } else if (errorMsg.toLowerCase().includes("same")) {
+            throw new Error("New password cannot be the same as your current password. Please choose a different password.");
+          } else if (errorMsg.toLowerCase().includes("session") || errorMsg.toLowerCase().includes("expired")) {
+            throw new Error("Your password reset link has expired. Please request a new one.");
+          } else {
+            throw new Error(errorMsg);
+          }
+        }
+        setSuccess("Password reset successfully! Redirecting to login...");
+        await supabaseClient.auth.signOut();
+        setTimeout(() => {
+          navigate("/", { replace: true });
+        }, 2e3);
+      } catch (error2) {
+        setError(error2.message || "Failed to reset password. Please try again or request a new reset link.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    return /* @__PURE__ */ jsxRuntime.jsx("div", { className: "min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 py-12 px-4 sm:px-6 lg:px-8", children: /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "max-w-md w-full space-y-8", children: [
+      /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "text-center mb-8", children: [
+        /* @__PURE__ */ jsxRuntime.jsx(
+          "img",
+          {
+            src: raynLogo,
+            alt: "RAYN Secure Logo",
+            className: "mx-auto h-20 w-auto mb-4"
+          }
+        ),
+        /* @__PURE__ */ jsxRuntime.jsx("h1", { className: "text-3xl font-bold text-primary", children: "RAYN Secure" }),
+        /* @__PURE__ */ jsxRuntime.jsx("p", { className: "text-muted-foreground mt-2", children: "Cybersecurity Training Platform" })
+      ] }),
+      /* @__PURE__ */ jsxRuntime.jsxs(card.Card, { className: "border-primary/20 shadow-lg", children: [
+        /* @__PURE__ */ jsxRuntime.jsxs(card.CardHeader, { className: "text-center", children: [
+          /* @__PURE__ */ jsxRuntime.jsx(card.CardTitle, { className: "text-2xl font-bold text-primary", children: "Reset Your Password" }),
+          /* @__PURE__ */ jsxRuntime.jsx(card.CardDescription, { children: "Enter your new password below" })
+        ] }),
+        /* @__PURE__ */ jsxRuntime.jsx(card.CardContent, { children: /* @__PURE__ */ jsxRuntime.jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
+          error && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { variant: "destructive", children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: error }) }),
+          success && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: success }) }),
+          email && /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
+            /* @__PURE__ */ jsxRuntime.jsx(label.Label, { htmlFor: "email", children: "Email" }),
+            /* @__PURE__ */ jsxRuntime.jsx(
+              input.Input,
+              {
+                id: "email",
+                type: "email",
+                value: email,
+                disabled: true,
+                className: "bg-gray-50"
+              }
+            )
+          ] }),
+          /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
+            /* @__PURE__ */ jsxRuntime.jsx(label.Label, { htmlFor: "password", children: "New Password" }),
+            /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "relative", children: [
+              /* @__PURE__ */ jsxRuntime.jsx(
+                input.Input,
+                {
+                  id: "password",
+                  type: showPassword ? "text" : "password",
+                  value: password,
+                  onChange: (e) => setPassword(e.target.value),
+                  required: true,
+                  minLength: 12,
+                  className: "pr-10",
+                  placeholder: "Enter your new password"
+                }
+              ),
+              /* @__PURE__ */ jsxRuntime.jsx(
+                button.Button,
+                {
+                  type: "button",
+                  variant: "ghost",
+                  size: "sm",
+                  className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
+                  onClick: () => setShowPassword(!showPassword),
+                  children: showPassword ? /* @__PURE__ */ jsxRuntime.jsx(lucideReact.EyeOff, { className: "h-4 w-4 text-muted-foreground" }) : /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Eye, { className: "h-4 w-4 text-muted-foreground" })
+                }
+              )
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
+            /* @__PURE__ */ jsxRuntime.jsx(label.Label, { htmlFor: "confirmPassword", children: "Confirm New Password" }),
+            /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "relative", children: [
+              /* @__PURE__ */ jsxRuntime.jsx(
+                input.Input,
+                {
+                  id: "confirmPassword",
+                  type: showConfirmPassword ? "text" : "password",
+                  value: confirmPassword,
+                  onChange: (e) => setConfirmPassword(e.target.value),
+                  required: true,
+                  minLength: 12,
+                  className: "pr-10",
+                  placeholder: "Confirm your new password"
+                }
+              ),
+              /* @__PURE__ */ jsxRuntime.jsx(
+                button.Button,
+                {
+                  type: "button",
+                  variant: "ghost",
+                  size: "sm",
+                  className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
+                  onClick: () => setShowConfirmPassword(!showConfirmPassword),
+                  children: showConfirmPassword ? /* @__PURE__ */ jsxRuntime.jsx(lucideReact.EyeOff, { className: "h-4 w-4 text-muted-foreground" }) : /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Eye, { className: "h-4 w-4 text-muted-foreground" })
+                }
+              )
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxRuntime.jsxs(
+            button.Button,
+            {
+              type: "submit",
+              className: "w-full bg-primary hover:bg-primary/90 text-primary-foreground",
+              disabled: loading,
+              children: [
+                loading && /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
+                "Reset Password"
+              ]
+            }
+          ),
+          /* @__PURE__ */ jsxRuntime.jsx("div", { className: "text-center", children: /* @__PURE__ */ jsxRuntime.jsx(
+            button.Button,
+            {
+              variant: "outline",
+              onClick: () => navigate("/"),
+              className: "w-full border-primary/20 text-primary hover:bg-primary/10",
+              children: "Back to Login"
+            }
+          ) })
+        ] }) })
+      ] })
+    ] }) });
+  };
   const SignUpForm = ({ onSwitchToLogin }) => {
     const [email, setEmail] = react.useState("");
     const [password, setPassword] = react.useState("");
@@ -1349,8 +1169,6 @@
   };
   exports2.ActivateAccount = ActivateAccount;
   exports2.AuthEventRedirect = AuthEventRedirect;
-  exports2.AuthModuleWrapper = AuthModuleWrapper;
-  exports2.AuthPage = AuthPage;
   exports2.AuthProvider = AuthProvider;
   exports2.ForgotPassword = ForgotPassword;
   exports2.LoginForm = LoginForm;

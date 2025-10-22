@@ -1,6 +1,6 @@
 {
-  "name": "@raynsecure/staysecure-auth",
-  "version": "1.0.0",
+  "name": "staysecure-auth",
+  "version": "1.0.6",
   "description": "Authentication module for StaySecure platform",
   "main": "dist/index.umd.js",
   "module": "dist/index.esm.js",
