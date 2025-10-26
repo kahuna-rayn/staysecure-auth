@@ -141,32 +141,20 @@ export const AuthProvider: React.FC<{
     setError(null);
     
     try {
-      // Use current origin for redirect URL
-      const baseUrl = window.location.origin;
-      const resetUrl = `${baseUrl}/reset-password?email=${encodeURIComponent(email)}`;
+      // Use Supabase's built-in password reset with proper tokens
+      const redirectUrl = `${window.location.origin}/reset-password`;
       
-      console.log('Sending password reset to:', email);
-      console.log('Reset URL:', resetUrl);
+      console.log('🔐 [AuthProvider.tsx] resetPassword called');
+      console.log('📧 Sending password reset to:', email);
+      console.log('🔗 Redirect URL:', redirectUrl);
       
-      // Use the Edge Function to send simple reset email (no auth tokens)
-      const { error } = await supabaseClient.functions.invoke('send-email', {
-        body: {
-          to: email,
-          subject: 'Reset Your Password',
-          html: `
-            <h2>Reset Your Password</h2>
-            <p>Click the link below to reset your password:</p>
-            <p><a href="${resetUrl}">Reset Password</a></p>
-            <p>If the link doesn't work, copy and paste this URL into your browser:</p>
-            <p>${resetUrl}</p>
-          `
-        }
+      const { error: resetError } = await supabaseClient.auth.resetPasswordForEmail(email, {
+        redirectTo: redirectUrl
       });
       
-      if (error) {
-        throw new Error('Failed to send reset email');
-      }
+      if (resetError) throw resetError;
       
+      console.log('✅ [AuthProvider.tsx] Password reset email sent successfully via Supabase');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -202,8 +190,9 @@ export const AuthProvider: React.FC<{
       const baseUrl = window.location.origin;
       const redirectUrl = `${baseUrl}/activate-account`;
       
-      console.log('Sending activation email to:', email);
-      console.log('Redirect URL:', redirectUrl);
+      console.log('🎯 [AuthProvider.tsx] sendActivationEmail called');
+      console.log('📧 Sending activation email to:', email);
+      console.log('🔗 Redirect URL:', redirectUrl);
       
       // First, check if user exists in profiles table
       const { data: profile, error: profileError } = await supabaseClient
@@ -241,7 +230,7 @@ export const AuthProvider: React.FC<{
           throw error;
         }
 
-        console.log('Activation email sent successfully:', data);
+        console.log('✅ [AuthProvider.tsx] Activation email sent successfully via Supabase:', data);
       } else {
         // User doesn't exist in profiles table
         console.log('User not found in profiles table');
