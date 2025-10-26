@@ -570,9 +570,8 @@
     const [loading, setLoading] = react.useState(false);
     const [showPassword, setShowPassword] = react.useState(false);
     const [showForgotPassword, setShowForgotPassword] = react.useState(false);
-    const [showActivateAccount, setShowActivateAccount] = react.useState(false);
     const [success, setSuccess] = react.useState("");
-    const { signIn, resetPassword, sendActivationEmail, error, loading: authLoading } = useAuth();
+    const { signIn, resetPassword, error, loading: authLoading } = useAuth();
     const handleSubmit = async (e) => {
       e.preventDefault();
       setLoading(true);
@@ -599,26 +598,12 @@
         setLoading(false);
       }
     };
-    const handleActivateAccount = async (e) => {
-      e.preventDefault();
-      setLoading(true);
-      setSuccess("");
-      try {
-        await sendActivationEmail(email);
-        setSuccess("Account activation link has been sent to your email.");
-        setShowActivateAccount(false);
-      } catch (error2) {
-        console.log("Activation email error:", error2);
-      } finally {
-        setLoading(false);
-      }
-    };
     return /* @__PURE__ */ jsxRuntime.jsxs(card.Card, { className: "w-full max-w-md mx-auto", children: [
       /* @__PURE__ */ jsxRuntime.jsxs(card.CardHeader, { children: [
-        /* @__PURE__ */ jsxRuntime.jsx(card.CardTitle, { children: showForgotPassword ? "Reset Password" : showActivateAccount ? "Activate Account" : "Sign In" }),
-        /* @__PURE__ */ jsxRuntime.jsx(card.CardDescription, { children: showForgotPassword ? "Enter your email address to receive password reset instructions" : showActivateAccount ? "Enter your organization email address to receive account activation instructions" : "Enter your email and password to access your learning dashboard" })
+        /* @__PURE__ */ jsxRuntime.jsx(card.CardTitle, { children: showForgotPassword ? "Reset Password" : "Sign In" }),
+        /* @__PURE__ */ jsxRuntime.jsx(card.CardDescription, { children: showForgotPassword ? "Enter your email address to receive password reset instructions" : "Enter your email and password to access your learning dashboard" })
       ] }),
-      /* @__PURE__ */ jsxRuntime.jsx(card.CardContent, { children: /* @__PURE__ */ jsxRuntime.jsxs("form", { onSubmit: showForgotPassword ? handleForgotPassword : showActivateAccount ? handleActivateAccount : handleSubmit, className: "space-y-4", children: [
+      /* @__PURE__ */ jsxRuntime.jsx(card.CardContent, { children: /* @__PURE__ */ jsxRuntime.jsxs("form", { onSubmit: showForgotPassword ? handleForgotPassword : handleSubmit, className: "space-y-4", children: [
         error && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { variant: "destructive", children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: error }) }),
         success && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: success }) }),
         /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
@@ -634,7 +619,7 @@
             }
           )
         ] }),
-        !showForgotPassword && !showActivateAccount && /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
+        !showForgotPassword && /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
           /* @__PURE__ */ jsxRuntime.jsx(label.Label, { htmlFor: "password", children: "Password" }),
           /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "relative", children: [
             /* @__PURE__ */ jsxRuntime.jsx(
@@ -663,7 +648,7 @@
         ] }),
         /* @__PURE__ */ jsxRuntime.jsxs(button.Button, { type: "submit", className: "w-full", disabled: loading || authLoading, children: [
           (loading || authLoading) && /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
-          showForgotPassword ? "Send Reset Instructions" : showActivateAccount ? "Send Activation Link" : "Sign In"
+          showForgotPassword ? "Send Reset Instructions" : "Sign In"
         ] }),
         /* @__PURE__ */ jsxRuntime.jsx("div", { className: "text-center", children: showForgotPassword ? /* @__PURE__ */ jsxRuntime.jsx(
           button.Button,
@@ -676,45 +661,18 @@
             },
             children: "Back to Sign In"
           }
-        ) : showActivateAccount ? /* @__PURE__ */ jsxRuntime.jsx(
+        ) : /* @__PURE__ */ jsxRuntime.jsx(
           button.Button,
           {
             variant: "link",
             type: "button",
             onClick: () => {
-              setShowActivateAccount(false);
+              setShowForgotPassword(true);
               setSuccess("");
             },
-            children: "Back to Sign In"
+            children: "Forgot Password?"
           }
-        ) : /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "flex justify-center space-x-4", children: [
-          /* @__PURE__ */ jsxRuntime.jsx(
-            button.Button,
-            {
-              variant: "link",
-              type: "button",
-              onClick: () => {
-                setShowForgotPassword(true);
-                setShowActivateAccount(false);
-                setSuccess("");
-              },
-              children: "Forgot Password?"
-            }
-          ),
-          /* @__PURE__ */ jsxRuntime.jsx(
-            button.Button,
-            {
-              variant: "link",
-              type: "button",
-              onClick: () => {
-                setShowActivateAccount(true);
-                setShowForgotPassword(false);
-                setSuccess("");
-              },
-              children: "Activate Account"
-            }
-          )
-        ] }) })
+        ) })
       ] }) })
     ] });
   };

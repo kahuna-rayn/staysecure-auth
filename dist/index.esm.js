@@ -577,9 +577,8 @@ const LoginForm = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [showActivateAccount, setShowActivateAccount] = useState(false);
   const [success, setSuccess] = useState("");
-  const { signIn, resetPassword, sendActivationEmail, error, loading: authLoading } = useAuth();
+  const { signIn, resetPassword, error, loading: authLoading } = useAuth();
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -606,26 +605,12 @@ const LoginForm = () => {
       setLoading(false);
     }
   };
-  const handleActivateAccount = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setSuccess("");
-    try {
-      await sendActivationEmail(email);
-      setSuccess("Account activation link has been sent to your email.");
-      setShowActivateAccount(false);
-    } catch (error2) {
-      console.log("Activation email error:", error2);
-    } finally {
-      setLoading(false);
-    }
-  };
   return /* @__PURE__ */ jsxs(Card, { className: "w-full max-w-md mx-auto", children: [
     /* @__PURE__ */ jsxs(CardHeader, { children: [
-      /* @__PURE__ */ jsx(CardTitle, { children: showForgotPassword ? "Reset Password" : showActivateAccount ? "Activate Account" : "Sign In" }),
-      /* @__PURE__ */ jsx(CardDescription, { children: showForgotPassword ? "Enter your email address to receive password reset instructions" : showActivateAccount ? "Enter your organization email address to receive account activation instructions" : "Enter your email and password to access your learning dashboard" })
+      /* @__PURE__ */ jsx(CardTitle, { children: showForgotPassword ? "Reset Password" : "Sign In" }),
+      /* @__PURE__ */ jsx(CardDescription, { children: showForgotPassword ? "Enter your email address to receive password reset instructions" : "Enter your email and password to access your learning dashboard" })
     ] }),
-    /* @__PURE__ */ jsx(CardContent, { children: /* @__PURE__ */ jsxs("form", { onSubmit: showForgotPassword ? handleForgotPassword : showActivateAccount ? handleActivateAccount : handleSubmit, className: "space-y-4", children: [
+    /* @__PURE__ */ jsx(CardContent, { children: /* @__PURE__ */ jsxs("form", { onSubmit: showForgotPassword ? handleForgotPassword : handleSubmit, className: "space-y-4", children: [
       error && /* @__PURE__ */ jsx(Alert, { variant: "destructive", children: /* @__PURE__ */ jsx(AlertDescription, { children: error }) }),
       success && /* @__PURE__ */ jsx(Alert, { children: /* @__PURE__ */ jsx(AlertDescription, { children: success }) }),
       /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
@@ -641,7 +626,7 @@ const LoginForm = () => {
           }
         )
       ] }),
-      !showForgotPassword && !showActivateAccount && /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
+      !showForgotPassword && /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
         /* @__PURE__ */ jsx(Label, { htmlFor: "password", children: "Password" }),
         /* @__PURE__ */ jsxs("div", { className: "relative", children: [
           /* @__PURE__ */ jsx(
@@ -670,7 +655,7 @@ const LoginForm = () => {
       ] }),
       /* @__PURE__ */ jsxs(Button, { type: "submit", className: "w-full", disabled: loading || authLoading, children: [
         (loading || authLoading) && /* @__PURE__ */ jsx(Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
-        showForgotPassword ? "Send Reset Instructions" : showActivateAccount ? "Send Activation Link" : "Sign In"
+        showForgotPassword ? "Send Reset Instructions" : "Sign In"
       ] }),
       /* @__PURE__ */ jsx("div", { className: "text-center", children: showForgotPassword ? /* @__PURE__ */ jsx(
         Button,
@@ -683,45 +668,18 @@ const LoginForm = () => {
           },
           children: "Back to Sign In"
         }
-      ) : showActivateAccount ? /* @__PURE__ */ jsx(
+      ) : /* @__PURE__ */ jsx(
         Button,
         {
           variant: "link",
           type: "button",
           onClick: () => {
-            setShowActivateAccount(false);
+            setShowForgotPassword(true);
             setSuccess("");
           },
-          children: "Back to Sign In"
+          children: "Forgot Password?"
         }
-      ) : /* @__PURE__ */ jsxs("div", { className: "flex justify-center space-x-4", children: [
-        /* @__PURE__ */ jsx(
-          Button,
-          {
-            variant: "link",
-            type: "button",
-            onClick: () => {
-              setShowForgotPassword(true);
-              setShowActivateAccount(false);
-              setSuccess("");
-            },
-            children: "Forgot Password?"
-          }
-        ),
-        /* @__PURE__ */ jsx(
-          Button,
-          {
-            variant: "link",
-            type: "button",
-            onClick: () => {
-              setShowActivateAccount(true);
-              setShowForgotPassword(false);
-              setSuccess("");
-            },
-            children: "Activate Account"
-          }
-        )
-      ] }) })
+      ) })
     ] }) })
   ] });
 };
