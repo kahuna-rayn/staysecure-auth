@@ -141,20 +141,18 @@ export const AuthProvider: React.FC<{
     setError(null);
     
     try {
-      // Use Supabase's built-in password reset with proper tokens
-      const redirectUrl = `${window.location.origin}/reset-password`;
-      
       console.log('🔐 [AuthProvider.tsx] resetPassword called');
       console.log('📧 Sending password reset to:', email);
-      console.log('🔗 Redirect URL:', redirectUrl);
       
-      const { error: resetError } = await supabaseClient.auth.resetPasswordForEmail(email, {
-        redirectTo: redirectUrl
+      // Use the send-password-reset Edge Function (same pattern as activation)
+      const { data, error: resetError } = await supabaseClient.functions.invoke('send-password-reset', {
+        body: { email }
       });
       
       if (resetError) throw resetError;
+      if (data?.error) throw new Error(data.error);
       
-      console.log('✅ [AuthProvider.tsx] Password reset email sent successfully via Supabase');
+      console.log('✅ [AuthProvider.tsx] Password reset email sent successfully via Edge Function');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
