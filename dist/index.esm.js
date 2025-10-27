@@ -116,11 +116,15 @@ const AuthProvider = ({ config, children }) => {
     setError(null);
     try {
       const redirectUrl = `${window.location.origin}/reset-password`;
+      console.log("🚨🚨🚨 NUCLEAR DEBUG - resetPassword called 🚨🚨🚨");
       console.log("🔐 [AuthProvider.tsx] resetPassword called");
       console.log("📧 Sending password reset to:", email);
       console.log("🔗 Redirect URL:", redirectUrl);
       console.log("🔍 Searching for username:", email);
+      console.log("🔍 About to query profiles table...");
       const { data: profile, error: profileError } = await supabaseClient.from("profiles").select("id, username, full_name").eq("username", email).maybeSingle();
+      console.log("🔍 Raw query result:", { profile, profileError });
+      console.log("🔍 Profile error details:", profileError);
       console.log("Profile check:", { profile, profileError });
       if (profileError && profileError.code !== "PGRST116") {
         console.error("Profile query failed:", profileError);
