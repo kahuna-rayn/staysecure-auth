@@ -150,13 +150,38 @@ export const AuthProvider: React.FC<{
       console.log('📧 Sending password reset to:', email);
       console.log('🔗 Redirect URL:', redirectUrl);
       
-      const { error: resetError } = await supabaseClient.auth.resetPasswordForEmail(email, {
-        redirectTo: redirectUrl
-      });
-      
-      if (resetError) throw resetError;
-      
-      console.log('✅ [AuthProvider.tsx] Password reset email sent successfully via Supabase');
+      // First, check if user exists in profiles table
+      const { data: profile, error: profileError } = await supabaseClient
+        .from('profiles')
+        .select('id, username, full_name')
+        .eq('username', email)
+        .maybeSingle();
+
+      console.log('Profile check:', { profile, profileError });
+
+      if (profileError && profileError.code !== 'PGRST116') {
+        // PGRST116 is "not found" error, which is expected for new users
+        console.error('Profile query failed:', profileError);
+        throw profileError;
+      }
+
+      if (profile) {
+        // User exists in profiles table - proceed with password reset
+        console.log('User found in profiles table, proceeding with password reset');
+        
+        const { error: resetError } = await supabaseClient.auth.resetPasswordForEmail(email, {
+          redirectTo: redirectUrl
+        });
+        
+        if (resetError) throw resetError;
+        
+        console.log('✅ [AuthProvider.tsx] Password reset email sent successfully via Supabase');
+      } else {
+        // User doesn't exist in profiles table
+        console.log('User not found in profiles table');
+        setError('This email address is not registered in our system. Please contact your administrator to request access.');
+        return;
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {

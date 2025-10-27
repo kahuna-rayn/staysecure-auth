@@ -112,11 +112,24 @@
         console.log("🔐 [AuthProvider.tsx] resetPassword called");
         console.log("📧 Sending password reset to:", email);
         console.log("🔗 Redirect URL:", redirectUrl);
-        const { error: resetError } = await supabaseClient.auth.resetPasswordForEmail(email, {
-          redirectTo: redirectUrl
-        });
-        if (resetError) throw resetError;
-        console.log("✅ [AuthProvider.tsx] Password reset email sent successfully via Supabase");
+        const { data: profile, error: profileError } = await supabaseClient.from("profiles").select("id, username, full_name").eq("username", email).maybeSingle();
+        console.log("Profile check:", { profile, profileError });
+        if (profileError && profileError.code !== "PGRST116") {
+          console.error("Profile query failed:", profileError);
+          throw profileError;
+        }
+        if (profile) {
+          console.log("User found in profiles table, proceeding with password reset");
+          const { error: resetError } = await supabaseClient.auth.resetPasswordForEmail(email, {
+            redirectTo: redirectUrl
+          });
+          if (resetError) throw resetError;
+          console.log("✅ [AuthProvider.tsx] Password reset email sent successfully via Supabase");
+        } else {
+          console.log("User not found in profiles table");
+          setError("This email address is not registered in our system. Please contact your administrator to request access.");
+          return;
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "An error occurred");
       } finally {
