@@ -149,6 +149,7 @@ export const AuthProvider: React.FC<{
       console.log('🔐 [AuthProvider.tsx] resetPassword called');
       console.log('📧 Sending password reset to:', email);
       console.log('🔗 Redirect URL:', redirectUrl);
+      console.log('🔍 Searching for username:', email);
       
       // First, check if user exists in profiles table
       const { data: profile, error: profileError } = await supabaseClient

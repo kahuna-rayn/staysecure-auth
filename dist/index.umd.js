@@ -112,6 +112,7 @@
         console.log("🔐 [AuthProvider.tsx] resetPassword called");
         console.log("📧 Sending password reset to:", email);
         console.log("🔗 Redirect URL:", redirectUrl);
+        console.log("🔍 Searching for username:", email);
         const { data: profile, error: profileError } = await supabaseClient.from("profiles").select("id, username, full_name").eq("username", email).maybeSingle();
         console.log("Profile check:", { profile, profileError });
         if (profileError && profileError.code !== "PGRST116") {
