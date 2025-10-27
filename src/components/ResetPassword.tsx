@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../components/AuthProvider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,13 +9,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import raynLogo from '@/assets/rayn-logo.png';
 
-interface ResetPasswordProps {
-  supabaseClient: any;
-}
-
-const ResetPassword: React.FC<ResetPasswordProps> = ({ supabaseClient }) => {
+const ResetPassword: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { supabaseClient } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -143,21 +141,21 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ supabaseClient }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
-        <div className="text-center mb-8">
+        <div className="text-center mb-6">
           <img 
             src={raynLogo} 
             alt="RAYN Secure Logo" 
-            className="mx-auto h-20 w-auto mb-4"
+            className="mx-auto h-12 w-auto mb-2"
           />
-          <h1 className="text-3xl font-bold text-primary">RAYN Secure</h1>
-          <p className="text-muted-foreground mt-2">Cybersecurity Training Platform</p>
+          <h1 className="text-xl font-semibold text-gray-800">RAYN Secure</h1>
+          <p className="text-sm text-gray-600">Cybersecurity Training Platform</p>
         </div>
         
-        <Card className="border-primary/20 shadow-lg">
+        <Card className="shadow-lg">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold text-primary">
+            <CardTitle className="text-2xl font-bold">
               Reset Your Password
             </CardTitle>
             <CardDescription>
@@ -251,7 +249,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ supabaseClient }) => {
               
               <Button 
                 type="submit" 
-                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" 
+                className="w-full" 
                 disabled={loading}
               >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -262,7 +260,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ supabaseClient }) => {
                 <Button 
                   variant="outline" 
                   onClick={() => navigate('/')}
-                  className="w-full border-primary/20 text-primary hover:bg-primary/10"
+                  className="w-full"
                 >
                   Back to Login
                 </Button>

@@ -725,9 +725,10 @@ const LoginForm = () => {
     ] }) })
   ] });
 };
-const ResetPassword = ({ supabaseClient }) => {
+const ResetPassword = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { supabaseClient } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -825,22 +826,22 @@ const ResetPassword = ({ supabaseClient }) => {
       setLoading(false);
     }
   };
-  return /* @__PURE__ */ jsx("div", { className: "min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 py-12 px-4 sm:px-6 lg:px-8", children: /* @__PURE__ */ jsxs("div", { className: "max-w-md w-full space-y-8", children: [
-    /* @__PURE__ */ jsxs("div", { className: "text-center mb-8", children: [
+  return /* @__PURE__ */ jsx("div", { className: "min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8", children: /* @__PURE__ */ jsxs("div", { className: "max-w-md w-full space-y-8", children: [
+    /* @__PURE__ */ jsxs("div", { className: "text-center mb-6", children: [
       /* @__PURE__ */ jsx(
         "img",
         {
           src: raynLogo,
           alt: "RAYN Secure Logo",
-          className: "mx-auto h-20 w-auto mb-4"
+          className: "mx-auto h-12 w-auto mb-2"
         }
       ),
-      /* @__PURE__ */ jsx("h1", { className: "text-3xl font-bold text-primary", children: "RAYN Secure" }),
-      /* @__PURE__ */ jsx("p", { className: "text-muted-foreground mt-2", children: "Cybersecurity Training Platform" })
+      /* @__PURE__ */ jsx("h1", { className: "text-xl font-semibold text-gray-800", children: "RAYN Secure" }),
+      /* @__PURE__ */ jsx("p", { className: "text-sm text-gray-600", children: "Cybersecurity Training Platform" })
     ] }),
-    /* @__PURE__ */ jsxs(Card, { className: "border-primary/20 shadow-lg", children: [
+    /* @__PURE__ */ jsxs(Card, { className: "shadow-lg", children: [
       /* @__PURE__ */ jsxs(CardHeader, { className: "text-center", children: [
-        /* @__PURE__ */ jsx(CardTitle, { className: "text-2xl font-bold text-primary", children: "Reset Your Password" }),
+        /* @__PURE__ */ jsx(CardTitle, { className: "text-2xl font-bold", children: "Reset Your Password" }),
         /* @__PURE__ */ jsx(CardDescription, { children: "Enter your new password below" })
       ] }),
       /* @__PURE__ */ jsx(CardContent, { children: /* @__PURE__ */ jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
@@ -921,7 +922,7 @@ const ResetPassword = ({ supabaseClient }) => {
           Button,
           {
             type: "submit",
-            className: "w-full bg-primary hover:bg-primary/90 text-primary-foreground",
+            className: "w-full",
             disabled: loading,
             children: [
               loading && /* @__PURE__ */ jsx(Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
@@ -934,7 +935,7 @@ const ResetPassword = ({ supabaseClient }) => {
           {
             variant: "outline",
             onClick: () => navigate("/"),
-            className: "w-full border-primary/20 text-primary hover:bg-primary/10",
+            className: "w-full",
             children: "Back to Login"
           }
         ) })

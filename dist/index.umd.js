@@ -718,9 +718,10 @@
       ] }) })
     ] });
   };
-  const ResetPassword = ({ supabaseClient }) => {
+  const ResetPassword = () => {
     const location = reactRouterDom.useLocation();
     const navigate = reactRouterDom.useNavigate();
+    const { supabaseClient } = useAuth();
     const [email, setEmail] = react.useState("");
     const [password, setPassword] = react.useState("");
     const [confirmPassword, setConfirmPassword] = react.useState("");
@@ -818,22 +819,22 @@
         setLoading(false);
       }
     };
-    return /* @__PURE__ */ jsxRuntime.jsx("div", { className: "min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 py-12 px-4 sm:px-6 lg:px-8", children: /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "max-w-md w-full space-y-8", children: [
-      /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "text-center mb-8", children: [
+    return /* @__PURE__ */ jsxRuntime.jsx("div", { className: "min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8", children: /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "max-w-md w-full space-y-8", children: [
+      /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "text-center mb-6", children: [
         /* @__PURE__ */ jsxRuntime.jsx(
           "img",
           {
             src: raynLogo,
             alt: "RAYN Secure Logo",
-            className: "mx-auto h-20 w-auto mb-4"
+            className: "mx-auto h-12 w-auto mb-2"
           }
         ),
-        /* @__PURE__ */ jsxRuntime.jsx("h1", { className: "text-3xl font-bold text-primary", children: "RAYN Secure" }),
-        /* @__PURE__ */ jsxRuntime.jsx("p", { className: "text-muted-foreground mt-2", children: "Cybersecurity Training Platform" })
+        /* @__PURE__ */ jsxRuntime.jsx("h1", { className: "text-xl font-semibold text-gray-800", children: "RAYN Secure" }),
+        /* @__PURE__ */ jsxRuntime.jsx("p", { className: "text-sm text-gray-600", children: "Cybersecurity Training Platform" })
       ] }),
-      /* @__PURE__ */ jsxRuntime.jsxs(card.Card, { className: "border-primary/20 shadow-lg", children: [
+      /* @__PURE__ */ jsxRuntime.jsxs(card.Card, { className: "shadow-lg", children: [
         /* @__PURE__ */ jsxRuntime.jsxs(card.CardHeader, { className: "text-center", children: [
-          /* @__PURE__ */ jsxRuntime.jsx(card.CardTitle, { className: "text-2xl font-bold text-primary", children: "Reset Your Password" }),
+          /* @__PURE__ */ jsxRuntime.jsx(card.CardTitle, { className: "text-2xl font-bold", children: "Reset Your Password" }),
           /* @__PURE__ */ jsxRuntime.jsx(card.CardDescription, { children: "Enter your new password below" })
         ] }),
         /* @__PURE__ */ jsxRuntime.jsx(card.CardContent, { children: /* @__PURE__ */ jsxRuntime.jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
@@ -914,7 +915,7 @@
             button.Button,
             {
               type: "submit",
-              className: "w-full bg-primary hover:bg-primary/90 text-primary-foreground",
+              className: "w-full",
               disabled: loading,
               children: [
                 loading && /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
@@ -927,7 +928,7 @@
             {
               variant: "outline",
               onClick: () => navigate("/"),
-              className: "w-full border-primary/20 text-primary hover:bg-primary/10",
+              className: "w-full",
               children: "Back to Login"
             }
           ) })
