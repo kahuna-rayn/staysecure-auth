@@ -9,6 +9,7 @@ interface AuthContextValue {
   user: any | null;
   loading: boolean;
   error: string | null;
+  supabaseClient: any;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, fullName?: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -24,6 +25,7 @@ const defaultAuthContext: AuthContextValue = {
   user: null,
   loading: true,
   error: null,
+  supabaseClient: null,
   signIn: async () => {},
   signUp: async () => {},
   signOut: async () => {},
@@ -301,6 +303,7 @@ export const AuthProvider: React.FC<{
     user,
     loading,
     error,
+    supabaseClient,
     signIn,
     signUp,
     signOut,

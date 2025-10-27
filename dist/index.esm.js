@@ -1,19 +1,20 @@
 import { jsx, jsxs } from "react/jsx-runtime";
 import { createContext, useState, useEffect, useContext, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { EyeOff, Eye, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import raynLogo from "@/assets/rayn-logo.png";
 const AuthContext = createContext(null);
 const defaultAuthContext = {
   user: null,
   loading: true,
   error: null,
+  supabaseClient: null,
   signIn: async () => {
   },
   signUp: async () => {
@@ -225,6 +226,7 @@ const AuthProvider = ({ config, children }) => {
     user,
     loading,
     error,
+    supabaseClient,
     signIn,
     signUp,
     signOut,
@@ -245,7 +247,7 @@ const useAuth = () => {
 const ActivateAccount = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { activateUser, error: authError, loading: authLoading, signOut } = useAuth();
+  const { activateUser, error: authError, loading: authLoading, signOut, supabaseClient } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -281,7 +283,7 @@ const ActivateAccount = () => {
       if (tokenHash && type === "invite") {
         console.log("ActivateAccount: Processing invite token");
         try {
-          const { data, error: error2 } = await supabase.auth.verifyOtp({
+          const { data, error: error2 } = await supabaseClient.auth.verifyOtp({
             token_hash: tokenHash,
             type: "invite"
           });
@@ -310,7 +312,7 @@ const ActivateAccount = () => {
         setAccessToken(access);
         setRefreshToken(refresh);
         try {
-          const { data, error: error2 } = await supabase.auth.setSession({
+          const { data, error: error2 } = await supabaseClient.auth.setSession({
             access_token: access,
             refresh_token: refresh
           });
@@ -328,7 +330,7 @@ const ActivateAccount = () => {
         return;
       }
       console.log("ActivateAccount: Checking for existing session");
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await supabaseClient.auth.getSession();
       if (session) {
         console.log("ActivateAccount: Found existing session for:", (_a = session.user) == null ? void 0 : _a.email);
         setEmail(((_b = session.user) == null ? void 0 : _b.email) || "");

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/AuthProvider';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,7 +11,7 @@ import { Loader2, Eye, EyeOff } from 'lucide-react';
 const ActivateAccount: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { activateUser, error: authError, loading: authLoading, signOut } = useAuth();
+  const { activateUser, error: authError, loading: authLoading, signOut, supabaseClient } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -57,7 +56,7 @@ const ActivateAccount: React.FC = () => {
       if (tokenHash && type === 'invite') {
         console.log('ActivateAccount: Processing invite token');
         try {
-          const { data, error } = await supabase.auth.verifyOtp({
+          const { data, error } = await supabaseClient.auth.verifyOtp({
             token_hash: tokenHash,
             type: 'invite',
           });
@@ -94,7 +93,7 @@ if (emailParam && userIdParam) {
         setAccessToken(access);
         setRefreshToken(refresh);
         try {
-          const { data, error } = await supabase.auth.setSession({
+          const { data, error } = await supabaseClient.auth.setSession({
             access_token: access,
             refresh_token: refresh,
           });
@@ -114,7 +113,7 @@ if (emailParam && userIdParam) {
 
       // Fallback: if a session already exists (Supabase may have handled invite), allow activation without tokens
       console.log('ActivateAccount: Checking for existing session');
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await supabaseClient.auth.getSession();
       if (session) {
         console.log('ActivateAccount: Found existing session for:', session.user?.email);
         // Set the email from the session user

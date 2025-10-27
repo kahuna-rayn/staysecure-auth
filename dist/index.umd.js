@@ -1,12 +1,13 @@
 (function(global, factory) {
-  typeof exports === "object" && typeof module !== "undefined" ? factory(exports, require("react/jsx-runtime"), require("react"), require("react-router-dom"), require("@/integrations/supabase/client"), require("@/components/ui/button"), require("@/components/ui/input"), require("@/components/ui/label"), require("@/components/ui/card"), require("@/components/ui/alert"), require("lucide-react"), require("@/assets/rayn-logo.png")) : typeof define === "function" && define.amd ? define(["exports", "react/jsx-runtime", "react", "react-router-dom", "@/integrations/supabase/client", "@/components/ui/button", "@/components/ui/input", "@/components/ui/label", "@/components/ui/card", "@/components/ui/alert", "lucide-react", "@/assets/rayn-logo.png"], factory) : (global = typeof globalThis !== "undefined" ? globalThis : global || self, factory(global.StaySecureAuth = {}, global["react/jsx-runtime"], global.React, global.reactRouterDom, global.client, global.button, global.input, global.label, global.card, global.alert, global.lucideReact, global.raynLogo));
-})(this, function(exports2, jsxRuntime, react, reactRouterDom, client, button, input, label, card, alert, lucideReact, raynLogo) {
+  typeof exports === "object" && typeof module !== "undefined" ? factory(exports, require("react/jsx-runtime"), require("react"), require("react-router-dom"), require("@/components/ui/button"), require("@/components/ui/input"), require("@/components/ui/label"), require("@/components/ui/card"), require("@/components/ui/alert"), require("lucide-react"), require("@/integrations/supabase/client"), require("@/assets/rayn-logo.png")) : typeof define === "function" && define.amd ? define(["exports", "react/jsx-runtime", "react", "react-router-dom", "@/components/ui/button", "@/components/ui/input", "@/components/ui/label", "@/components/ui/card", "@/components/ui/alert", "lucide-react", "@/integrations/supabase/client", "@/assets/rayn-logo.png"], factory) : (global = typeof globalThis !== "undefined" ? globalThis : global || self, factory(global.StaySecureAuth = {}, global["react/jsx-runtime"], global.React, global.reactRouterDom, global.button, global.input, global.label, global.card, global.alert, global.lucideReact, global.client, global.raynLogo));
+})(this, function(exports2, jsxRuntime, react, reactRouterDom, button, input, label, card, alert, lucideReact, client, raynLogo) {
   "use strict";
   const AuthContext = react.createContext(null);
   const defaultAuthContext = {
     user: null,
     loading: true,
     error: null,
+    supabaseClient: null,
     signIn: async () => {
     },
     signUp: async () => {
@@ -218,6 +219,7 @@
       user,
       loading,
       error,
+      supabaseClient,
       signIn,
       signUp,
       signOut,
@@ -238,7 +240,7 @@
   const ActivateAccount = () => {
     const location = reactRouterDom.useLocation();
     const navigate = reactRouterDom.useNavigate();
-    const { activateUser, error: authError, loading: authLoading, signOut } = useAuth();
+    const { activateUser, error: authError, loading: authLoading, signOut, supabaseClient } = useAuth();
     const [email, setEmail] = react.useState("");
     const [password, setPassword] = react.useState("");
     const [confirmPassword, setConfirmPassword] = react.useState("");
@@ -274,7 +276,7 @@
         if (tokenHash && type === "invite") {
           console.log("ActivateAccount: Processing invite token");
           try {
-            const { data, error: error2 } = await client.supabase.auth.verifyOtp({
+            const { data, error: error2 } = await supabaseClient.auth.verifyOtp({
               token_hash: tokenHash,
               type: "invite"
             });
@@ -303,7 +305,7 @@
           setAccessToken(access);
           setRefreshToken(refresh);
           try {
-            const { data, error: error2 } = await client.supabase.auth.setSession({
+            const { data, error: error2 } = await supabaseClient.auth.setSession({
               access_token: access,
               refresh_token: refresh
             });
@@ -321,7 +323,7 @@
           return;
         }
         console.log("ActivateAccount: Checking for existing session");
-        const { data: { session } } = await client.supabase.auth.getSession();
+        const { data: { session } } = await supabaseClient.auth.getSession();
         if (session) {
           console.log("ActivateAccount: Found existing session for:", (_a = session.user) == null ? void 0 : _a.email);
           setEmail(((_b = session.user) == null ? void 0 : _b.email) || "");
