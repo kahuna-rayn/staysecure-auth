@@ -154,8 +154,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       
       if (updateError) {
+        console.error('Edge Function error:', updateError);
         throw updateError;
       }
+      
+      // Check if Edge Function returned an error
+      if (data?.error) {
+        console.error('Edge Function returned error:', data.error);
+        throw new Error(data.error);
+      }
+      
+      console.log('✅ Edge Function response:', data);
       
       // Now try to sign in with the new password
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
@@ -167,18 +176,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw signInError;
       }
       
-      // Update user status to Active in profiles table
+      // Update user status to Active in profiles table (fallback if Edge Function didn't do it)
       if (signInData.user) {
+        console.log('🔍 Checking if profile status needs to be updated...');
         const { error: profileError } = await supabase
           .from('profiles')
           .update({ status: 'Active' })
           .eq('id', signInData.user.id);
           
         if (profileError) {
-          console.error('Profile update error:', profileError);
+          console.error('❌ Profile update error:', profileError);
           // Don't throw - activation was successful
+        } else {
+          console.log('✅ Profile status updated to Active for user:', signInData.user.email);
         }
       }
+      
+      console.log('✅ User activated and signed in successfully:', signInData.user?.email);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {

@@ -138,6 +138,7 @@ if (emailParam && userIdParam) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('🚀 [ActivateAccount] Form submitted');
     setLoading(true);
     setError('');
     setSuccess('');
@@ -163,9 +164,11 @@ if (password.length < 12 || !hasLowercase || !hasUppercase || !hasDigit || !hasS
     try {
       // Check if this is a simple activation flow with user_id
       const userIdParam = searchParams.get('user_id');
+      console.log('🔍 [ActivateAccount] User ID param:', userIdParam);
       
       if (userIdParam) {
         // Simple activation flow - use activateUser with userId
+        console.log('📞 [ActivateAccount] Calling activateUser with userId');
         await activateUser(email, password, confirmPassword, userIdParam);
         setSuccess('Account activated successfully! Redirecting to login...');
         

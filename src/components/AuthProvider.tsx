@@ -13,8 +13,8 @@ interface AuthContextValue {
   signUp: (email: string, password: string, fullName?: string) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
-  activateUser: (password: string) => Promise<void>;
   sendActivationEmail: (email: string) => Promise<void>;
+  activateUser: (email: string, password: string, confirmPassword: string, userId?: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -28,8 +28,8 @@ const defaultAuthContext: AuthContextValue = {
   signUp: async () => {},
   signOut: async () => {},
   resetPassword: async () => {},
-  activateUser: async () => {},
   sendActivationEmail: async () => {},
+  activateUser: async () => {},
 };
 
 export const AuthProvider: React.FC<{
@@ -63,7 +63,7 @@ export const AuthProvider: React.FC<{
 
     // Listen for auth changes
     const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(
-      async (event, session) => {
+      async (event: string, session: any) => {
         setUser(session?.user || null);
         setLoading(false);
       }
@@ -162,42 +162,6 @@ export const AuthProvider: React.FC<{
     }
   };
 
-  const activateUser = async (password: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Update password
-      const { error } = await supabaseClient.auth.updateUser({
-        password: password
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      // Get current user to update profile status
-      const { data: { user } } = await supabaseClient.auth.getUser();
-      if (user) {
-        // Update profile status to Active
-        const { error: profileError } = await supabaseClient
-          .from('profiles')
-          .update({ status: 'Active' })
-          .eq('id', user.id);
-
-        if (profileError) {
-          console.error('Failed to update profile status:', profileError);
-          // Don't throw error - password was updated successfully
-        } else {
-          console.log('✅ Profile status updated to Active for user:', user.email);
-        }
-      }
-    } catch (error: any) {
-      setError(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const sendActivationEmail = async (email: string) => {
     try {
@@ -263,6 +227,76 @@ export const AuthProvider: React.FC<{
     }
   };
 
+  const activateUser = async (email: string, password: string, confirmPassword: string, userId?: string) => {
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      console.log('🎯 [AuthProvider.tsx] activateUser called');
+      console.log('📧 Email:', email);
+      console.log('🆔 User ID:', userId);
+      
+      // Use the update-user-password edge function to set the password
+      const { data, error: updateError } = await supabaseClient.functions.invoke('update-user-password', {
+        body: {
+          email,
+          password,
+          user_id: userId
+        }
+      });
+      
+      if (updateError) {
+        console.error('Edge Function error:', updateError);
+        throw updateError;
+      }
+      
+      // Check if Edge Function returned an error
+      if (data?.error) {
+        console.error('Edge Function returned error:', data.error);
+        throw new Error(data.error);
+      }
+      
+      console.log('✅ Edge Function response:', data);
+      
+      // Now try to sign in with the new password
+      const { data: signInData, error: signInError } = await supabaseClient.auth.signInWithPassword({
+        email,
+        password
+      });
+      
+      if (signInError) {
+        throw signInError;
+      }
+      
+      // Update user status to Active in profiles table (fallback if Edge Function didn't do it)
+      if (signInData.user) {
+        console.log('🔍 Checking if profile status needs to be updated...');
+        const { error: profileError } = await supabaseClient
+          .from('profiles')
+          .update({ status: 'Active' })
+          .eq('id', signInData.user.id);
+          
+        if (profileError) {
+          console.error('❌ Profile update error:', profileError);
+          // Don't throw - activation was successful
+        } else {
+          console.log('✅ Profile status updated to Active for user:', signInData.user.email);
+        }
+      }
+      
+      console.log('✅ User activated and signed in successfully:', signInData.user?.email);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const value: AuthContextValue = {
     user,
     loading,
@@ -271,8 +305,8 @@ export const AuthProvider: React.FC<{
     signUp,
     signOut,
     resetPassword,
-    activateUser,
     sendActivationEmail,
+    activateUser,
   };
 
   return (

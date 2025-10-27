@@ -22,9 +22,9 @@ const defaultAuthContext = {
   },
   resetPassword: async () => {
   },
-  activateUser: async () => {
-  },
   sendActivationEmail: async () => {
+  },
+  activateUser: async () => {
   }
 };
 const AuthProvider = ({ config, children }) => {
@@ -129,31 +129,6 @@ const AuthProvider = ({ config, children }) => {
       setLoading(false);
     }
   };
-  const activateUser = async (password) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const { error: error2 } = await supabaseClient.auth.updateUser({
-        password
-      });
-      if (error2) {
-        throw error2;
-      }
-      const { data: { user: user2 } } = await supabaseClient.auth.getUser();
-      if (user2) {
-        const { error: profileError } = await supabaseClient.from("profiles").update({ status: "Active" }).eq("id", user2.id);
-        if (profileError) {
-          console.error("Failed to update profile status:", profileError);
-        } else {
-          console.log("✅ Profile status updated to Active for user:", user2.email);
-        }
-      }
-    } catch (error2) {
-      setError(error2.message);
-    } finally {
-      setLoading(false);
-    }
-  };
   const sendActivationEmail = async (email) => {
     try {
       setLoading(true);
@@ -195,6 +170,57 @@ const AuthProvider = ({ config, children }) => {
       setLoading(false);
     }
   };
+  const activateUser = async (email, password, confirmPassword, userId) => {
+    var _a;
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      console.log("🎯 [AuthProvider.tsx] activateUser called");
+      console.log("📧 Email:", email);
+      console.log("🆔 User ID:", userId);
+      const { data, error: updateError } = await supabaseClient.functions.invoke("update-user-password", {
+        body: {
+          email,
+          password,
+          user_id: userId
+        }
+      });
+      if (updateError) {
+        console.error("Edge Function error:", updateError);
+        throw updateError;
+      }
+      if (data == null ? void 0 : data.error) {
+        console.error("Edge Function returned error:", data.error);
+        throw new Error(data.error);
+      }
+      console.log("✅ Edge Function response:", data);
+      const { data: signInData, error: signInError } = await supabaseClient.auth.signInWithPassword({
+        email,
+        password
+      });
+      if (signInError) {
+        throw signInError;
+      }
+      if (signInData.user) {
+        console.log("🔍 Checking if profile status needs to be updated...");
+        const { error: profileError } = await supabaseClient.from("profiles").update({ status: "Active" }).eq("id", signInData.user.id);
+        if (profileError) {
+          console.error("❌ Profile update error:", profileError);
+        } else {
+          console.log("✅ Profile status updated to Active for user:", signInData.user.email);
+        }
+      }
+      console.log("✅ User activated and signed in successfully:", (_a = signInData.user) == null ? void 0 : _a.email);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setLoading(false);
+    }
+  };
   const value = {
     user,
     loading,
@@ -203,8 +229,8 @@ const AuthProvider = ({ config, children }) => {
     signUp,
     signOut,
     resetPassword,
-    activateUser,
-    sendActivationEmail
+    sendActivationEmail,
+    activateUser
   };
   return /* @__PURE__ */ jsx(AuthContext.Provider, { value, children });
 };
@@ -316,6 +342,7 @@ const ActivateAccount = ({ supabaseClient }) => {
   }, [location.hash]);
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log("🚀 [ActivateAccount] Form submitted");
     setLoading(true);
     setError("");
     setSuccess("");
@@ -335,7 +362,9 @@ const ActivateAccount = ({ supabaseClient }) => {
     }
     try {
       const userIdParam = searchParams.get("user_id");
+      console.log("🔍 [ActivateAccount] User ID param:", userIdParam);
       if (userIdParam) {
+        console.log("📞 [ActivateAccount] Calling activateUser with userId");
         await activateUser(email, password, confirmPassword, userIdParam);
         setSuccess("Account activated successfully! Redirecting to login...");
         setTimeout(() => {
