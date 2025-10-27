@@ -1,6 +1,6 @@
 (function(global, factory) {
-  typeof exports === "object" && typeof module !== "undefined" ? factory(exports, require("react/jsx-runtime"), require("react"), require("react-router-dom"), require("@/components/ui/button"), require("@/components/ui/input"), require("@/components/ui/label"), require("@/components/ui/card"), require("@/components/ui/alert"), require("lucide-react"), require("@/assets/rayn-logo.png"), require("@/integrations/supabase/client")) : typeof define === "function" && define.amd ? define(["exports", "react/jsx-runtime", "react", "react-router-dom", "@/components/ui/button", "@/components/ui/input", "@/components/ui/label", "@/components/ui/card", "@/components/ui/alert", "lucide-react", "@/assets/rayn-logo.png", "@/integrations/supabase/client"], factory) : (global = typeof globalThis !== "undefined" ? globalThis : global || self, factory(global.StaySecureAuth = {}, global["react/jsx-runtime"], global.React, global.reactRouterDom, global.button, global.input, global.label, global.card, global.alert, global.lucideReact, global.raynLogo, global.client));
-})(this, function(exports2, jsxRuntime, react, reactRouterDom, button, input, label, card, alert, lucideReact, raynLogo, client) {
+  typeof exports === "object" && typeof module !== "undefined" ? factory(exports, require("react/jsx-runtime"), require("react"), require("react-router-dom"), require("@supabase/supabase-js"), require("@/components/ui/button"), require("@/components/ui/input"), require("@/components/ui/label"), require("@/components/ui/card"), require("@/components/ui/alert"), require("lucide-react"), require("@/assets/rayn-logo.png"), require("@/integrations/supabase/client")) : typeof define === "function" && define.amd ? define(["exports", "react/jsx-runtime", "react", "react-router-dom", "@supabase/supabase-js", "@/components/ui/button", "@/components/ui/input", "@/components/ui/label", "@/components/ui/card", "@/components/ui/alert", "lucide-react", "@/assets/rayn-logo.png", "@/integrations/supabase/client"], factory) : (global = typeof globalThis !== "undefined" ? globalThis : global || self, factory(global.StaySecureAuth = {}, global["react/jsx-runtime"], global.React, global.reactRouterDom, global.Supabase, global.button, global.input, global.label, global.card, global.alert, global.lucideReact, global.raynLogo, global.client));
+})(this, function(exports2, jsxRuntime, react, reactRouterDom, supabaseJs, button, input, label, card, alert, lucideReact, raynLogo, client) {
   "use strict";
   const AuthContext = react.createContext(null);
   const defaultAuthContext = {
@@ -26,6 +26,10 @@
     const [user, setUser] = react.useState(null);
     const [loading, setLoading] = react.useState(true);
     const [error, setError] = react.useState(null);
+    const serviceRoleClient = supabaseJs.createClient(
+      supabaseClient.supabaseUrl,
+      supabaseClient.supabaseKey.replace("anon", "service_role")
+    );
     react.useEffect(() => {
       const getInitialSession = async () => {
         try {
@@ -114,8 +118,8 @@
         console.log("📧 Sending password reset to:", email);
         console.log("🔗 Redirect URL:", redirectUrl);
         console.log("🔍 Searching for username:", email);
-        console.log("🔍 About to query profiles table...");
-        const { data: profile, error: profileError } = await supabaseClient.from("profiles").select("id, username, full_name").eq("username", email).maybeSingle();
+        console.log("🔍 About to query profiles table with service role...");
+        const { data: profile, error: profileError } = await serviceRoleClient.from("profiles").select("id, username, full_name").eq("username", email).maybeSingle();
         console.log("🔍 Raw query result:", { profile, profileError });
         console.log("🔍 Profile error details:", profileError);
         console.log("Profile check:", { profile, profileError });
