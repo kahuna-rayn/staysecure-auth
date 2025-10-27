@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { createClient } from '@supabase/supabase-js';
 
 interface AuthConfig {
   supabaseClient: any;
@@ -42,6 +43,12 @@ export const AuthProvider: React.FC<{
   const [user, setUser] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Create service role client once for admin operations
+  const serviceRoleClient = createClient(
+    supabaseClient.supabaseUrl,
+    supabaseClient.supabaseKey.replace('anon', 'service_role')
+  );
 
   useEffect(() => {
     // Get initial session
@@ -152,9 +159,10 @@ export const AuthProvider: React.FC<{
       console.log('🔗 Redirect URL:', redirectUrl);
       console.log('🔍 Searching for username:', email);
       
-      // First, check if user exists in profiles table
-      console.log('🔍 About to query profiles table...');
-      const { data: profile, error: profileError } = await supabaseClient
+      // First, check if user exists in profiles table using service role
+      console.log('🔍 About to query profiles table with service role...');
+      
+      const { data: profile, error: profileError } = await serviceRoleClient
         .from('profiles')
         .select('id, username, full_name')
         .eq('username', email)
