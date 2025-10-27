@@ -152,11 +152,15 @@ export const AuthProvider: React.FC<{
       console.log('🔍 Searching for username:', email);
       
       // First, check if user exists in profiles table
+      console.log('🔍 About to query profiles table...');
       const { data: profile, error: profileError } = await supabaseClient
         .from('profiles')
         .select('id, username, full_name')
         .eq('username', email)
         .maybeSingle();
+      
+      console.log('🔍 Raw query result:', { profile, profileError });
+      console.log('🔍 Profile error details:', profileError);
 
       console.log('Profile check:', { profile, profileError });
 
