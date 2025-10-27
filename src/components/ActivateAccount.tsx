@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
+import raynLogo from '@/assets/rayn-logo.png';
 
 const ActivateAccount: React.FC = () => {
   const location = useLocation();
@@ -197,6 +198,15 @@ if (password.length < 12 || !hasLowercase || !hasUppercase || !hasDigit || !hasS
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
+        <div className="text-center mb-6">
+          <img 
+            src={raynLogo} 
+            alt="RAYN Secure Logo" 
+            className="mx-auto h-12 w-auto mb-2"
+          />
+          <h1 className="text-xl font-semibold text-gray-800">RAYN Secure</h1>
+          <p className="text-sm text-gray-600">Cybersecurity Training Platform</p>
+        </div>
         
         <Card className="shadow-lg">
           <CardHeader className="text-center">
