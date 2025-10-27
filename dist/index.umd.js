@@ -132,6 +132,15 @@
         if (error2) {
           throw error2;
         }
+        const { data: { user: user2 } } = await supabaseClient.auth.getUser();
+        if (user2) {
+          const { error: profileError } = await supabaseClient.from("profiles").update({ status: "Active" }).eq("id", user2.id);
+          if (profileError) {
+            console.error("Failed to update profile status:", profileError);
+          } else {
+            console.log("✅ Profile status updated to Active for user:", user2.email);
+          }
+        }
       } catch (error2) {
         setError(error2.message);
       } finally {

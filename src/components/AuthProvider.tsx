@@ -167,12 +167,30 @@ export const AuthProvider: React.FC<{
       setLoading(true);
       setError(null);
       
+      // Update password
       const { error } = await supabaseClient.auth.updateUser({
         password: password
       });
 
       if (error) {
         throw error;
+      }
+
+      // Get current user to update profile status
+      const { data: { user } } = await supabaseClient.auth.getUser();
+      if (user) {
+        // Update profile status to Active
+        const { error: profileError } = await supabaseClient
+          .from('profiles')
+          .update({ status: 'Active' })
+          .eq('id', user.id);
+
+        if (profileError) {
+          console.error('Failed to update profile status:', profileError);
+          // Don't throw error - password was updated successfully
+        } else {
+          console.log('✅ Profile status updated to Active for user:', user.email);
+        }
       }
     } catch (error: any) {
       setError(error.message);
