@@ -1,7 +1,6 @@
 import { jsx, jsxs } from "react/jsx-runtime";
 import { createContext, useState, useEffect, useContext, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { createClient } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,10 +33,6 @@ const AuthProvider = ({ config, children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const serviceRoleClient = createClient(
-    supabaseClient.supabaseUrl,
-    supabaseClient.supabaseKey.replace("anon", "service_role")
-  );
   useEffect(() => {
     const getInitialSession = async () => {
       try {
@@ -125,28 +120,13 @@ const AuthProvider = ({ config, children }) => {
       console.log("🔐 [AuthProvider.tsx] resetPassword called");
       console.log("📧 Sending password reset to:", email);
       console.log("🔗 Redirect URL:", redirectUrl);
-      console.log("🔍 Searching for username:", email);
-      console.log("🔍 About to query profiles table with service role...");
-      const { data: profile, error: profileError } = await serviceRoleClient.from("profiles").select("id, username, full_name").eq("username", email).maybeSingle();
-      console.log("🔍 Raw query result:", { profile, profileError });
-      console.log("🔍 Profile error details:", profileError);
-      console.log("Profile check:", { profile, profileError });
-      if (profileError && profileError.code !== "PGRST116") {
-        console.error("Profile query failed:", profileError);
-        throw profileError;
-      }
-      if (profile) {
-        console.log("User found in profiles table, proceeding with password reset");
-        const { error: resetError } = await supabaseClient.auth.resetPasswordForEmail(email, {
-          redirectTo: redirectUrl
-        });
-        if (resetError) throw resetError;
-        console.log("✅ [AuthProvider.tsx] Password reset email sent successfully via Supabase");
-      } else {
-        console.log("User not found in profiles table");
-        setError("This email address is not registered in our system. Please contact your administrator to request access.");
-        return;
-      }
+      console.log("🔗 About to call resetPasswordForEmail with redirectTo:", redirectUrl);
+      const { data, error: resetError } = await supabaseClient.auth.resetPasswordForEmail(email, {
+        redirectTo: redirectUrl
+      });
+      console.log("📧 Supabase response:", { data, error: resetError });
+      if (resetError) throw resetError;
+      console.log("✅ [AuthProvider.tsx] Password reset email sent successfully via Supabase");
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
