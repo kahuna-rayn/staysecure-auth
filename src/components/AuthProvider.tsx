@@ -146,6 +146,7 @@ export const AuthProvider: React.FC<{
       // Use Supabase's built-in password reset with proper tokens
       const redirectUrl = `${window.location.origin}/reset-password`;
       
+      console.log('🚨🚨🚨 NUCLEAR DEBUG - resetPassword called 🚨🚨🚨');
       console.log('🔐 [AuthProvider.tsx] resetPassword called');
       console.log('📧 Sending password reset to:', email);
       console.log('🔗 Redirect URL:', redirectUrl);
