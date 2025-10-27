@@ -1,19 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/AuthProvider';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
-import raynLogo from '@/assets/rayn-logo.png';
 
-interface ActivateAccountProps {
-  supabaseClient: any;
-}
-
-const ActivateAccount: React.FC<ActivateAccountProps> = ({ supabaseClient }) => {
+const ActivateAccount: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { activateUser, error: authError, loading: authLoading, signOut } = useAuth();
@@ -61,7 +57,7 @@ const ActivateAccount: React.FC<ActivateAccountProps> = ({ supabaseClient }) => 
       if (tokenHash && type === 'invite') {
         console.log('ActivateAccount: Processing invite token');
         try {
-          const { data, error } = await supabaseClient.auth.verifyOtp({
+          const { data, error } = await supabase.auth.verifyOtp({
             token_hash: tokenHash,
             type: 'invite',
           });
@@ -98,7 +94,7 @@ if (emailParam && userIdParam) {
         setAccessToken(access);
         setRefreshToken(refresh);
         try {
-          const { data, error } = await supabaseClient.auth.setSession({
+          const { data, error } = await supabase.auth.setSession({
             access_token: access,
             refresh_token: refresh,
           });
@@ -118,7 +114,7 @@ if (emailParam && userIdParam) {
 
       // Fallback: if a session already exists (Supabase may have handled invite), allow activation without tokens
       console.log('ActivateAccount: Checking for existing session');
-      const { data: { session } } = await supabaseClient.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         console.log('ActivateAccount: Found existing session for:', session.user?.email);
         // Set the email from the session user
@@ -139,6 +135,8 @@ if (emailParam && userIdParam) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log('🚀 [ActivateAccount] Form submitted');
+    console.log('📧 Email:', email);
+    console.log('🔑 Password length:', password.length);
     setLoading(true);
     setError('');
     setSuccess('');
@@ -198,21 +196,12 @@ if (password.length < 12 || !hasLowercase || !hasUppercase || !hasDigit || !hasS
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
-        <div className="text-center mb-8">
-          <img 
-            src={raynLogo} 
-            alt="RAYN Secure Logo" 
-            className="mx-auto h-20 w-auto mb-4"
-          />
-          <h1 className="text-3xl font-bold text-primary">RAYN Secure</h1>
-          <p className="text-muted-foreground mt-2">Cybersecurity Training Platform</p>
-        </div>
         
-        <Card className="border-primary/20 shadow-lg">
+        <Card className="shadow-lg">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold text-primary">
+            <CardTitle className="text-2xl font-bold">
               Activate Your Account
             </CardTitle>
             <CardDescription>
@@ -306,7 +295,7 @@ if (password.length < 12 || !hasLowercase || !hasUppercase || !hasDigit || !hasS
               
               <Button 
                 type="submit" 
-                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" 
+                className="w-full" 
                 disabled={loading || authLoading}
               >
                 {(loading || authLoading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -317,7 +306,7 @@ if (password.length < 12 || !hasLowercase || !hasUppercase || !hasDigit || !hasS
                 <Button 
                   variant="outline" 
                   onClick={() => navigate('/')}
-                  className="w-full border-primary/20 text-primary hover:bg-primary/10"
+                  className="w-full"
                 >
                   Back to Login
                 </Button>

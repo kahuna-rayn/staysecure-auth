@@ -1,6 +1,6 @@
 (function(global, factory) {
-  typeof exports === "object" && typeof module !== "undefined" ? factory(exports, require("react/jsx-runtime"), require("react"), require("react-router-dom"), require("@/components/ui/button"), require("@/components/ui/input"), require("@/components/ui/label"), require("@/components/ui/card"), require("@/components/ui/alert"), require("lucide-react"), require("@/assets/rayn-logo.png"), require("@/integrations/supabase/client")) : typeof define === "function" && define.amd ? define(["exports", "react/jsx-runtime", "react", "react-router-dom", "@/components/ui/button", "@/components/ui/input", "@/components/ui/label", "@/components/ui/card", "@/components/ui/alert", "lucide-react", "@/assets/rayn-logo.png", "@/integrations/supabase/client"], factory) : (global = typeof globalThis !== "undefined" ? globalThis : global || self, factory(global.StaySecureAuth = {}, global["react/jsx-runtime"], global.React, global.reactRouterDom, global.button, global.input, global.label, global.card, global.alert, global.lucideReact, global.raynLogo, global.client));
-})(this, function(exports2, jsxRuntime, react, reactRouterDom, button, input, label, card, alert, lucideReact, raynLogo, client) {
+  typeof exports === "object" && typeof module !== "undefined" ? factory(exports, require("react/jsx-runtime"), require("react"), require("react-router-dom"), require("@/integrations/supabase/client"), require("@/components/ui/button"), require("@/components/ui/input"), require("@/components/ui/label"), require("@/components/ui/card"), require("@/components/ui/alert"), require("lucide-react"), require("@/assets/rayn-logo.png")) : typeof define === "function" && define.amd ? define(["exports", "react/jsx-runtime", "react", "react-router-dom", "@/integrations/supabase/client", "@/components/ui/button", "@/components/ui/input", "@/components/ui/label", "@/components/ui/card", "@/components/ui/alert", "lucide-react", "@/assets/rayn-logo.png"], factory) : (global = typeof globalThis !== "undefined" ? globalThis : global || self, factory(global.StaySecureAuth = {}, global["react/jsx-runtime"], global.React, global.reactRouterDom, global.client, global.button, global.input, global.label, global.card, global.alert, global.lucideReact, global.raynLogo));
+})(this, function(exports2, jsxRuntime, react, reactRouterDom, client, button, input, label, card, alert, lucideReact, raynLogo) {
   "use strict";
   const AuthContext = react.createContext(null);
   const defaultAuthContext = {
@@ -235,7 +235,7 @@
     }
     return context;
   };
-  const ActivateAccount = ({ supabaseClient }) => {
+  const ActivateAccount = () => {
     const location = reactRouterDom.useLocation();
     const navigate = reactRouterDom.useNavigate();
     const { activateUser, error: authError, loading: authLoading, signOut } = useAuth();
@@ -274,7 +274,7 @@
         if (tokenHash && type === "invite") {
           console.log("ActivateAccount: Processing invite token");
           try {
-            const { data, error: error2 } = await supabaseClient.auth.verifyOtp({
+            const { data, error: error2 } = await client.supabase.auth.verifyOtp({
               token_hash: tokenHash,
               type: "invite"
             });
@@ -303,7 +303,7 @@
           setAccessToken(access);
           setRefreshToken(refresh);
           try {
-            const { data, error: error2 } = await supabaseClient.auth.setSession({
+            const { data, error: error2 } = await client.supabase.auth.setSession({
               access_token: access,
               refresh_token: refresh
             });
@@ -321,7 +321,7 @@
           return;
         }
         console.log("ActivateAccount: Checking for existing session");
-        const { data: { session } } = await supabaseClient.auth.getSession();
+        const { data: { session } } = await client.supabase.auth.getSession();
         if (session) {
           console.log("ActivateAccount: Found existing session for:", (_a = session.user) == null ? void 0 : _a.email);
           setEmail(((_b = session.user) == null ? void 0 : _b.email) || "");
@@ -336,6 +336,8 @@
     const handleSubmit = async (e) => {
       e.preventDefault();
       console.log("🚀 [ActivateAccount] Form submitted");
+      console.log("📧 Email:", email);
+      console.log("🔑 Password length:", password.length);
       setLoading(true);
       setError("");
       setSuccess("");
@@ -377,124 +379,110 @@
         setLoading(false);
       }
     };
-    return /* @__PURE__ */ jsxRuntime.jsx("div", { className: "min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 py-12 px-4 sm:px-6 lg:px-8", children: /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "max-w-md w-full space-y-8", children: [
-      /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "text-center mb-8", children: [
-        /* @__PURE__ */ jsxRuntime.jsx(
-          "img",
-          {
-            src: raynLogo,
-            alt: "RAYN Secure Logo",
-            className: "mx-auto h-20 w-auto mb-4"
-          }
-        ),
-        /* @__PURE__ */ jsxRuntime.jsx("h1", { className: "text-3xl font-bold text-primary", children: "RAYN Secure" }),
-        /* @__PURE__ */ jsxRuntime.jsx("p", { className: "text-muted-foreground mt-2", children: "Cybersecurity Training Platform" })
+    return /* @__PURE__ */ jsxRuntime.jsx("div", { className: "min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8", children: /* @__PURE__ */ jsxRuntime.jsx("div", { className: "max-w-md w-full space-y-8", children: /* @__PURE__ */ jsxRuntime.jsxs(card.Card, { className: "shadow-lg", children: [
+      /* @__PURE__ */ jsxRuntime.jsxs(card.CardHeader, { className: "text-center", children: [
+        /* @__PURE__ */ jsxRuntime.jsx(card.CardTitle, { className: "text-2xl font-bold", children: "Activate Your Account" }),
+        /* @__PURE__ */ jsxRuntime.jsx(card.CardDescription, { children: "Set your password to complete account activation" })
       ] }),
-      /* @__PURE__ */ jsxRuntime.jsxs(card.Card, { className: "border-primary/20 shadow-lg", children: [
-        /* @__PURE__ */ jsxRuntime.jsxs(card.CardHeader, { className: "text-center", children: [
-          /* @__PURE__ */ jsxRuntime.jsx(card.CardTitle, { className: "text-2xl font-bold text-primary", children: "Activate Your Account" }),
-          /* @__PURE__ */ jsxRuntime.jsx(card.CardDescription, { children: "Set your password to complete account activation" })
+      /* @__PURE__ */ jsxRuntime.jsx(card.CardContent, { children: /* @__PURE__ */ jsxRuntime.jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
+        (error || authError) && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { variant: "destructive", children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: error || authError }) }),
+        success && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: success }) }),
+        /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
+          /* @__PURE__ */ jsxRuntime.jsx(label.Label, { htmlFor: "email", children: "Email" }),
+          /* @__PURE__ */ jsxRuntime.jsx(
+            input.Input,
+            {
+              id: "email",
+              type: "email",
+              value: email,
+              onChange: (e) => setEmail(e.target.value),
+              required: true,
+              disabled: true,
+              className: "bg-gray-50"
+            }
+          )
         ] }),
-        /* @__PURE__ */ jsxRuntime.jsx(card.CardContent, { children: /* @__PURE__ */ jsxRuntime.jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
-          (error || authError) && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { variant: "destructive", children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: error || authError }) }),
-          success && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: success }) }),
-          /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
-            /* @__PURE__ */ jsxRuntime.jsx(label.Label, { htmlFor: "email", children: "Email" }),
+        /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
+          /* @__PURE__ */ jsxRuntime.jsx(label.Label, { htmlFor: "password", children: "Password" }),
+          /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "relative", children: [
             /* @__PURE__ */ jsxRuntime.jsx(
               input.Input,
               {
-                id: "email",
-                type: "email",
-                value: email,
-                onChange: (e) => setEmail(e.target.value),
+                id: "password",
+                type: showPassword ? "text" : "password",
+                value: password,
+                onChange: (e) => setPassword(e.target.value),
                 required: true,
-                disabled: true,
-                className: "bg-gray-50"
+                minLength: 6,
+                className: "pr-10",
+                placeholder: "Enter your password"
+              }
+            ),
+            /* @__PURE__ */ jsxRuntime.jsx(
+              button.Button,
+              {
+                type: "button",
+                variant: "ghost",
+                size: "sm",
+                className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
+                onClick: () => setShowPassword(!showPassword),
+                children: showPassword ? /* @__PURE__ */ jsxRuntime.jsx(lucideReact.EyeOff, { className: "h-4 w-4 text-muted-foreground" }) : /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Eye, { className: "h-4 w-4 text-muted-foreground" })
               }
             )
-          ] }),
-          /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
-            /* @__PURE__ */ jsxRuntime.jsx(label.Label, { htmlFor: "password", children: "Password" }),
-            /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "relative", children: [
-              /* @__PURE__ */ jsxRuntime.jsx(
-                input.Input,
-                {
-                  id: "password",
-                  type: showPassword ? "text" : "password",
-                  value: password,
-                  onChange: (e) => setPassword(e.target.value),
-                  required: true,
-                  minLength: 6,
-                  className: "pr-10",
-                  placeholder: "Enter your password"
-                }
-              ),
-              /* @__PURE__ */ jsxRuntime.jsx(
-                button.Button,
-                {
-                  type: "button",
-                  variant: "ghost",
-                  size: "sm",
-                  className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
-                  onClick: () => setShowPassword(!showPassword),
-                  children: showPassword ? /* @__PURE__ */ jsxRuntime.jsx(lucideReact.EyeOff, { className: "h-4 w-4 text-muted-foreground" }) : /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Eye, { className: "h-4 w-4 text-muted-foreground" })
-                }
-              )
-            ] })
-          ] }),
-          /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
-            /* @__PURE__ */ jsxRuntime.jsx(label.Label, { htmlFor: "confirmPassword", children: "Confirm Password" }),
-            /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "relative", children: [
-              /* @__PURE__ */ jsxRuntime.jsx(
-                input.Input,
-                {
-                  id: "confirmPassword",
-                  type: showConfirmPassword ? "text" : "password",
-                  value: confirmPassword,
-                  onChange: (e) => setConfirmPassword(e.target.value),
-                  required: true,
-                  minLength: 6,
-                  className: "pr-10",
-                  placeholder: "Confirm your password"
-                }
-              ),
-              /* @__PURE__ */ jsxRuntime.jsx(
-                button.Button,
-                {
-                  type: "button",
-                  variant: "ghost",
-                  size: "sm",
-                  className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
-                  onClick: () => setShowConfirmPassword(!showConfirmPassword),
-                  children: showConfirmPassword ? /* @__PURE__ */ jsxRuntime.jsx(lucideReact.EyeOff, { className: "h-4 w-4 text-muted-foreground" }) : /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Eye, { className: "h-4 w-4 text-muted-foreground" })
-                }
-              )
-            ] })
-          ] }),
-          /* @__PURE__ */ jsxRuntime.jsxs(
-            button.Button,
-            {
-              type: "submit",
-              className: "w-full bg-primary hover:bg-primary/90 text-primary-foreground",
-              disabled: loading || authLoading,
-              children: [
-                (loading || authLoading) && /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
-                "Activate Account"
-              ]
-            }
-          ),
-          /* @__PURE__ */ jsxRuntime.jsx("div", { className: "text-center", children: /* @__PURE__ */ jsxRuntime.jsx(
-            button.Button,
-            {
-              variant: "outline",
-              onClick: () => navigate("/"),
-              className: "w-full border-primary/20 text-primary hover:bg-primary/10",
-              children: "Back to Login"
-            }
-          ) })
-        ] }) })
-      ] })
-    ] }) });
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
+          /* @__PURE__ */ jsxRuntime.jsx(label.Label, { htmlFor: "confirmPassword", children: "Confirm Password" }),
+          /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "relative", children: [
+            /* @__PURE__ */ jsxRuntime.jsx(
+              input.Input,
+              {
+                id: "confirmPassword",
+                type: showConfirmPassword ? "text" : "password",
+                value: confirmPassword,
+                onChange: (e) => setConfirmPassword(e.target.value),
+                required: true,
+                minLength: 6,
+                className: "pr-10",
+                placeholder: "Confirm your password"
+              }
+            ),
+            /* @__PURE__ */ jsxRuntime.jsx(
+              button.Button,
+              {
+                type: "button",
+                variant: "ghost",
+                size: "sm",
+                className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
+                onClick: () => setShowConfirmPassword(!showConfirmPassword),
+                children: showConfirmPassword ? /* @__PURE__ */ jsxRuntime.jsx(lucideReact.EyeOff, { className: "h-4 w-4 text-muted-foreground" }) : /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Eye, { className: "h-4 w-4 text-muted-foreground" })
+              }
+            )
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxRuntime.jsxs(
+          button.Button,
+          {
+            type: "submit",
+            className: "w-full",
+            disabled: loading || authLoading,
+            children: [
+              (loading || authLoading) && /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
+              "Activate Account"
+            ]
+          }
+        ),
+        /* @__PURE__ */ jsxRuntime.jsx("div", { className: "text-center", children: /* @__PURE__ */ jsxRuntime.jsx(
+          button.Button,
+          {
+            variant: "outline",
+            onClick: () => navigate("/"),
+            className: "w-full",
+            children: "Back to Login"
+          }
+        ) })
+      ] }) })
+    ] }) }) });
   };
   const AuthEventRedirect = () => {
     const navigate = reactRouterDom.useNavigate();

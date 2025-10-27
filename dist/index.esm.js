@@ -1,6 +1,7 @@
 import { jsx, jsxs } from "react/jsx-runtime";
 import { createContext, useState, useEffect, useContext, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,7 +9,6 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { EyeOff, Eye, Loader2 } from "lucide-react";
 import raynLogo from "@/assets/rayn-logo.png";
-import { supabase } from "@/integrations/supabase/client";
 const AuthContext = createContext(null);
 const defaultAuthContext = {
   user: null,
@@ -242,7 +242,7 @@ const useAuth = () => {
   }
   return context;
 };
-const ActivateAccount = ({ supabaseClient }) => {
+const ActivateAccount = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { activateUser, error: authError, loading: authLoading, signOut } = useAuth();
@@ -281,7 +281,7 @@ const ActivateAccount = ({ supabaseClient }) => {
       if (tokenHash && type === "invite") {
         console.log("ActivateAccount: Processing invite token");
         try {
-          const { data, error: error2 } = await supabaseClient.auth.verifyOtp({
+          const { data, error: error2 } = await supabase.auth.verifyOtp({
             token_hash: tokenHash,
             type: "invite"
           });
@@ -310,7 +310,7 @@ const ActivateAccount = ({ supabaseClient }) => {
         setAccessToken(access);
         setRefreshToken(refresh);
         try {
-          const { data, error: error2 } = await supabaseClient.auth.setSession({
+          const { data, error: error2 } = await supabase.auth.setSession({
             access_token: access,
             refresh_token: refresh
           });
@@ -328,7 +328,7 @@ const ActivateAccount = ({ supabaseClient }) => {
         return;
       }
       console.log("ActivateAccount: Checking for existing session");
-      const { data: { session } } = await supabaseClient.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         console.log("ActivateAccount: Found existing session for:", (_a = session.user) == null ? void 0 : _a.email);
         setEmail(((_b = session.user) == null ? void 0 : _b.email) || "");
@@ -343,6 +343,8 @@ const ActivateAccount = ({ supabaseClient }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     console.log("🚀 [ActivateAccount] Form submitted");
+    console.log("📧 Email:", email);
+    console.log("🔑 Password length:", password.length);
     setLoading(true);
     setError("");
     setSuccess("");
@@ -384,124 +386,110 @@ const ActivateAccount = ({ supabaseClient }) => {
       setLoading(false);
     }
   };
-  return /* @__PURE__ */ jsx("div", { className: "min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 py-12 px-4 sm:px-6 lg:px-8", children: /* @__PURE__ */ jsxs("div", { className: "max-w-md w-full space-y-8", children: [
-    /* @__PURE__ */ jsxs("div", { className: "text-center mb-8", children: [
-      /* @__PURE__ */ jsx(
-        "img",
-        {
-          src: raynLogo,
-          alt: "RAYN Secure Logo",
-          className: "mx-auto h-20 w-auto mb-4"
-        }
-      ),
-      /* @__PURE__ */ jsx("h1", { className: "text-3xl font-bold text-primary", children: "RAYN Secure" }),
-      /* @__PURE__ */ jsx("p", { className: "text-muted-foreground mt-2", children: "Cybersecurity Training Platform" })
+  return /* @__PURE__ */ jsx("div", { className: "min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8", children: /* @__PURE__ */ jsx("div", { className: "max-w-md w-full space-y-8", children: /* @__PURE__ */ jsxs(Card, { className: "shadow-lg", children: [
+    /* @__PURE__ */ jsxs(CardHeader, { className: "text-center", children: [
+      /* @__PURE__ */ jsx(CardTitle, { className: "text-2xl font-bold", children: "Activate Your Account" }),
+      /* @__PURE__ */ jsx(CardDescription, { children: "Set your password to complete account activation" })
     ] }),
-    /* @__PURE__ */ jsxs(Card, { className: "border-primary/20 shadow-lg", children: [
-      /* @__PURE__ */ jsxs(CardHeader, { className: "text-center", children: [
-        /* @__PURE__ */ jsx(CardTitle, { className: "text-2xl font-bold text-primary", children: "Activate Your Account" }),
-        /* @__PURE__ */ jsx(CardDescription, { children: "Set your password to complete account activation" })
+    /* @__PURE__ */ jsx(CardContent, { children: /* @__PURE__ */ jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
+      (error || authError) && /* @__PURE__ */ jsx(Alert, { variant: "destructive", children: /* @__PURE__ */ jsx(AlertDescription, { children: error || authError }) }),
+      success && /* @__PURE__ */ jsx(Alert, { children: /* @__PURE__ */ jsx(AlertDescription, { children: success }) }),
+      /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
+        /* @__PURE__ */ jsx(Label, { htmlFor: "email", children: "Email" }),
+        /* @__PURE__ */ jsx(
+          Input,
+          {
+            id: "email",
+            type: "email",
+            value: email,
+            onChange: (e) => setEmail(e.target.value),
+            required: true,
+            disabled: true,
+            className: "bg-gray-50"
+          }
+        )
       ] }),
-      /* @__PURE__ */ jsx(CardContent, { children: /* @__PURE__ */ jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
-        (error || authError) && /* @__PURE__ */ jsx(Alert, { variant: "destructive", children: /* @__PURE__ */ jsx(AlertDescription, { children: error || authError }) }),
-        success && /* @__PURE__ */ jsx(Alert, { children: /* @__PURE__ */ jsx(AlertDescription, { children: success }) }),
-        /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
-          /* @__PURE__ */ jsx(Label, { htmlFor: "email", children: "Email" }),
+      /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
+        /* @__PURE__ */ jsx(Label, { htmlFor: "password", children: "Password" }),
+        /* @__PURE__ */ jsxs("div", { className: "relative", children: [
           /* @__PURE__ */ jsx(
             Input,
             {
-              id: "email",
-              type: "email",
-              value: email,
-              onChange: (e) => setEmail(e.target.value),
+              id: "password",
+              type: showPassword ? "text" : "password",
+              value: password,
+              onChange: (e) => setPassword(e.target.value),
               required: true,
-              disabled: true,
-              className: "bg-gray-50"
+              minLength: 6,
+              className: "pr-10",
+              placeholder: "Enter your password"
+            }
+          ),
+          /* @__PURE__ */ jsx(
+            Button,
+            {
+              type: "button",
+              variant: "ghost",
+              size: "sm",
+              className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
+              onClick: () => setShowPassword(!showPassword),
+              children: showPassword ? /* @__PURE__ */ jsx(EyeOff, { className: "h-4 w-4 text-muted-foreground" }) : /* @__PURE__ */ jsx(Eye, { className: "h-4 w-4 text-muted-foreground" })
             }
           )
-        ] }),
-        /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
-          /* @__PURE__ */ jsx(Label, { htmlFor: "password", children: "Password" }),
-          /* @__PURE__ */ jsxs("div", { className: "relative", children: [
-            /* @__PURE__ */ jsx(
-              Input,
-              {
-                id: "password",
-                type: showPassword ? "text" : "password",
-                value: password,
-                onChange: (e) => setPassword(e.target.value),
-                required: true,
-                minLength: 6,
-                className: "pr-10",
-                placeholder: "Enter your password"
-              }
-            ),
-            /* @__PURE__ */ jsx(
-              Button,
-              {
-                type: "button",
-                variant: "ghost",
-                size: "sm",
-                className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
-                onClick: () => setShowPassword(!showPassword),
-                children: showPassword ? /* @__PURE__ */ jsx(EyeOff, { className: "h-4 w-4 text-muted-foreground" }) : /* @__PURE__ */ jsx(Eye, { className: "h-4 w-4 text-muted-foreground" })
-              }
-            )
-          ] })
-        ] }),
-        /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
-          /* @__PURE__ */ jsx(Label, { htmlFor: "confirmPassword", children: "Confirm Password" }),
-          /* @__PURE__ */ jsxs("div", { className: "relative", children: [
-            /* @__PURE__ */ jsx(
-              Input,
-              {
-                id: "confirmPassword",
-                type: showConfirmPassword ? "text" : "password",
-                value: confirmPassword,
-                onChange: (e) => setConfirmPassword(e.target.value),
-                required: true,
-                minLength: 6,
-                className: "pr-10",
-                placeholder: "Confirm your password"
-              }
-            ),
-            /* @__PURE__ */ jsx(
-              Button,
-              {
-                type: "button",
-                variant: "ghost",
-                size: "sm",
-                className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
-                onClick: () => setShowConfirmPassword(!showConfirmPassword),
-                children: showConfirmPassword ? /* @__PURE__ */ jsx(EyeOff, { className: "h-4 w-4 text-muted-foreground" }) : /* @__PURE__ */ jsx(Eye, { className: "h-4 w-4 text-muted-foreground" })
-              }
-            )
-          ] })
-        ] }),
-        /* @__PURE__ */ jsxs(
-          Button,
-          {
-            type: "submit",
-            className: "w-full bg-primary hover:bg-primary/90 text-primary-foreground",
-            disabled: loading || authLoading,
-            children: [
-              (loading || authLoading) && /* @__PURE__ */ jsx(Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
-              "Activate Account"
-            ]
-          }
-        ),
-        /* @__PURE__ */ jsx("div", { className: "text-center", children: /* @__PURE__ */ jsx(
-          Button,
-          {
-            variant: "outline",
-            onClick: () => navigate("/"),
-            className: "w-full border-primary/20 text-primary hover:bg-primary/10",
-            children: "Back to Login"
-          }
-        ) })
-      ] }) })
-    ] })
-  ] }) });
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
+        /* @__PURE__ */ jsx(Label, { htmlFor: "confirmPassword", children: "Confirm Password" }),
+        /* @__PURE__ */ jsxs("div", { className: "relative", children: [
+          /* @__PURE__ */ jsx(
+            Input,
+            {
+              id: "confirmPassword",
+              type: showConfirmPassword ? "text" : "password",
+              value: confirmPassword,
+              onChange: (e) => setConfirmPassword(e.target.value),
+              required: true,
+              minLength: 6,
+              className: "pr-10",
+              placeholder: "Confirm your password"
+            }
+          ),
+          /* @__PURE__ */ jsx(
+            Button,
+            {
+              type: "button",
+              variant: "ghost",
+              size: "sm",
+              className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
+              onClick: () => setShowConfirmPassword(!showConfirmPassword),
+              children: showConfirmPassword ? /* @__PURE__ */ jsx(EyeOff, { className: "h-4 w-4 text-muted-foreground" }) : /* @__PURE__ */ jsx(Eye, { className: "h-4 w-4 text-muted-foreground" })
+            }
+          )
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxs(
+        Button,
+        {
+          type: "submit",
+          className: "w-full",
+          disabled: loading || authLoading,
+          children: [
+            (loading || authLoading) && /* @__PURE__ */ jsx(Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
+            "Activate Account"
+          ]
+        }
+      ),
+      /* @__PURE__ */ jsx("div", { className: "text-center", children: /* @__PURE__ */ jsx(
+        Button,
+        {
+          variant: "outline",
+          onClick: () => navigate("/"),
+          className: "w-full",
+          children: "Back to Login"
+        }
+      ) })
+    ] }) })
+  ] }) }) });
 };
 const AuthEventRedirect = () => {
   const navigate = useNavigate();
