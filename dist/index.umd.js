@@ -113,13 +113,20 @@
         console.log("🔐 [AuthProvider.tsx] resetPassword called");
         console.log("📧 Sending password reset to:", email);
         console.log("🔗 Redirect URL:", redirectUrl);
-        console.log("🔗 About to call resetPasswordForEmail with redirectTo:", redirectUrl);
-        const { data, error: resetError } = await supabaseClient.auth.resetPasswordForEmail(email, {
-          redirectTo: redirectUrl
+        console.log("🔗 About to call send-password-reset Edge Function");
+        const { data, error: resetError } = await supabaseClient.functions.invoke("send-password-reset", {
+          body: {
+            email,
+            redirectTo: redirectUrl
+          }
         });
-        console.log("📧 Supabase response:", { data, error: resetError });
+        console.log("📧 Edge Function response:", { data, error: resetError });
         if (resetError) throw resetError;
-        console.log("✅ [AuthProvider.tsx] Password reset email sent successfully via Supabase");
+        if (data == null ? void 0 : data.error) {
+          console.error("Edge Function returned error:", data.error);
+          throw new Error(data.error);
+        }
+        console.log("✅ [AuthProvider.tsx] Password reset email sent successfully via Edge Function");
       } catch (err) {
         setError(err instanceof Error ? err.message : "An error occurred");
       } finally {
