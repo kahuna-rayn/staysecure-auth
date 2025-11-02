@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/AuthProvider';
 import { Button } from '@/components/ui/button';
@@ -23,9 +23,25 @@ const ActivateAccount: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
+  const clientPathRef = useRef<string>('');
   
   // Parse URL parameters at component level
   const searchParams = new URLSearchParams(location.search);
+
+  // Extract client path from URL on mount (preserve for redirects)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const pathParts = window.location.pathname.split('/').filter(Boolean);
+      const clientId = pathParts[0];
+      // Exclude common routes that aren't client IDs
+      const validClientId = clientId && 
+        !['admin', 'activate-account', 'reset-password', 'forgot-password', 'email-notifications'].includes(clientId);
+      
+      if (validClientId) {
+        clientPathRef.current = `/${clientId}`;
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const run = async () => {
@@ -164,6 +180,10 @@ if (password.length < 12 || !hasLowercase || !hasUppercase || !hasDigit || !hasS
       const userIdParam = searchParams.get('user_id');
       console.log('🔍 [ActivateAccount] User ID param:', userIdParam);
       
+      // Get client path for redirect (preserve from URL)
+      const clientPath = clientPathRef.current || '';
+      const loginPath = clientPath || '/';
+      
       if (userIdParam) {
         // Simple activation flow - use activateUser with userId
         console.log('📞 [ActivateAccount] Calling activateUser with userId');
@@ -172,7 +192,7 @@ if (password.length < 12 || !hasLowercase || !hasUppercase || !hasDigit || !hasS
         
         // Redirect to login after 2 seconds
         setTimeout(() => {
-          navigate('/');
+          navigate(loginPath);
         }, 2000);
       } else {
         // Legacy flow - use activateUser function
@@ -184,7 +204,7 @@ if (password.length < 12 || !hasLowercase || !hasUppercase || !hasDigit || !hasS
         
         // Redirect to login after 2 seconds
         setTimeout(() => {
-          navigate('/');
+          navigate(loginPath);
         }, 2000);
       }
 
@@ -314,7 +334,10 @@ if (password.length < 12 || !hasLowercase || !hasUppercase || !hasDigit || !hasS
               <div className="text-center">
                 <Button 
                   variant="outline" 
-                  onClick={() => navigate('/')}
+                  onClick={() => {
+                    const clientPath = clientPathRef.current || '';
+                    navigate(clientPath || '/');
+                  }}
                   className="w-full"
                 >
                   Back to Login
