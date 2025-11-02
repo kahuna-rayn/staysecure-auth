@@ -1,5 +1,5 @@
 import { jsx, jsxs } from "react/jsx-runtime";
-import { createContext, useState, useEffect, useContext, useCallback } from "react";
+import { createContext, useState, useEffect, useContext, useRef, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -268,10 +268,34 @@ const ActivateAccount = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [accessToken, setAccessToken] = useState(null);
   const [refreshToken, setRefreshToken] = useState(null);
+  const clientPathRef = useRef("");
   const searchParams = new URLSearchParams(location.search);
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const pathParts = window.location.pathname.split("/").filter(Boolean);
+      const clientId = pathParts[0];
+      console.log("[ActivateAccount] Extracting client path:", {
+        pathname: window.location.pathname,
+        pathParts,
+        clientId,
+        validClientId: clientId && !["admin", "activate-account", "reset-password", "forgot-password", "email-notifications"].includes(clientId)
+      });
+      const validClientId = clientId && !["admin", "activate-account", "reset-password", "forgot-password", "email-notifications"].includes(clientId);
+      if (validClientId) {
+        clientPathRef.current = `/${clientId}`;
+        console.log("[ActivateAccount] Set clientPathRef to:", clientPathRef.current);
+      } else {
+        const storedClientId = sessionStorage.getItem("currentClientId");
+        if (storedClientId) {
+          clientPathRef.current = `/${storedClientId}`;
+          console.log("[ActivateAccount] Using stored client ID from sessionStorage:", clientPathRef.current);
+        }
+      }
+    }
+  }, []);
+  useEffect(() => {
     const run = async () => {
-      var _a, _b;
+      var _a, _b, _c;
       console.log("ActivateAccount: URL hash:", window.location.hash);
       console.log("ActivateAccount: URL search:", window.location.search);
       console.log("ActivateAccount: Full URL:", window.location.href);
@@ -318,32 +342,24 @@ const ActivateAccount = () => {
         return;
       }
       if ((type === "signup" || type === "invite") && access && refresh) {
-        console.log("ActivateAccount: Setting session for", type, "flow");
+        console.log("ActivateAccount: Found tokens for", type, "flow - will NOT auto-login");
         setAccessToken(access);
         setRefreshToken(refresh);
-        try {
-          const { data, error: error2 } = await supabaseClient.auth.setSession({
-            access_token: access,
-            refresh_token: refresh
-          });
-          if (error2) {
-            console.error("ActivateAccount: setSession error:", error2);
-            setError("Invalid activation link. Please try again.");
-          } else if (data.user) {
-            console.log("ActivateAccount: Session set successfully for:", data.user.email);
-            setEmail(data.user.email || "");
-          }
-        } catch (e) {
-          console.error("ActivateAccount: setSession exception:", e);
-          setError("Failed to activate session. Please try again.");
+        const { data: { session: session2 } } = await supabaseClient.auth.getSession();
+        if ((_a = session2 == null ? void 0 : session2.user) == null ? void 0 : _a.email) {
+          console.log("ActivateAccount: Found email from existing session:", session2.user.email);
+          setEmail(session2.user.email);
+          await signOut();
         }
         return;
       }
       console.log("ActivateAccount: Checking for existing session");
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (session) {
-        console.log("ActivateAccount: Found existing session for:", (_a = session.user) == null ? void 0 : _a.email);
-        setEmail(((_b = session.user) == null ? void 0 : _b.email) || "");
+        console.log("ActivateAccount: Found existing session for:", (_b = session.user) == null ? void 0 : _b.email);
+        setEmail(((_c = session.user) == null ? void 0 : _c.email) || "");
+        await signOut();
+        console.log("ActivateAccount: Signed out to allow password setup");
         return;
       }
       console.log("ActivateAccount: No session or tokens found");
@@ -377,19 +393,30 @@ const ActivateAccount = () => {
     try {
       const userIdParam = searchParams.get("user_id");
       console.log("🔍 [ActivateAccount] User ID param:", userIdParam);
+      const clientPath = clientPathRef.current || "";
+      const loginPath = clientPath || "/";
+      console.log("[ActivateAccount] Preparing redirect:", {
+        clientPathRef: clientPathRef.current,
+        clientPath,
+        loginPath,
+        currentPathname: window.location.pathname
+      });
       if (userIdParam) {
         console.log("📞 [ActivateAccount] Calling activateUser with userId");
         await activateUser(email, password, confirmPassword, userIdParam);
         setSuccess("Account activated successfully! Redirecting to login...");
+        await signOut();
         setTimeout(() => {
-          navigate("/");
+          console.log("[ActivateAccount] Redirecting to:", loginPath);
+          navigate(loginPath, { replace: true });
         }, 2e3);
       } else {
         await activateUser(email, password, confirmPassword);
         setSuccess("Account activated successfully! Redirecting to login...");
         await signOut();
         setTimeout(() => {
-          navigate("/");
+          console.log("[ActivateAccount] Redirecting to (legacy flow):", loginPath);
+          navigate(loginPath, { replace: true });
         }, 2e3);
       }
     } catch (error2) {
@@ -508,7 +535,10 @@ const ActivateAccount = () => {
           Button,
           {
             variant: "outline",
-            onClick: () => navigate("/"),
+            onClick: () => {
+              const clientPath = clientPathRef.current || "";
+              navigate(clientPath || "/");
+            },
             className: "w-full",
             children: "Back to Login"
           }

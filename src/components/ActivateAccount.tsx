@@ -33,12 +33,26 @@ const ActivateAccount: React.FC = () => {
     if (typeof window !== 'undefined') {
       const pathParts = window.location.pathname.split('/').filter(Boolean);
       const clientId = pathParts[0];
+      console.log('[ActivateAccount] Extracting client path:', {
+        pathname: window.location.pathname,
+        pathParts,
+        clientId,
+        validClientId: clientId && !['admin', 'activate-account', 'reset-password', 'forgot-password', 'email-notifications'].includes(clientId)
+      });
       // Exclude common routes that aren't client IDs
       const validClientId = clientId && 
         !['admin', 'activate-account', 'reset-password', 'forgot-password', 'email-notifications'].includes(clientId);
       
       if (validClientId) {
         clientPathRef.current = `/${clientId}`;
+        console.log('[ActivateAccount] Set clientPathRef to:', clientPathRef.current);
+      } else {
+        // Fallback: try sessionStorage
+        const storedClientId = sessionStorage.getItem('currentClientId');
+        if (storedClientId) {
+          clientPathRef.current = `/${storedClientId}`;
+          console.log('[ActivateAccount] Using stored client ID from sessionStorage:', clientPathRef.current);
+        }
       }
     }
   }, []);
@@ -105,37 +119,35 @@ if (emailParam && userIdParam) {
 }
 
       // Handle signup/invite flows with hash tokens (legacy)
+      // Don't auto-login - just extract email if possible
       if ((type === 'signup' || type === 'invite') && access && refresh) {
-        console.log('ActivateAccount: Setting session for', type, 'flow');
+        console.log('ActivateAccount: Found tokens for', type, 'flow - will NOT auto-login');
+        // Don't set session - user must set password first
+        // Just store tokens for later use if needed
         setAccessToken(access);
         setRefreshToken(refresh);
-        try {
-          const { data, error } = await supabaseClient.auth.setSession({
-            access_token: access,
-            refresh_token: refresh,
-          });
-          if (error) {
-            console.error('ActivateAccount: setSession error:', error);
-            setError('Invalid activation link. Please try again.');
-          } else if (data.user) {
-            console.log('ActivateAccount: Session set successfully for:', data.user.email);
-            setEmail(data.user.email || '');
-          }
-        } catch (e) {
-          console.error('ActivateAccount: setSession exception:', e);
-          setError('Failed to activate session. Please try again.');
+        // Try to get email from existing session if available, otherwise user will enter it
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (session?.user?.email) {
+          console.log('ActivateAccount: Found email from existing session:', session.user.email);
+          setEmail(session.user.email);
+          // Sign out - user needs to set password first
+          await signOut();
         }
         return;
       }
 
-      // Fallback: if a session already exists (Supabase may have handled invite), allow activation without tokens
+      // Check for existing session - if found, sign out so user can set password
       console.log('ActivateAccount: Checking for existing session');
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (session) {
         console.log('ActivateAccount: Found existing session for:', session.user?.email);
         // Set the email from the session user
         setEmail(session.user?.email || '');
-        return; // authenticated; proceed to allow password setup
+        // Sign out - user needs to set password first
+        await signOut();
+        console.log('ActivateAccount: Signed out to allow password setup');
+        return;
       }
 
       console.log('ActivateAccount: No session or tokens found');
@@ -184,15 +196,26 @@ if (password.length < 12 || !hasLowercase || !hasUppercase || !hasDigit || !hasS
       const clientPath = clientPathRef.current || '';
       const loginPath = clientPath || '/';
       
+      console.log('[ActivateAccount] Preparing redirect:', {
+        clientPathRef: clientPathRef.current,
+        clientPath,
+        loginPath,
+        currentPathname: window.location.pathname
+      });
+      
       if (userIdParam) {
         // Simple activation flow - use activateUser with userId
         console.log('📞 [ActivateAccount] Calling activateUser with userId');
         await activateUser(email, password, confirmPassword, userIdParam);
         setSuccess('Account activated successfully! Redirecting to login...');
         
+        // Sign out the user after activation (don't auto-login)
+        await signOut();
+        
         // Redirect to login after 2 seconds
         setTimeout(() => {
-          navigate(loginPath);
+          console.log('[ActivateAccount] Redirecting to:', loginPath);
+          navigate(loginPath, { replace: true });
         }, 2000);
       } else {
         // Legacy flow - use activateUser function
@@ -204,7 +227,8 @@ if (password.length < 12 || !hasLowercase || !hasUppercase || !hasDigit || !hasS
         
         // Redirect to login after 2 seconds
         setTimeout(() => {
-          navigate(loginPath);
+          console.log('[ActivateAccount] Redirecting to (legacy flow):', loginPath);
+          navigate(loginPath, { replace: true });
         }, 2000);
       }
 
