@@ -259,8 +259,6 @@
     const [success, setSuccess] = react.useState("");
     const [showPassword, setShowPassword] = react.useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = react.useState(false);
-    const [accessToken, setAccessToken] = react.useState(null);
-    const [refreshToken, setRefreshToken] = react.useState(null);
     const clientPathRef = react.useRef("");
     const searchParams = new URLSearchParams(location.search);
     react.useEffect(() => {
@@ -288,79 +286,80 @@
     }, []);
     react.useEffect(() => {
       const run = async () => {
-        var _a, _b, _c;
+        var _a, _b;
         console.log("ActivateAccount: URL hash:", window.location.hash);
         console.log("ActivateAccount: URL search:", window.location.search);
         console.log("ActivateAccount: Full URL:", window.location.href);
         console.log("ActivateAccount: Location hash:", location.hash);
-        const hash = location.hash || window.location.hash;
+        const backupHash = typeof window !== "undefined" ? sessionStorage.getItem("activation_hash_backup") : null;
+        if (backupHash && !location.hash && !window.location.hash) {
+          console.log("ActivateAccount: Hash was cleared, restoring from sessionStorage backup");
+          window.location.hash = backupHash;
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+        const hash = location.hash || window.location.hash || backupHash;
         const hashParams = new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash);
         const type = hashParams.get("type") || searchParams.get("type");
         const access = hashParams.get("access_token");
         const refresh = hashParams.get("refresh_token");
-        const token = searchParams.get("token");
-        const tokenHash = searchParams.get("token_hash");
         console.log("ActivateAccount: Parsed URL params:", {
           type,
           hasAccessToken: !!access,
-          hasRefreshToken: !!refresh,
-          hasToken: !!token,
-          hasTokenHash: !!tokenHash
+          hasRefreshToken: !!refresh
         });
-        if (tokenHash && type === "invite") {
-          console.log("ActivateAccount: Processing invite token");
-          try {
-            const { data, error: error2 } = await supabaseClient.auth.verifyOtp({
-              token_hash: tokenHash,
-              type: "invite"
-            });
-            if (error2) {
-              console.error("ActivateAccount: verifyOtp error:", error2);
-              setError("Invalid or expired activation link. Please contact your administrator.");
-            } else if (data.user) {
-              console.log("ActivateAccount: Invite verified successfully for:", data.user.email);
-              setEmail(data.user.email || "");
+        const hasAccessToken = !!access || hash.includes("access_token");
+        const isRecoveryType = type === "recovery" || hash.includes("type=recovery");
+        if (hasAccessToken && isRecoveryType) {
+          console.log("ActivateAccount: Found recovery activation tokens in hash - this is an activation flow");
+          console.log("ActivateAccount: Type:", type, "Has access_token:", !!access);
+          if (hash && typeof window !== "undefined") {
+            sessionStorage.setItem("activation_hash_backup", hash);
+            console.log("ActivateAccount: Stored hash in sessionStorage as backup");
+          }
+          console.log("ActivateAccount: Waiting for Supabase to process hash and create session...");
+          let session = null;
+          const maxRetries = 10;
+          const retryDelay = 500;
+          for (let attempt = 0; attempt < maxRetries; attempt++) {
+            const { data: { session: currentSession } } = await supabaseClient.auth.getSession();
+            if ((_a = currentSession == null ? void 0 : currentSession.user) == null ? void 0 : _a.email) {
+              session = currentSession;
+              console.log(`ActivateAccount: Session found on attempt ${attempt + 1}`);
+              break;
             }
-          } catch (e) {
-            console.error("ActivateAccount: verifyOtp exception:", e);
-            setError("Failed to verify activation link. Please try again.");
+            if (attempt < maxRetries - 1) {
+              console.log(`ActivateAccount: No session yet (attempt ${attempt + 1}/${maxRetries}), waiting ${retryDelay}ms...`);
+              await new Promise((resolve) => setTimeout(resolve, retryDelay));
+            }
+          }
+          if ((_b = session == null ? void 0 : session.user) == null ? void 0 : _b.email) {
+            console.log("ActivateAccount: Found email from session (created from activation token):", session.user.email);
+            setEmail(session.user.email);
+            console.log("ActivateAccount: Keeping session for activation flow");
+            if (typeof window !== "undefined") {
+              sessionStorage.removeItem("activation_hash_backup");
+            }
+          } else {
+            console.log("ActivateAccount: No session found after waiting - Supabase may not have processed the hash yet");
+            console.log("ActivateAccount: This could be a race condition - hash may have been cleared too early");
+            const backupHash2 = typeof window !== "undefined" ? sessionStorage.getItem("activation_hash_backup") : null;
+            if (backupHash2 && !hash) {
+              console.log("ActivateAccount: Hash was cleared, restoring from backup...");
+              window.location.hash = backupHash2;
+              setTimeout(() => {
+                window.location.reload();
+              }, 1e3);
+              return;
+            }
+            setError("Unable to retrieve user information. Please wait a moment and try again, or contact your administrator.");
           }
           return;
         }
-        const emailParam = searchParams.get("email");
-        const userIdParam = searchParams.get("user_id");
-        if (emailParam && userIdParam) {
-          console.log("ActivateAccount: Processing simple activation for:", emailParam);
-          setEmail(emailParam);
-          return;
-        }
-        if ((type === "signup" || type === "invite") && access && refresh) {
-          console.log("ActivateAccount: Found tokens for", type, "flow - will NOT auto-login");
-          setAccessToken(access);
-          setRefreshToken(refresh);
-          const { data: { session: session2 } } = await supabaseClient.auth.getSession();
-          if ((_a = session2 == null ? void 0 : session2.user) == null ? void 0 : _a.email) {
-            console.log("ActivateAccount: Found email from existing session:", session2.user.email);
-            setEmail(session2.user.email);
-            await signOut();
-          }
-          return;
-        }
-        console.log("ActivateAccount: Checking for existing session");
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        if (session) {
-          console.log("ActivateAccount: Found existing session for:", (_b = session.user) == null ? void 0 : _b.email);
-          setEmail(((_c = session.user) == null ? void 0 : _c.email) || "");
-          await signOut();
-          console.log("ActivateAccount: Signed out to allow password setup");
-          return;
-        }
-        console.log("ActivateAccount: No session or tokens found");
+        console.log("ActivateAccount: No activation tokens found in hash");
         setError("Invalid or expired activation link. Please contact your administrator.");
-        console.log("ActivateAccount: No valid session found - this is expected when testing directly");
       };
       void run();
-    }, [location.hash]);
+    }, [location.hash, supabaseClient]);
     const handleSubmit = async (e) => {
       e.preventDefault();
       console.log("🚀 [ActivateAccount] Form submitted");
@@ -384,8 +383,6 @@
         return;
       }
       try {
-        const userIdParam = searchParams.get("user_id");
-        console.log("🔍 [ActivateAccount] User ID param:", userIdParam);
         const clientPath = clientPathRef.current || "";
         const loginPath = clientPath || "/";
         console.log("[ActivateAccount] Preparing redirect:", {
@@ -394,24 +391,14 @@
           loginPath,
           currentPathname: window.location.pathname
         });
-        if (userIdParam) {
-          console.log("📞 [ActivateAccount] Calling activateUser with userId");
-          await activateUser(email, password, confirmPassword, userIdParam);
-          setSuccess("Account activated successfully! Redirecting to login...");
-          await signOut();
-          setTimeout(() => {
-            console.log("[ActivateAccount] Redirecting to:", loginPath);
-            navigate(loginPath, { replace: true });
-          }, 2e3);
-        } else {
-          await activateUser(email, password, confirmPassword);
-          setSuccess("Account activated successfully! Redirecting to login...");
-          await signOut();
-          setTimeout(() => {
-            console.log("[ActivateAccount] Redirecting to (legacy flow):", loginPath);
-            navigate(loginPath, { replace: true });
-          }, 2e3);
-        }
+        console.log("📞 [ActivateAccount] Calling activateUser");
+        await activateUser(email, password, confirmPassword);
+        setSuccess("Account activated successfully! Redirecting to login...");
+        await signOut();
+        setTimeout(() => {
+          console.log("[ActivateAccount] Redirecting to:", loginPath);
+          navigate(loginPath, { replace: true });
+        }, 2e3);
       } catch (error2) {
         setError(error2.message);
       } finally {
