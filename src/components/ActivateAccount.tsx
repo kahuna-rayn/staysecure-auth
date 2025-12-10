@@ -107,6 +107,51 @@ const ActivateAccount: React.FC = () => {
         // This fixes the race condition where components check before Supabase finishes
         console.log('ActivateAccount: Waiting for Supabase to process hash and create session...');
         
+        // Simulate slow connection in dev/staging environments for testing
+        // Detect dev/staging from URL parsing (hostname or path-based clientId)
+        let isDevOrStaging = false;
+        if (typeof window !== 'undefined') {
+          const hostname = window.location.hostname;
+          const pathParts = window.location.pathname.split('/').filter(Boolean);
+          const clientId = pathParts[0];
+          
+          // Check VITE_CLIENT_CONFIGS displayName first (most reliable - Vercel env var)
+          try {
+            const clientConfigs = import.meta.env.VITE_CLIENT_CONFIGS;
+            if (clientConfigs) {
+              const parsed = JSON.parse(clientConfigs);
+              const currentClientConfig = parsed[clientId] || parsed['default'];
+              if (currentClientConfig?.displayName) {
+                const displayName = currentClientConfig.displayName.toLowerCase();
+                if (displayName.includes('dev') || displayName.includes('staging')) {
+                  isDevOrStaging = true;
+                }
+              }
+            }
+          } catch (e) {
+            // Ignore parsing errors
+          }
+
+          // Fallback: Check path-based clientId
+          if (!isDevOrStaging && (clientId === 'dev' || clientId === 'staging')) {
+            isDevOrStaging = true;
+          }
+
+          // Fallback: Check hostname for dev/staging subdomains
+          if (!isDevOrStaging && (hostname.includes('dev.staysecure-learn') || 
+              hostname.includes('staging.staysecure-learn') ||
+              hostname.includes('localhost') ||
+              hostname.includes('127.0.0.1'))) {
+            isDevOrStaging = true;
+          }
+        }
+        
+        if (isDevOrStaging) {
+          const testDelay = 2000; // 2 second delay to simulate slow connection
+          console.log(`ActivateAccount: [TEST MODE] Simulating slow connection with ${testDelay}ms delay...`);
+          await new Promise(resolve => setTimeout(resolve, testDelay));
+        }
+        
         let session = null;
         const maxRetries = 10; // Try for up to 5 seconds (10 * 500ms)
         const retryDelay = 500; // 500ms between retries
