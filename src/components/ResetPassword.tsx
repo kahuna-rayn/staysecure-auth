@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/AuthProvider';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ const ResetPassword: React.FC = () => {
   const [success, setSuccess] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const hashBackupRef = useRef<string>('');
 
   useEffect(() => {
     const run = async () => {
@@ -73,6 +74,13 @@ const ResetPassword: React.FC = () => {
       // When Supabase processes the recovery link, it auto-creates a session from the access_token
       if (hasAccessToken && type === 'recovery') {
         console.log('ResetPassword: Processing recovery token (access_token) - waiting for session');
+        
+        // Store hash as backup in case session gets cleared after failed password update
+        if (hash && typeof window !== 'undefined') {
+          hashBackupRef.current = hash;
+          sessionStorage.setItem('reset_password_hash_backup', hash);
+          console.log('ResetPassword: Stored hash backup for session restoration');
+        }
         
         // Wait for Supabase to process the hash and create the session
         let session = null;
@@ -145,16 +153,48 @@ const ResetPassword: React.FC = () => {
 
     try {
       // Verify we still have a valid recovery session before attempting to update
-      const { data: { session: currentSession }, error: sessionError } = await supabaseClient.auth.getSession();
+      let { data: { session: currentSession }, error: sessionError } = await supabaseClient.auth.getSession();
+      
+      // If session is missing but we have a hash backup, try to restore it
+      if ((sessionError || !currentSession) && hashBackupRef.current) {
+        console.log('ResetPassword: Session missing, attempting to restore from hash backup');
+        // Restore hash to trigger Supabase to recreate session
+        window.location.hash = hashBackupRef.current;
+        // Wait a moment for Supabase to process
+        await new Promise(resolve => setTimeout(resolve, 500));
+        // Try getting session again
+        const sessionResult = await supabaseClient.auth.getSession();
+        currentSession = sessionResult.data.session;
+        sessionError = sessionResult.error;
+      }
+      
+      // Also check sessionStorage backup
+      if ((sessionError || !currentSession) && typeof window !== 'undefined') {
+        const storedHash = sessionStorage.getItem('reset_password_hash_backup');
+        if (storedHash && storedHash !== hashBackupRef.current) {
+          hashBackupRef.current = storedHash;
+          console.log('ResetPassword: Found hash backup in sessionStorage, attempting restore');
+          window.location.hash = storedHash;
+          await new Promise(resolve => setTimeout(resolve, 500));
+          const sessionResult = await supabaseClient.auth.getSession();
+          currentSession = sessionResult.data.session;
+          sessionError = sessionResult.error;
+        }
+      }
       
       if (sessionError || !currentSession) {
-        console.error('ResetPassword: No valid session found:', sessionError);
+        console.error('ResetPassword: No valid session found after restore attempts:', sessionError);
         throw new Error('Your password reset session has expired. Please request a new reset link.');
       }
       
       if (!currentSession.user?.email) {
         console.error('ResetPassword: Session exists but no user email found');
         throw new Error('Unable to verify your identity. Please request a new password reset link.');
+      }
+      
+      // Update email state if it changed
+      if (currentSession.user.email !== email) {
+        setEmail(currentSession.user.email);
       }
       
       // Use Supabase client's updateUser method with the recovery session
@@ -170,10 +210,40 @@ const ResetPassword: React.FC = () => {
         if (errorMsg.toLowerCase().includes('weak') || (errorMsg.toLowerCase().includes('password') && errorMsg.toLowerCase().includes('strong'))) {
           throw new Error('Password is too weak. Please use a stronger password with at least 12 characters, including uppercase, lowercase, numbers, and special characters.');
         } else if (errorMsg.toLowerCase().includes('same')) {
+          // Same password error - session should still be valid, but check anyway
+          // Try to restore session if it was cleared
+          let sessionAfterError;
+          if (!currentSession && hashBackupRef.current) {
+            console.log('ResetPassword: Same password error - attempting session restore');
+            window.location.hash = hashBackupRef.current;
+            await new Promise(resolve => setTimeout(resolve, 500));
+            const sessionResult = await supabaseClient.auth.getSession();
+            sessionAfterError = sessionResult.data.session;
+          } else {
+            const sessionResult = await supabaseClient.auth.getSession();
+            sessionAfterError = sessionResult.data.session;
+          }
+          
+          if (!sessionAfterError) {
+            console.error('ResetPassword: Session lost after same password error');
+            throw new Error('Your password reset session has expired. Please request a new reset link.');
+          }
+          
           throw new Error('New password cannot be the same as your current password. Please choose a different password.');
         } else if (errorMsg.toLowerCase().includes('session') || errorMsg.toLowerCase().includes('expired') || errorMsg.toLowerCase().includes('invalid')) {
           // Check if session is still valid after error
-          const { data: { session: sessionAfterError } } = await supabaseClient.auth.getSession();
+          let sessionAfterError;
+          if (hashBackupRef.current) {
+            console.log('ResetPassword: Session error detected - attempting restore from backup');
+            window.location.hash = hashBackupRef.current;
+            await new Promise(resolve => setTimeout(resolve, 500));
+            const sessionResult = await supabaseClient.auth.getSession();
+            sessionAfterError = sessionResult.data.session;
+          } else {
+            const sessionResult = await supabaseClient.auth.getSession();
+            sessionAfterError = sessionResult.data.session;
+          }
+          
           if (!sessionAfterError) {
             throw new Error('Your password reset link has expired. Please request a new one.');
           }
@@ -218,9 +288,6 @@ const ResetPassword: React.FC = () => {
             <CardTitle className="text-2xl font-bold">
               Reset Your Password
             </CardTitle>
-            <CardDescription>
-              {email ? `Reset password for ${email}` : 'Enter your new password below'}
-            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">

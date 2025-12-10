@@ -777,6 +777,7 @@
     const [success, setSuccess] = react.useState("");
     const [showPassword, setShowPassword] = react.useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = react.useState(false);
+    const hashBackupRef = react.useRef("");
     react.useEffect(() => {
       const run = async () => {
         var _a, _b, _c;
@@ -818,6 +819,11 @@
         }
         if (hasAccessToken && type === "recovery") {
           console.log("ResetPassword: Processing recovery token (access_token) - waiting for session");
+          if (hash && typeof window !== "undefined") {
+            hashBackupRef.current = hash;
+            sessionStorage.setItem("reset_password_hash_backup", hash);
+            console.log("ResetPassword: Stored hash backup for session restoration");
+          }
           let session = null;
           const maxRetries = 10;
           const retryDelay = 500;
@@ -873,14 +879,37 @@
         return;
       }
       try {
-        const { data: { session: currentSession }, error: sessionError } = await supabaseClient.auth.getSession();
+        let { data: { session: currentSession }, error: sessionError } = await supabaseClient.auth.getSession();
+        if ((sessionError || !currentSession) && hashBackupRef.current) {
+          console.log("ResetPassword: Session missing, attempting to restore from hash backup");
+          window.location.hash = hashBackupRef.current;
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          const sessionResult = await supabaseClient.auth.getSession();
+          currentSession = sessionResult.data.session;
+          sessionError = sessionResult.error;
+        }
+        if ((sessionError || !currentSession) && typeof window !== "undefined") {
+          const storedHash = sessionStorage.getItem("reset_password_hash_backup");
+          if (storedHash && storedHash !== hashBackupRef.current) {
+            hashBackupRef.current = storedHash;
+            console.log("ResetPassword: Found hash backup in sessionStorage, attempting restore");
+            window.location.hash = storedHash;
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            const sessionResult = await supabaseClient.auth.getSession();
+            currentSession = sessionResult.data.session;
+            sessionError = sessionResult.error;
+          }
+        }
         if (sessionError || !currentSession) {
-          console.error("ResetPassword: No valid session found:", sessionError);
+          console.error("ResetPassword: No valid session found after restore attempts:", sessionError);
           throw new Error("Your password reset session has expired. Please request a new reset link.");
         }
         if (!((_a = currentSession.user) == null ? void 0 : _a.email)) {
           console.error("ResetPassword: Session exists but no user email found");
           throw new Error("Unable to verify your identity. Please request a new password reset link.");
+        }
+        if (currentSession.user.email !== email) {
+          setEmail(currentSession.user.email);
         }
         const { error: updateError } = await supabaseClient.auth.updateUser({
           password
@@ -891,9 +920,34 @@
           if (errorMsg.toLowerCase().includes("weak") || errorMsg.toLowerCase().includes("password") && errorMsg.toLowerCase().includes("strong")) {
             throw new Error("Password is too weak. Please use a stronger password with at least 12 characters, including uppercase, lowercase, numbers, and special characters.");
           } else if (errorMsg.toLowerCase().includes("same")) {
+            let sessionAfterError;
+            if (!currentSession && hashBackupRef.current) {
+              console.log("ResetPassword: Same password error - attempting session restore");
+              window.location.hash = hashBackupRef.current;
+              await new Promise((resolve) => setTimeout(resolve, 500));
+              const sessionResult = await supabaseClient.auth.getSession();
+              sessionAfterError = sessionResult.data.session;
+            } else {
+              const sessionResult = await supabaseClient.auth.getSession();
+              sessionAfterError = sessionResult.data.session;
+            }
+            if (!sessionAfterError) {
+              console.error("ResetPassword: Session lost after same password error");
+              throw new Error("Your password reset session has expired. Please request a new reset link.");
+            }
             throw new Error("New password cannot be the same as your current password. Please choose a different password.");
           } else if (errorMsg.toLowerCase().includes("session") || errorMsg.toLowerCase().includes("expired") || errorMsg.toLowerCase().includes("invalid")) {
-            const { data: { session: sessionAfterError } } = await supabaseClient.auth.getSession();
+            let sessionAfterError;
+            if (hashBackupRef.current) {
+              console.log("ResetPassword: Session error detected - attempting restore from backup");
+              window.location.hash = hashBackupRef.current;
+              await new Promise((resolve) => setTimeout(resolve, 500));
+              const sessionResult = await supabaseClient.auth.getSession();
+              sessionAfterError = sessionResult.data.session;
+            } else {
+              const sessionResult = await supabaseClient.auth.getSession();
+              sessionAfterError = sessionResult.data.session;
+            }
             if (!sessionAfterError) {
               throw new Error("Your password reset link has expired. Please request a new one.");
             }
@@ -927,10 +981,7 @@
         /* @__PURE__ */ jsxRuntime.jsx("p", { className: "text-sm text-gray-600", children: "Get Secure, Stay Secure!" })
       ] }),
       /* @__PURE__ */ jsxRuntime.jsxs(card.Card, { className: "shadow-lg", children: [
-        /* @__PURE__ */ jsxRuntime.jsxs(card.CardHeader, { className: "text-center", children: [
-          /* @__PURE__ */ jsxRuntime.jsx(card.CardTitle, { className: "text-2xl font-bold", children: "Reset Your Password" }),
-          /* @__PURE__ */ jsxRuntime.jsx(card.CardDescription, { children: email ? `Reset password for ${email}` : "Enter your new password below" })
-        ] }),
+        /* @__PURE__ */ jsxRuntime.jsx(card.CardHeader, { className: "text-center", children: /* @__PURE__ */ jsxRuntime.jsx(card.CardTitle, { className: "text-2xl font-bold", children: "Reset Your Password" }) }),
         /* @__PURE__ */ jsxRuntime.jsx(card.CardContent, { children: /* @__PURE__ */ jsxRuntime.jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
           error && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { variant: "destructive", children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: error }) }),
           success && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: success }) }),
