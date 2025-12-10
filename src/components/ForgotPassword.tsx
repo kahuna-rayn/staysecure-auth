@@ -64,7 +64,7 @@ const ForgotPassword: React.FC = () => {
             className="mx-auto h-20 w-auto mb-4"
           />
           <h1 className="text-3xl font-bold text-learning-primary">RAYN Secure</h1>
-          <p className="text-muted-foreground mt-2">Behavioural Science Based Cybersecurity Learning</p>
+          <p className="text-muted-foreground mt-2">Get Secure, Stay Secure!</p>
         </div>
         
         <Card>

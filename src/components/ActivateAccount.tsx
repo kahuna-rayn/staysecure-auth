@@ -292,7 +292,7 @@ if (password.length < 12 || !hasLowercase || !hasUppercase || !hasDigit || !hasS
             className="mx-auto h-12 w-auto mb-2"
           />
           <h1 className="text-xl font-semibold text-gray-800">RAYN Secure</h1>
-          <p className="text-sm text-gray-600">Cybersecurity Training Platform</p>
+          <p className="text-sm text-gray-600">Get Secure, Stay Secure!</p>
         </div>
         
         <Card className="shadow-lg">

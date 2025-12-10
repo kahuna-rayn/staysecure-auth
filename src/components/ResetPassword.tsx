@@ -29,51 +29,91 @@ const ResetPassword: React.FC = () => {
       console.log('ResetPassword: URL search:', window.location.search);
       console.log('ResetPassword: Full URL:', window.location.href);
       
-    // Debug logging
-    console.log('ResetPassword: URL hash:', window.location.hash);
-    console.log('ResetPassword: URL search:', window.location.search);
-    console.log('ResetPassword: Full URL:', window.location.href);
-    
-    // Parse tokens from hash and search
-    const hash = location.hash || window.location.hash;
-    const hashParams = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
-    const searchParams = new URLSearchParams(location.search);
-    
-    const type = hashParams.get('type') || searchParams.get('type');
-    const tokenHash = searchParams.get('token_hash');
+      // Parse tokens from hash and search
+      const hash = location.hash || window.location.hash;
+      const hashParams = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
+      const searchParams = new URLSearchParams(location.search);
+      
+      const type = hashParams.get('type') || searchParams.get('type');
+      const tokenHash = searchParams.get('token_hash');
+      const hasAccessToken = hashParams.has('access_token') || hash.includes('access_token');
 
-    console.log('ResetPassword: Parsed params:', { 
-      type, 
-      hasTokenHash: !!tokenHash,
-      hashParams: Array.from(hashParams.entries()),
-      searchParams: Array.from(searchParams.entries())
-    });
+      console.log('ResetPassword: Parsed params:', { 
+        type, 
+        hasTokenHash: !!tokenHash,
+        hasAccessToken,
+        hashParams: Array.from(hashParams.entries()),
+        searchParams: Array.from(searchParams.entries())
+      });
 
-    // Only support token_hash recovery flow
-    if (tokenHash && type === 'recovery') {
-      console.log('ResetPassword: Processing recovery token');
-      try {
-        const { data, error: verifyError } = await supabaseClient.auth.verifyOtp({
-          token_hash: tokenHash,
-          type: 'recovery',
-        });
-        
-        if (verifyError) {
-          console.error('ResetPassword: verifyOtp error:', verifyError);
-          setError('Invalid or expired password reset link. Please request a new one.');
-        } else if (data.user) {
-          console.log('ResetPassword: Recovery verified successfully for:', data.user.email);
-          setEmail(data.user.email || '');
+      // Handle token_hash recovery flow (OTP-based)
+      if (tokenHash && type === 'recovery') {
+        console.log('ResetPassword: Processing recovery token (token_hash)');
+        try {
+          const { data, error: verifyError } = await supabaseClient.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: 'recovery',
+          });
+          
+          if (verifyError) {
+            console.error('ResetPassword: verifyOtp error:', verifyError);
+            setError('Invalid or expired password reset link. Please request a new one.');
+          } else if (data.user) {
+            console.log('ResetPassword: Recovery verified successfully for:', data.user.email);
+            setEmail(data.user.email || '');
+          }
+        } catch (e) {
+          console.error('ResetPassword: verifyOtp exception:', e);
+          setError('Failed to verify password reset link. Please try again.');
         }
-      } catch (e) {
-        console.error('ResetPassword: verifyOtp exception:', e);
-        setError('Failed to verify password reset link. Please try again.');
+        return;
       }
-      return;
-    }
 
-    console.log('ResetPassword: No valid recovery token found');
-    // Don't set error here - user might have clicked an old link but could still have a valid recovery session
+      // Handle access_token recovery flow (session-based)
+      // When Supabase processes the recovery link, it auto-creates a session from the access_token
+      if (hasAccessToken && type === 'recovery') {
+        console.log('ResetPassword: Processing recovery token (access_token) - waiting for session');
+        
+        // Wait for Supabase to process the hash and create the session
+        let session = null;
+        const maxRetries = 10;
+        const retryDelay = 500;
+        
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+          const { data: { session: currentSession } } = await supabaseClient.auth.getSession();
+          
+          if (currentSession?.user?.email) {
+            session = currentSession;
+            console.log(`ResetPassword: Session found on attempt ${attempt + 1}`);
+            break;
+          }
+          
+          if (attempt < maxRetries - 1) {
+            console.log(`ResetPassword: No session yet (attempt ${attempt + 1}/${maxRetries}), waiting ${retryDelay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+          }
+        }
+        
+        if (session?.user?.email) {
+          console.log('ResetPassword: Recovery session found for:', session.user.email);
+          setEmail(session.user.email);
+        } else {
+          console.error('ResetPassword: No session found after waiting');
+          setError('Unable to verify password reset link. Please request a new one.');
+        }
+        return;
+      }
+
+      // If we already have a session (user might have refreshed or come back), get email from it
+      const { data: { session: existingSession } } = await supabaseClient.auth.getSession();
+      if (existingSession?.user?.email) {
+        console.log('ResetPassword: Using existing session for:', existingSession.user.email);
+        setEmail(existingSession.user.email);
+        return;
+      }
+
+      console.log('ResetPassword: No valid recovery token or session found');
+      // Don't set error here - user might have clicked an old link but could still have a valid recovery session
     };
 
     void run();
@@ -104,6 +144,19 @@ const ResetPassword: React.FC = () => {
     }
 
     try {
+      // Verify we still have a valid recovery session before attempting to update
+      const { data: { session: currentSession }, error: sessionError } = await supabaseClient.auth.getSession();
+      
+      if (sessionError || !currentSession) {
+        console.error('ResetPassword: No valid session found:', sessionError);
+        throw new Error('Your password reset session has expired. Please request a new reset link.');
+      }
+      
+      if (!currentSession.user?.email) {
+        console.error('ResetPassword: Session exists but no user email found');
+        throw new Error('Unable to verify your identity. Please request a new password reset link.');
+      }
+      
       // Use Supabase client's updateUser method with the recovery session
       const { error: updateError } = await supabaseClient.auth.updateUser({
         password: password
@@ -111,14 +164,21 @@ const ResetPassword: React.FC = () => {
       
       if (updateError) {
         const errorMsg = updateError.message;
+        console.error('ResetPassword: updateUser error:', updateError);
         
         // Provide more specific error messages
         if (errorMsg.toLowerCase().includes('weak') || (errorMsg.toLowerCase().includes('password') && errorMsg.toLowerCase().includes('strong'))) {
           throw new Error('Password is too weak. Please use a stronger password with at least 12 characters, including uppercase, lowercase, numbers, and special characters.');
         } else if (errorMsg.toLowerCase().includes('same')) {
           throw new Error('New password cannot be the same as your current password. Please choose a different password.');
-        } else if (errorMsg.toLowerCase().includes('session') || errorMsg.toLowerCase().includes('expired')) {
-          throw new Error('Your password reset link has expired. Please request a new one.');
+        } else if (errorMsg.toLowerCase().includes('session') || errorMsg.toLowerCase().includes('expired') || errorMsg.toLowerCase().includes('invalid')) {
+          // Check if session is still valid after error
+          const { data: { session: sessionAfterError } } = await supabaseClient.auth.getSession();
+          if (!sessionAfterError) {
+            throw new Error('Your password reset link has expired. Please request a new one.');
+          }
+          // Session still exists, so the error is something else
+          throw new Error(errorMsg || 'Failed to update password. Please try again.');
         } else {
           throw new Error(errorMsg);
         }
@@ -150,7 +210,7 @@ const ResetPassword: React.FC = () => {
             className="mx-auto h-12 w-auto mb-2"
           />
           <h1 className="text-xl font-semibold text-gray-800">RAYN Secure</h1>
-          <p className="text-sm text-gray-600">Cybersecurity Training Platform</p>
+          <p className="text-sm text-gray-600">Get Secure, Stay Secure!</p>
         </div>
         
         <Card className="shadow-lg">
@@ -159,7 +219,7 @@ const ResetPassword: React.FC = () => {
               Reset Your Password
             </CardTitle>
             <CardDescription>
-              Enter your new password below
+              {email ? `Reset password for ${email}` : 'Enter your new password below'}
             </CardDescription>
           </CardHeader>
           <CardContent>
