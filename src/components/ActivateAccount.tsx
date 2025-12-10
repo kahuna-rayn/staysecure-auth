@@ -21,8 +21,6 @@ const ActivateAccount: React.FC = () => {
   const [success, setSuccess] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [refreshToken, setRefreshToken] = useState<string | null>(null);
   const clientPathRef = useRef<string>('');
   
   // Parse URL parameters at component level
@@ -65,100 +63,109 @@ const ActivateAccount: React.FC = () => {
       console.log('ActivateAccount: Full URL:', window.location.href);
       console.log('ActivateAccount: Location hash:', location.hash);
       
-      // Parse tokens from hash fragment if present: #access_token=...&refresh_token=...&type=signup
-      const hash = location.hash || window.location.hash;
+      // Check for backup hash in sessionStorage (in case hash was cleared before Supabase processed it)
+      const backupHash = typeof window !== 'undefined' ? sessionStorage.getItem('activation_hash_backup') : null;
+      if (backupHash && !location.hash && !window.location.hash) {
+        console.log('ActivateAccount: Hash was cleared, restoring from sessionStorage backup');
+        window.location.hash = backupHash;
+        // Wait a moment for hash to be restored, then continue
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
+      // Parse tokens from hash fragment: #access_token=...&refresh_token=...&type=recovery
+      // This is what Supabase generates when using generateLink with type='recovery'
+      const hash = location.hash || window.location.hash || backupHash;
       const hashParams = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
       
       const type = hashParams.get('type') || searchParams.get('type');
       const access = hashParams.get('access_token');
       const refresh = hashParams.get('refresh_token');
-      const token = searchParams.get('token');
-      const tokenHash = searchParams.get('token_hash');
 
       console.log('ActivateAccount: Parsed URL params:', { 
         type, 
         hasAccessToken: !!access, 
-        hasRefreshToken: !!refresh,
-        hasToken: !!token,
-        hasTokenHash: !!tokenHash
+        hasRefreshToken: !!refresh
       });
 
-      // Handle invite flow with token (Supabase inviteUserByEmail)
-      if (tokenHash && type === 'invite') {
-        console.log('ActivateAccount: Processing invite token');
-        try {
-          const { data, error } = await supabaseClient.auth.verifyOtp({
-            token_hash: tokenHash,
-            type: 'invite',
-          });
-          
-          if (error) {
-            console.error('ActivateAccount: verifyOtp error:', error);
-            setError('Invalid or expired activation link. Please contact your administrator.');
-          } else if (data.user) {
-            console.log('ActivateAccount: Invite verified successfully for:', data.user.email);
-            setEmail(data.user.email || '');
-            // User is now authenticated and can set password
-          }
-        } catch (e) {
-          console.error('ActivateAccount: verifyOtp exception:', e);
-          setError('Failed to verify activation link. Please try again.');
-        }
-        return;
-      }
-
-      // Handle simple activation flow with email and user_id
-const emailParam = searchParams.get('email');
-const userIdParam = searchParams.get('user_id');
-
-if (emailParam && userIdParam) {
-  console.log('ActivateAccount: Processing simple activation for:', emailParam);
-  setEmail(emailParam);
-  // User can now set their password without token verification
-  return;
-}
-
-      // Handle signup/invite flows with hash tokens (legacy)
-      // Don't auto-login - just extract email if possible
-      if ((type === 'signup' || type === 'invite') && access && refresh) {
-        console.log('ActivateAccount: Found tokens for', type, 'flow - will NOT auto-login');
-        // Don't set session - user must set password first
-        // Just store tokens for later use if needed
-        setAccessToken(access);
-        setRefreshToken(refresh);
-        // Try to get email from existing session if available, otherwise user will enter it
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        if (session?.user?.email) {
-          console.log('ActivateAccount: Found email from existing session:', session.user.email);
-          setEmail(session.user.email);
-          // Sign out - user needs to set password first
-          await signOut();
-        }
-        return;
-      }
-
-      // Check for existing session - if found, sign out so user can set password
-      console.log('ActivateAccount: Checking for existing session');
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      if (session) {
-        console.log('ActivateAccount: Found existing session for:', session.user?.email);
-        // Set the email from the session user
-        setEmail(session.user?.email || '');
-        // Sign out - user needs to set password first
-        await signOut();
-        console.log('ActivateAccount: Signed out to allow password setup');
-        return;
-      }
-
-      console.log('ActivateAccount: No session or tokens found');
-      setError('Invalid or expired activation link. Please contact your administrator.');
+      // Handle activation flow with recovery tokens (from Supabase generateLink)
+      // When Supabase processes the activation link, it auto-creates a session from the access_token
+      // We use that session to get the email - no need to sign out!
+      const hasAccessToken = !!access || hash.includes('access_token');
+      const isRecoveryType = type === 'recovery' || hash.includes('type=recovery');
       
-      // For testing purposes, allow proceeding without valid session
-      console.log('ActivateAccount: No valid session found - this is expected when testing directly');
+      if (hasAccessToken && isRecoveryType) {
+        console.log('ActivateAccount: Found recovery activation tokens in hash - this is an activation flow');
+        console.log('ActivateAccount: Type:', type, 'Has access_token:', !!access);
+        
+        // Store hash in sessionStorage as backup (in case hash gets cleared before Supabase processes it)
+        if (hash && typeof window !== 'undefined') {
+          sessionStorage.setItem('activation_hash_backup', hash);
+          console.log('ActivateAccount: Stored hash in sessionStorage as backup');
+        }
+        
+        // Wait for Supabase to finish processing the hash and creating the session
+        // This fixes the race condition where components check before Supabase finishes
+        console.log('ActivateAccount: Waiting for Supabase to process hash and create session...');
+        
+        let session = null;
+        const maxRetries = 10; // Try for up to 5 seconds (10 * 500ms)
+        const retryDelay = 500; // 500ms between retries
+        
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+          const { data: { session: currentSession } } = await supabaseClient.auth.getSession();
+          
+          if (currentSession?.user?.email) {
+            session = currentSession;
+            console.log(`ActivateAccount: Session found on attempt ${attempt + 1}`);
+            break;
+          }
+          
+          if (attempt < maxRetries - 1) {
+            console.log(`ActivateAccount: No session yet (attempt ${attempt + 1}/${maxRetries}), waiting ${retryDelay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+          }
+        }
+        
+        // Get email from session (Supabase auto-created this session from the activation token)
+        // DO NOT sign out - we need this session for activation!
+        if (session?.user?.email) {
+          console.log('ActivateAccount: Found email from session (created from activation token):', session.user.email);
+          setEmail(session.user.email);
+          console.log('ActivateAccount: Keeping session for activation flow');
+          
+          // Clear backup hash now that we've successfully processed it
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('activation_hash_backup');
+          }
+        } else {
+          console.log('ActivateAccount: No session found after waiting - Supabase may not have processed the hash yet');
+          console.log('ActivateAccount: This could be a race condition - hash may have been cleared too early');
+          
+          // Try to restore hash from backup if it was cleared
+          const backupHash = typeof window !== 'undefined' ? sessionStorage.getItem('activation_hash_backup') : null;
+          if (backupHash && !hash) {
+            console.log('ActivateAccount: Hash was cleared, restoring from backup...');
+            // Restore hash to URL (this will trigger Supabase to process it again)
+            window.location.hash = backupHash;
+            // Retry after a short delay
+            setTimeout(() => {
+              window.location.reload();
+            }, 1000);
+            return;
+          }
+          
+          setError('Unable to retrieve user information. Please wait a moment and try again, or contact your administrator.');
+        }
+        return;
+      }
+
+      // No activation tokens found - this shouldn't happen for new user activation
+      console.log('ActivateAccount: No activation tokens found in hash');
+      setError('Invalid or expired activation link. Please contact your administrator.');
     };
 
     void run();
-  }, [location.hash]);
+  }, [location.hash, supabaseClient]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,10 +195,6 @@ if (password.length < 12 || !hasLowercase || !hasUppercase || !hasDigit || !hasS
 }
 
     try {
-      // Check if this is a simple activation flow with user_id
-      const userIdParam = searchParams.get('user_id');
-      console.log('🔍 [ActivateAccount] User ID param:', userIdParam);
-      
       // Get client path for redirect (preserve from URL)
       const clientPath = clientPathRef.current || '';
       const loginPath = clientPath || '/';
@@ -203,34 +206,19 @@ if (password.length < 12 || !hasLowercase || !hasUppercase || !hasDigit || !hasS
         currentPathname: window.location.pathname
       });
       
-      if (userIdParam) {
-        // Simple activation flow - use activateUser with userId
-        console.log('📞 [ActivateAccount] Calling activateUser with userId');
-        await activateUser(email, password, confirmPassword, userIdParam);
-        setSuccess('Account activated successfully! Redirecting to login...');
-        
-        // Sign out the user after activation (don't auto-login)
-        await signOut();
-        
-        // Redirect to login after 2 seconds
-        setTimeout(() => {
-          console.log('[ActivateAccount] Redirecting to:', loginPath);
-          navigate(loginPath, { replace: true });
-        }, 2000);
-      } else {
-        // Legacy flow - use activateUser function
-        await activateUser(email, password, confirmPassword);
-        setSuccess('Account activated successfully! Redirecting to login...');
-        
-        // Sign out the user after activation
-        await signOut();
-        
-        // Redirect to login after 2 seconds
-        setTimeout(() => {
-          console.log('[ActivateAccount] Redirecting to (legacy flow):', loginPath);
-          navigate(loginPath, { replace: true });
-        }, 2000);
-      }
+      // Activate user account
+      console.log('📞 [ActivateAccount] Calling activateUser');
+      await activateUser(email, password, confirmPassword);
+      setSuccess('Account activated successfully! Redirecting to login...');
+      
+      // Sign out the user after activation (don't auto-login)
+      await signOut();
+      
+      // Redirect to login after 2 seconds
+      setTimeout(() => {
+        console.log('[ActivateAccount] Redirecting to:', loginPath);
+        navigate(loginPath, { replace: true });
+      }, 2000);
 
     } catch (error: any) {
       setError(error.message);

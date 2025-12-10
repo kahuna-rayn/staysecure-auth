@@ -1,11 +1,14 @@
 {
   "name": "staysecure-auth",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Authentication module for StaySecure platform",
   "main": "dist/index.umd.js",
   "module": "dist/index.esm.js",
   "types": "dist/index.d.ts",
-  "files": ["dist", "src"],
+  "files": [
+    "dist",
+    "src"
+  ],
   "scripts": {
     "build": "vite build",
     "dev": "vite build --watch",
@@ -13,7 +16,12 @@
     "lint": "eslint src --ext .ts,.tsx",
     "clean": "rm -rf dist"
   },
-  "keywords": ["react", "auth", "authentication", "supabase"],
+  "keywords": [
+    "react",
+    "auth",
+    "authentication",
+    "supabase"
+  ],
   "author": "StaySecure",
   "license": "MIT",
   "peerDependencies": {
