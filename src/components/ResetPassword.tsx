@@ -1,390 +1,305 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../components/AuthProvider';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Eye, EyeOff } from 'lucide-react';
-import raynLogo from '@/assets/rayn-logo.png';
+import React, { useState, useEffect, useRef } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../components/AuthProvider'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Loader2, Eye, EyeOff } from 'lucide-react'
+import raynLogo from '@/assets/rayn-logo.png'
+
+const isStrongPassword = (pwd: string) => {
+  const hasLowercase = /[a-z]/.test(pwd)
+  const hasUppercase = /[A-Z]/.test(pwd)
+  const hasDigit = /\d/.test(pwd)
+  const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"|,.<>?`~]/.test(pwd)
+  return pwd.length >= 12 && hasLowercase && hasUppercase && hasDigit && hasSpecial
+}
 
 const ResetPassword: React.FC = () => {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const { supabaseClient } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const hashBackupRef = useRef<string>('');
+  const location = useLocation()
+  const navigate = useNavigate()
+  const { supabaseClient } = useAuth()
+
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [verifying, setVerifying] = useState(true)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+
+  const initializedRef = useRef(false)
+
+  const clearRecoveryParams = () => {
+    const url = new URL(window.location.href)
+    url.hash = ''
+    url.searchParams.delete('type')
+    url.searchParams.delete('token_hash')
+    window.history.replaceState({}, document.title, url.toString())
+  }
 
   useEffect(() => {
-    const run = async () => {
-      // Debug logging
-      console.log('ResetPassword: URL hash:', window.location.hash);
-      console.log('ResetPassword: URL search:', window.location.search);
-      console.log('ResetPassword: Full URL:', window.location.href);
-      
-      // Check if we're restoring from a previous attempt
-      const isRestoring = typeof window !== 'undefined' && sessionStorage.getItem('reset_password_restore') === 'true';
-      if (isRestoring) {
-        console.log('ResetPassword: Detected restore flag, clearing it');
-        sessionStorage.removeItem('reset_password_restore');
+    if (initializedRef.current) return
+    initializedRef.current = true
+
+    // Session listener for access_token flow
+    const { data: sub } = supabaseClient.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session?.user?.email) {
+        setEmail(session.user.email)
+        clearRecoveryParams()
+        setVerifying(false)
       }
-      
-      // Parse tokens from hash and search
-      const hash = location.hash || window.location.hash;
-      const hashParams = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
-      const searchParams = new URLSearchParams(location.search);
-      
-      const type = hashParams.get('type') || searchParams.get('type');
-      const tokenHash = searchParams.get('token_hash');
-      const hasAccessToken = hashParams.has('access_token') || hash.includes('access_token');
+    })
 
-      console.log('ResetPassword: Parsed params:', { 
-        type, 
-        hasTokenHash: !!tokenHash,
-        hasAccessToken,
-        hashParams: Array.from(hashParams.entries()),
-        searchParams: Array.from(searchParams.entries())
-      });
+    const run = async () => {
+      try {
+        // Parse params
+        const hash = location.hash || window.location.hash || ''
+        const hashParams = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash)
+        const searchParams = new URLSearchParams(location.search || window.location.search || '')
+        const type = hashParams.get('type') || searchParams.get('type')
+        const tokenHash = searchParams.get('token_hash')
+        const hasAccessToken = hashParams.has('access_token') || hash.includes('access_token')
 
-      // Handle token_hash recovery flow (OTP-based)
-      if (tokenHash && type === 'recovery') {
-        console.log('ResetPassword: Processing recovery token (token_hash)');
-        try {
+        // Dev-only debug (avoid logging tokens in prod)
+        if (import.meta.env.MODE === 'development') {
+          // eslint-disable-next-line no-console
+          console.log('ResetPassword debug:', {
+            type,
+            token_hash: !!tokenHash,
+            access_token: hasAccessToken,
+          })
+        }
+
+        // If "recovery" but no token present, likely email scanner burned the link
+        if (type === 'recovery' && !tokenHash && !hasAccessToken) {
+          setError('This password reset link may have been opened already by an email scanner. Please request a new link and open it only once.')
+          setVerifying(false)
+          return
+        }
+
+        // token_hash flow
+        if (tokenHash && type === 'recovery') {
           const { data, error: verifyError } = await supabaseClient.auth.verifyOtp({
             token_hash: tokenHash,
             type: 'recovery',
-          });
-          
+          })
           if (verifyError) {
-            console.error('ResetPassword: verifyOtp error:', verifyError);
-            setError('Invalid or expired password reset link. Please request a new one.');
-          } else if (data.user) {
-            console.log('ResetPassword: Recovery verified successfully for:', data.user.email);
-            setEmail(data.user.email || '');
-            
-            // Clean URL to avoid reprocessing and keep session stable
-            const url = new URL(window.location.href);
-            url.searchParams.delete('token_hash');
-            url.searchParams.delete('type');
-            window.history.replaceState({}, document.title, url.toString());
+            setError('Invalid or expired password reset link. Please request a new one.')
+            setVerifying(false)
+            return
           }
-        } catch (e) {
-          console.error('ResetPassword: verifyOtp exception:', e);
-          setError('Failed to verify password reset link. Please try again.');
+          if (data.user?.email) {
+            setEmail(data.user.email)
+            clearRecoveryParams()
+            setVerifying(false)
+            return
+          }
         }
-        return;
-      }
 
-      // Handle access_token recovery flow (session-based)
-      // When Supabase processes the recovery link, it auto-creates a session from the access_token
-      if (hasAccessToken && type === 'recovery') {
-        console.log('ResetPassword: Processing recovery token (access_token) - waiting for session');
-        
-        // Store hash as backup in case session gets cleared after failed password update
-        if (hash && typeof window !== 'undefined') {
-          hashBackupRef.current = hash;
-          sessionStorage.setItem('reset_password_hash_backup', hash);
-          console.log('ResetPassword: Stored hash backup for session restoration');
+        // access_token flow (session should be created by the client automatically)
+        if (hasAccessToken && type === 'recovery') {
+          // Short fallback polling (most handled by onAuthStateChange)
+          const maxAttempts = 10
+          const delay = 300
+          for (let i = 0; i < maxAttempts; i++) {
+            const { data: { session } } = await supabaseClient.auth.getSession()
+            if (session?.user?.email) {
+              setEmail(session.user.email)
+              clearRecoveryParams()
+              setVerifying(false)
+              return
+            }
+            await new Promise((r) => setTimeout(r, delay))
+          }
+          // Timed out
+          setError('Unable to verify password reset link. Please request a new link.')
+          setVerifying(false)
+          return
         }
-        
-        // Wait for Supabase to process the hash and create the session
-        // Supabase client automatically processes the hash on page load and creates a session
-        // But it might take a moment, so we poll for the session
-        let session = null;
-        const maxRetries = 15; // Increased to handle slower connections
-        const retryDelay = 500;
-        
-        for (let attempt = 0; attempt < maxRetries; attempt++) {
-          const { data: { session: currentSession }, error: sessionErr } = await supabaseClient.auth.getSession();
-          
-          if (currentSession?.user?.email) {
-            session = currentSession;
-            console.log(`ResetPassword: Session found on attempt ${attempt + 1}`);
-            break;
-          }
-          
-          // Log any session errors
-          if (sessionErr) {
-            console.warn(`ResetPassword: Session error on attempt ${attempt + 1}:`, sessionErr);
-          }
-          
-          if (attempt < maxRetries - 1) {
-            console.log(`ResetPassword: No session yet (attempt ${attempt + 1}/${maxRetries}), waiting ${retryDelay}ms...`);
-            await new Promise(resolve => setTimeout(resolve, retryDelay));
-          }
-        }
-        
-        if (session?.user?.email) {
-          console.log('ResetPassword: Recovery session found for:', session.user.email);
-          setEmail(session.user.email);
-          
-          // Clear hash to avoid reprocessing
-          if (window.location.hash) {
-            window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
-          }
+
+        // Existing session (e.g., page refresh)
+        const { data: { session: existing } } = await supabaseClient.auth.getSession()
+        if (existing?.user?.email) {
+          setEmail(existing.user.email)
         } else {
-          console.error('ResetPassword: No session found after waiting');
-          setError('Unable to verify password reset link. Please request a new one.');
+          // No session and no valid params — user can still enter password after manual verify, but we keep form disabled until email available
+          setError((prev) => prev || 'No active password reset session found. Please request a new reset link.')
         }
-        return;
+        setVerifying(false)
+      } catch {
+        setError('Failed to verify password reset link. Please try again.')
+        setVerifying(false)
       }
-
-      // If we already have a session (user might have refreshed or come back), get email from it
-      const { data: { session: existingSession } } = await supabaseClient.auth.getSession();
-      if (existingSession?.user?.email) {
-        console.log('ResetPassword: Using existing session for:', existingSession.user.email);
-        setEmail(existingSession.user.email);
-        return;
-      }
-
-      console.log('ResetPassword: No valid recovery token or session found');
-      // Don't set error here - user might have clicked an old link but could still have a valid recovery session
-    };
-
-    void run();
-  }, [location.hash, location.search, supabaseClient]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    setSuccess('');
-
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      setLoading(false);
-      return;
     }
 
-    // Check password requirements: lowercase, uppercase, digit, special character
-    const hasLowercase = /[a-z]/.test(password);
-    const hasUppercase = /[A-Z]/.test(password);
-    const hasDigit = /\d/.test(password);
-    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"|,.<>?`~]/.test(password);
+    void run()
+    return () => sub.subscription.unsubscribe()
+  }, [location.hash, location.search, supabaseClient])
 
-    if (password.length < 12 || !hasLowercase || !hasUppercase || !hasDigit || !hasSpecial) {
-      setError('Password must be at least 12 characters long and contain at least one lowercase letter, one uppercase letter, one digit, and one special character');
-      setLoading(false);
-      return;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    setSuccess('')
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match')
+      setLoading(false)
+      return
+    }
+    if (!isStrongPassword(password)) {
+      setError('Password must be at least 12 characters long and contain at least one lowercase letter, one uppercase letter, one digit, and one special character')
+      setLoading(false)
+      return
     }
 
     try {
-      // Verify we still have a valid recovery session before attempting to update
-      let { data: { session: currentSession }, error: sessionError } = await supabaseClient.auth.getSession();
-      
-      // Single retry if session is missing (avoid long waits)
-      const retryOnce = async () => {
-        await new Promise(resolve => setTimeout(resolve, 300));
-        const { data, error } = await supabaseClient.auth.getSession();
-        return error ? null : data.session;
-      };
-      
-      if (sessionError || !currentSession) {
-        console.warn('ResetPassword: No session found initially, retrying once...');
-        // Check if we have token params in URL that might still be processing
-        const currentHash = window.location.hash;
-        const currentSearch = window.location.search;
-        const hasTokenParams = (currentHash && (currentHash.includes('access_token') || currentHash.includes('type=recovery'))) ||
-                               (currentSearch && (currentSearch.includes('token_hash') || currentSearch.includes('type=recovery')));
-        
-        if (hasTokenParams) {
-          currentSession = await retryOnce();
-          if (currentSession) {
-            console.log('ResetPassword: Session found after retry');
-            sessionError = null;
-          }
-        }
-        
-        // If still no session, the recovery token has been consumed or expired
-        if (!currentSession) {
-          throw new Error('Your password reset session has expired. Please request a new reset link.');
-        }
+      let { data: { session }, error: sessionErr } = await supabaseClient.auth.getSession()
+      if (sessionErr || !session) {
+        // quick retry
+        await new Promise((r) => setTimeout(r, 300))
+        const res = await supabaseClient.auth.getSession()
+        session = res.data.session
       }
-      
-      if (!currentSession.user?.email) {
-        console.error('ResetPassword: Session exists but no user email found');
-        throw new Error('Unable to verify your identity. Please request a new password reset link.');
+      if (!session?.user?.email) {
+        throw new Error('Your password reset session has expired. Please request a new reset link.')
       }
-      
-      // Update email state if it changed
-      if (currentSession.user.email !== email) {
-        setEmail(currentSession.user.email);
-      }
-      
-      // Use Supabase client's updateUser method with the recovery session
-      const { error: updateError } = await supabaseClient.auth.updateUser({
-        password: password
-      });
-      
+
+      const { error: updateError } = await supabaseClient.auth.updateUser({ password })
       if (updateError) {
-        const errorMsg = updateError.message;
-        console.error('ResetPassword: updateUser error:', updateError);
-        
-        // Provide more specific error messages
-        if (errorMsg.toLowerCase().includes('weak') || (errorMsg.toLowerCase().includes('password') && errorMsg.toLowerCase().includes('strong'))) {
-          throw new Error('Password is too weak. Please use a stronger password with at least 12 characters, including uppercase, lowercase, numbers, and special characters.');
-        } else if (errorMsg.toLowerCase().includes('same')) {
-          // Same password error - DO NOT sign out, keep session intact
-          // Recovery session should still be valid, allow user to try again immediately
-          throw new Error('New password cannot be the same as your current password. Please choose a different password.');
-        } else if (errorMsg.toLowerCase().includes('session') || errorMsg.toLowerCase().includes('expired') || errorMsg.toLowerCase().includes('invalid')) {
-          // Check if session is still valid after error
-          const sessionResult = await supabaseClient.auth.getSession();
-          const sessionAfterError = sessionResult.data.session;
-          
-          if (!sessionAfterError) {
-            throw new Error('Your password reset link has expired. Please request a new reset link.');
-          }
-          // Session still exists, so the error is something else
-          throw new Error(errorMsg || 'Failed to update password. Please try again.');
-        } else {
-          throw new Error(errorMsg);
+        // Handle common statuses and messages
+        const msg = (updateError.message || '').toLowerCase()
+        // @ts-expect-error - status exists on AuthApiError
+        const status = (updateError as any)?.status as number | undefined
+
+        if (status === 401 || status === 410 || msg.includes('expired') || msg.includes('invalid') || msg.includes('session')) {
+          throw new Error('Your password reset link has expired or was already used. Please request a new link.')
         }
+        if (msg.includes('weak') || (msg.includes('password') && msg.includes('strong'))) {
+          throw new Error('Password is too weak. Please use a stronger password with at least 12 characters, including uppercase, lowercase, numbers, and special characters.')
+        }
+        if (msg.includes('same')) {
+          throw new Error('New password cannot be the same as your current password. Please choose a different password.')
+        }
+        throw new Error(updateError.message || 'Failed to update password. Please try again.')
       }
-      
-      setSuccess('Password reset successfully! Redirecting to login...');
-      
-      // Sign out to clear the recovery session
-      await supabaseClient.auth.signOut();
-      
-      setTimeout(() => {
-        navigate('/', { replace: true });
-      }, 2000);
-      
-    } catch (error: any) {
-      setError(error.message || 'Failed to reset password. Please try again or request a new reset link.');
+
+      setSuccess('Password reset successfully! Redirecting to login...')
+      await supabaseClient.auth.signOut()
+      setTimeout(() => navigate('/', { replace: true }), 1500)
+    } catch (err: any) {
+      setError(err?.message || 'Failed to reset password. Please try again or request a new reset link.')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
+
+  const formDisabled = verifying || !email || loading
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center mb-6">
-          <img 
-            src={raynLogo} 
-            alt="RAYN Secure Logo" 
-            className="mx-auto h-12 w-auto mb-2"
-          />
+          <img src={raynLogo} alt="RAYN Secure Logo" className="mx-auto h-12 w-auto mb-2" />
           <h1 className="text-xl font-semibold text-gray-800">RAYN Secure</h1>
           <p className="text-sm text-gray-600">Get Secure, Stay Secure!</p>
         </div>
-        
+
         <Card className="shadow-lg">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold">
-              Reset Your Password
-            </CardTitle>
+            <CardTitle className="text-2xl font-bold">Reset Your Password</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
+              {verifying && (
+                <Alert>
+                  <AlertDescription>Verifying your reset link…</AlertDescription>
+                </Alert>
+              )}
+              {error && !verifying && (
                 <Alert variant="destructive">
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
-              
               {success && (
                 <Alert>
                   <AlertDescription>{success}</AlertDescription>
                 </Alert>
               )}
-              
+
               {email && (
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    disabled
-                    className="bg-gray-50"
-                  />
+                  <Input id="email" type="email" value={email} disabled className="bg-gray-50" />
                 </div>
               )}
-              
+
               <div className="space-y-2">
                 <Label htmlFor="password">New Password</Label>
                 <div className="relative">
                   <Input
                     id="password"
-                    type={showPassword ? "text" : "password"}
+                    type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     minLength={12}
                     className="pr-10"
                     placeholder="Enter your new password"
+                    disabled={formDisabled}
                   />
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
                     className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowPassword(!showPassword)}
+                    onClick={() => setShowPassword((s) => !s)}
+                    disabled={formDisabled}
                   >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-muted-foreground" />
-                    )}
+                    {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
                   </Button>
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">Confirm New Password</Label>
                 <div className="relative">
                   <Input
                     id="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
+                    type={showConfirmPassword ? 'text' : 'password'}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
                     minLength={12}
                     className="pr-10"
                     placeholder="Confirm your new password"
+                    disabled={formDisabled}
                   />
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
                     className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    onClick={() => setShowConfirmPassword((s) => !s)}
+                    disabled={formDisabled}
                   >
-                    {showConfirmPassword ? (
-                      <EyeOff className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-muted-foreground" />
-                    )}
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
                   </Button>
                 </div>
               </div>
-              
-              <Button 
-                type="submit" 
-                className="w-full" 
-                disabled={loading}
-              >
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+
+              <Button type="submit" className="w-full" disabled={formDisabled}>
+                {(loading || verifying) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Reset Password
               </Button>
-              
+
               <div className="text-center">
-                <Button 
-                  variant="outline" 
-                  onClick={() => navigate('/')}
-                  className="w-full"
-                >
+                <Button variant="outline" onClick={() => navigate('/')} className="w-full" disabled={loading}>
                   Back to Login
                 </Button>
               </div>
@@ -393,7 +308,7 @@ const ResetPassword: React.FC = () => {
         </Card>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default ResetPassword;
+export default ResetPassword
