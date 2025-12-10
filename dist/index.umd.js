@@ -562,25 +562,20 @@
     }, [navigate]);
     return null;
   };
-  const ForgotPassword = ({
-    Button,
-    Input,
-    Label,
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-    Alert,
-    AlertDescription,
-    logoUrl
-  }) => {
+  const ForgotPassword = () => {
+    const location = reactRouterDom.useLocation();
+    const navigate = reactRouterDom.useNavigate();
     const [email, setEmail] = react.useState("");
     const [loading, setLoading] = react.useState(false);
     const [message, setMessage] = react.useState("");
     const [isError, setIsError] = react.useState(false);
     const { resetPassword } = useAuth();
-    const navigate = reactRouterDom.useNavigate();
+    react.useEffect(() => {
+      if (location.hash && (location.hash.includes("access_token") || location.hash.includes("refresh_token"))) {
+        const newUrl = window.location.pathname + (location.search || "");
+        window.history.replaceState({}, "", newUrl);
+      }
+    }, [location.hash, location.search]);
     const handleSubmit = async (e) => {
       e.preventDefault();
       if (!email) {
@@ -607,7 +602,7 @@
         /* @__PURE__ */ jsxRuntime.jsx(
           "img",
           {
-            src: logoUrl || "/rayn-logo.png",
+            src: raynLogo,
             alt: "RAYN Secure Logo",
             className: "mx-auto h-20 w-auto mb-4"
           }
@@ -615,17 +610,17 @@
         /* @__PURE__ */ jsxRuntime.jsx("h1", { className: "text-3xl font-bold text-learning-primary", children: "RAYN Secure" }),
         /* @__PURE__ */ jsxRuntime.jsx("p", { className: "text-muted-foreground mt-2", children: "Behavioural Science Based Cybersecurity Learning" })
       ] }),
-      /* @__PURE__ */ jsxRuntime.jsxs(Card, { children: [
-        /* @__PURE__ */ jsxRuntime.jsxs(CardHeader, { children: [
-          /* @__PURE__ */ jsxRuntime.jsx(CardTitle, { children: "Reset Your Password" }),
-          /* @__PURE__ */ jsxRuntime.jsx(CardDescription, { children: "Enter your email address and we'll send you a link to reset your password" })
+      /* @__PURE__ */ jsxRuntime.jsxs(card.Card, { children: [
+        /* @__PURE__ */ jsxRuntime.jsxs(card.CardHeader, { children: [
+          /* @__PURE__ */ jsxRuntime.jsx(card.CardTitle, { children: "Reset Your Password" }),
+          /* @__PURE__ */ jsxRuntime.jsx(card.CardDescription, { children: "Enter your email address and we'll send you a link to reset your password" })
         ] }),
-        /* @__PURE__ */ jsxRuntime.jsxs(CardContent, { children: [
+        /* @__PURE__ */ jsxRuntime.jsxs(card.CardContent, { children: [
           /* @__PURE__ */ jsxRuntime.jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
             /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
-              /* @__PURE__ */ jsxRuntime.jsx(Label, { htmlFor: "email", children: "Email" }),
+              /* @__PURE__ */ jsxRuntime.jsx(label.Label, { htmlFor: "email", children: "Email" }),
               /* @__PURE__ */ jsxRuntime.jsx(
-                Input,
+                input.Input,
                 {
                   id: "email",
                   type: "email",
@@ -636,14 +631,14 @@
                 }
               )
             ] }),
-            message && /* @__PURE__ */ jsxRuntime.jsx(Alert, { variant: isError ? "destructive" : "default", children: /* @__PURE__ */ jsxRuntime.jsx(AlertDescription, { children: message }) }),
-            /* @__PURE__ */ jsxRuntime.jsxs(Button, { type: "submit", className: "w-full", disabled: loading, children: [
+            message && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { variant: isError ? "destructive" : "default", children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: message }) }),
+            /* @__PURE__ */ jsxRuntime.jsxs(button.Button, { type: "submit", className: "w-full", disabled: loading, children: [
               loading && /* @__PURE__ */ jsxRuntime.jsx("div", { className: "mr-2 h-4 w-4 animate-spin border-2 border-current border-t-transparent rounded-full" }),
               "Send Reset Link"
             ] })
           ] }),
           /* @__PURE__ */ jsxRuntime.jsx("div", { className: "mt-4 text-center", children: /* @__PURE__ */ jsxRuntime.jsx(
-            Button,
+            button.Button,
             {
               variant: "link",
               className: "p-0 h-auto text-teal-600",

@@ -1,42 +1,32 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import raynLogo from '@/assets/rayn-logo.png';
 
-interface ForgotPasswordProps {
-  // UI components - should be passed from the consuming app
-  Button: any;
-  Input: any;
-  Label: any;
-  Card: any;
-  CardContent: any;
-  CardDescription: any;
-  CardHeader: any;
-  CardTitle: any;
-  Alert: any;
-  AlertDescription: any;
-  // Assets - should be passed from the consuming app
-  logoUrl?: string;
-}
-
-const ForgotPassword: React.FC<ForgotPasswordProps> = ({
-  Button,
-  Input,
-  Label,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  Alert,
-  AlertDescription,
-  logoUrl
-}) => {
+const ForgotPassword: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [isError, setIsError] = useState(false);
   const { resetPassword } = useAuth();
-  const navigate = useNavigate();
+
+  // Clear any hash tokens when on forgot-password page
+  // This page is for requesting a reset, not for processing reset links
+  useEffect(() => {
+    if (location.hash && (location.hash.includes('access_token') || location.hash.includes('refresh_token'))) {
+      // Remove hash from URL without causing a navigation
+      // This prevents the RecoveryRedirect component from redirecting to activate-account
+      const newUrl = window.location.pathname + (location.search || '');
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, [location.hash, location.search]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,7 +59,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({
         {/* RAYN Secure Branding */}
         <div className="text-center">
           <img 
-            src={logoUrl || '/rayn-logo.png'} 
+            src={raynLogo} 
             alt="RAYN Secure Logo" 
             className="mx-auto h-20 w-auto mb-4"
           />
@@ -93,7 +83,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({
                   type="email"
                   placeholder="Enter your email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                   required
                 />
               </div>

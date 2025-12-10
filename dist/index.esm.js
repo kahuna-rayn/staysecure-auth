@@ -569,25 +569,20 @@ const AuthEventRedirect = () => {
   }, [navigate]);
   return null;
 };
-const ForgotPassword = ({
-  Button: Button2,
-  Input: Input2,
-  Label: Label2,
-  Card: Card2,
-  CardContent: CardContent2,
-  CardDescription: CardDescription2,
-  CardHeader: CardHeader2,
-  CardTitle: CardTitle2,
-  Alert: Alert2,
-  AlertDescription: AlertDescription2,
-  logoUrl
-}) => {
+const ForgotPassword = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const { resetPassword } = useAuth();
-  const navigate = useNavigate();
+  useEffect(() => {
+    if (location.hash && (location.hash.includes("access_token") || location.hash.includes("refresh_token"))) {
+      const newUrl = window.location.pathname + (location.search || "");
+      window.history.replaceState({}, "", newUrl);
+    }
+  }, [location.hash, location.search]);
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email) {
@@ -614,7 +609,7 @@ const ForgotPassword = ({
       /* @__PURE__ */ jsx(
         "img",
         {
-          src: logoUrl || "/rayn-logo.png",
+          src: raynLogo,
           alt: "RAYN Secure Logo",
           className: "mx-auto h-20 w-auto mb-4"
         }
@@ -622,17 +617,17 @@ const ForgotPassword = ({
       /* @__PURE__ */ jsx("h1", { className: "text-3xl font-bold text-learning-primary", children: "RAYN Secure" }),
       /* @__PURE__ */ jsx("p", { className: "text-muted-foreground mt-2", children: "Behavioural Science Based Cybersecurity Learning" })
     ] }),
-    /* @__PURE__ */ jsxs(Card2, { children: [
-      /* @__PURE__ */ jsxs(CardHeader2, { children: [
-        /* @__PURE__ */ jsx(CardTitle2, { children: "Reset Your Password" }),
-        /* @__PURE__ */ jsx(CardDescription2, { children: "Enter your email address and we'll send you a link to reset your password" })
+    /* @__PURE__ */ jsxs(Card, { children: [
+      /* @__PURE__ */ jsxs(CardHeader, { children: [
+        /* @__PURE__ */ jsx(CardTitle, { children: "Reset Your Password" }),
+        /* @__PURE__ */ jsx(CardDescription, { children: "Enter your email address and we'll send you a link to reset your password" })
       ] }),
-      /* @__PURE__ */ jsxs(CardContent2, { children: [
+      /* @__PURE__ */ jsxs(CardContent, { children: [
         /* @__PURE__ */ jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
           /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
-            /* @__PURE__ */ jsx(Label2, { htmlFor: "email", children: "Email" }),
+            /* @__PURE__ */ jsx(Label, { htmlFor: "email", children: "Email" }),
             /* @__PURE__ */ jsx(
-              Input2,
+              Input,
               {
                 id: "email",
                 type: "email",
@@ -643,14 +638,14 @@ const ForgotPassword = ({
               }
             )
           ] }),
-          message && /* @__PURE__ */ jsx(Alert2, { variant: isError ? "destructive" : "default", children: /* @__PURE__ */ jsx(AlertDescription2, { children: message }) }),
-          /* @__PURE__ */ jsxs(Button2, { type: "submit", className: "w-full", disabled: loading, children: [
+          message && /* @__PURE__ */ jsx(Alert, { variant: isError ? "destructive" : "default", children: /* @__PURE__ */ jsx(AlertDescription, { children: message }) }),
+          /* @__PURE__ */ jsxs(Button, { type: "submit", className: "w-full", disabled: loading, children: [
             loading && /* @__PURE__ */ jsx("div", { className: "mr-2 h-4 w-4 animate-spin border-2 border-current border-t-transparent rounded-full" }),
             "Send Reset Link"
           ] })
         ] }),
         /* @__PURE__ */ jsx("div", { className: "mt-4 text-center", children: /* @__PURE__ */ jsx(
-          Button2,
+          Button,
           {
             variant: "link",
             className: "p-0 h-auto text-teal-600",
