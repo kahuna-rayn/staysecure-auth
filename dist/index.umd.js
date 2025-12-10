@@ -765,6 +765,13 @@
       ] }) })
     ] });
   };
+  const isStrongPassword = (pwd) => {
+    const hasLowercase = /[a-z]/.test(pwd);
+    const hasUppercase = /[A-Z]/.test(pwd);
+    const hasDigit = /\d/.test(pwd);
+    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"|,.<>?`~]/.test(pwd);
+    return pwd.length >= 12 && hasLowercase && hasUppercase && hasDigit && hasSpecial;
+  };
   const ResetPassword = () => {
     const location = reactRouterDom.useLocation();
     const navigate = reactRouterDom.useNavigate();
@@ -773,105 +780,93 @@
     const [password, setPassword] = react.useState("");
     const [confirmPassword, setConfirmPassword] = react.useState("");
     const [loading, setLoading] = react.useState(false);
+    const [verifying, setVerifying] = react.useState(true);
     const [error, setError] = react.useState("");
     const [success, setSuccess] = react.useState("");
     const [showPassword, setShowPassword] = react.useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = react.useState(false);
-    const hashBackupRef = react.useRef("");
+    const initializedRef = react.useRef(false);
+    const clearRecoveryParams = () => {
+      const url = new URL(window.location.href);
+      url.hash = "";
+      url.searchParams.delete("type");
+      url.searchParams.delete("token_hash");
+      window.history.replaceState({}, document.title, url.toString());
+    };
     react.useEffect(() => {
+      if (initializedRef.current) return;
+      initializedRef.current = true;
+      const { data: sub } = supabaseClient.auth.onAuthStateChange((event, session) => {
+        var _a;
+        if (event === "SIGNED_IN" && ((_a = session == null ? void 0 : session.user) == null ? void 0 : _a.email)) {
+          setEmail(session.user.email);
+          clearRecoveryParams();
+          setVerifying(false);
+        }
+      });
       const run = async () => {
         var _a, _b, _c;
-        console.log("ResetPassword: URL hash:", window.location.hash);
-        console.log("ResetPassword: URL search:", window.location.search);
-        console.log("ResetPassword: Full URL:", window.location.href);
-        const isRestoring = typeof window !== "undefined" && sessionStorage.getItem("reset_password_restore") === "true";
-        if (isRestoring) {
-          console.log("ResetPassword: Detected restore flag, clearing it");
-          sessionStorage.removeItem("reset_password_restore");
-        }
-        const hash = location.hash || window.location.hash;
-        const hashParams = new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash);
-        const searchParams = new URLSearchParams(location.search);
-        const type = hashParams.get("type") || searchParams.get("type");
-        const tokenHash = searchParams.get("token_hash");
-        const hasAccessToken = hashParams.has("access_token") || hash.includes("access_token");
-        console.log("ResetPassword: Parsed params:", {
-          type,
-          hasTokenHash: !!tokenHash,
-          hasAccessToken,
-          hashParams: Array.from(hashParams.entries()),
-          searchParams: Array.from(searchParams.entries())
-        });
-        if (tokenHash && type === "recovery") {
-          console.log("ResetPassword: Processing recovery token (token_hash)");
-          try {
+        try {
+          const hash = location.hash || window.location.hash || "";
+          const hashParams = new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash);
+          const searchParams = new URLSearchParams(location.search || window.location.search || "");
+          const type = hashParams.get("type") || searchParams.get("type");
+          const tokenHash = searchParams.get("token_hash");
+          const hasAccessToken = hashParams.has("access_token") || hash.includes("access_token");
+          if (false) ;
+          if (type === "recovery" && !tokenHash && !hasAccessToken) {
+            setError("This password reset link may have been opened already by an email scanner. Please request a new link and open it only once.");
+            setVerifying(false);
+            return;
+          }
+          if (tokenHash && type === "recovery") {
             const { data, error: verifyError } = await supabaseClient.auth.verifyOtp({
               token_hash: tokenHash,
               type: "recovery"
             });
             if (verifyError) {
-              console.error("ResetPassword: verifyOtp error:", verifyError);
               setError("Invalid or expired password reset link. Please request a new one.");
-            } else if (data.user) {
-              console.log("ResetPassword: Recovery verified successfully for:", data.user.email);
-              setEmail(data.user.email || "");
-              const url = new URL(window.location.href);
-              url.searchParams.delete("token_hash");
-              url.searchParams.delete("type");
-              window.history.replaceState({}, document.title, url.toString());
+              setVerifying(false);
+              return;
             }
-          } catch (e) {
-            console.error("ResetPassword: verifyOtp exception:", e);
-            setError("Failed to verify password reset link. Please try again.");
-          }
-          return;
-        }
-        if (hasAccessToken && type === "recovery") {
-          console.log("ResetPassword: Processing recovery token (access_token) - waiting for session");
-          if (hash && typeof window !== "undefined") {
-            hashBackupRef.current = hash;
-            sessionStorage.setItem("reset_password_hash_backup", hash);
-            console.log("ResetPassword: Stored hash backup for session restoration");
-          }
-          let session = null;
-          const maxRetries = 15;
-          const retryDelay = 500;
-          for (let attempt = 0; attempt < maxRetries; attempt++) {
-            const { data: { session: currentSession }, error: sessionErr } = await supabaseClient.auth.getSession();
-            if ((_a = currentSession == null ? void 0 : currentSession.user) == null ? void 0 : _a.email) {
-              session = currentSession;
-              console.log(`ResetPassword: Session found on attempt ${attempt + 1}`);
-              break;
-            }
-            if (sessionErr) {
-              console.warn(`ResetPassword: Session error on attempt ${attempt + 1}:`, sessionErr);
-            }
-            if (attempt < maxRetries - 1) {
-              console.log(`ResetPassword: No session yet (attempt ${attempt + 1}/${maxRetries}), waiting ${retryDelay}ms...`);
-              await new Promise((resolve) => setTimeout(resolve, retryDelay));
+            if ((_a = data.user) == null ? void 0 : _a.email) {
+              setEmail(data.user.email);
+              clearRecoveryParams();
+              setVerifying(false);
+              return;
             }
           }
-          if ((_b = session == null ? void 0 : session.user) == null ? void 0 : _b.email) {
-            console.log("ResetPassword: Recovery session found for:", session.user.email);
-            setEmail(session.user.email);
-            if (window.location.hash) {
-              window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+          if (hasAccessToken && type === "recovery") {
+            const maxAttempts = 10;
+            const delay = 300;
+            for (let i = 0; i < maxAttempts; i++) {
+              const { data: { session } } = await supabaseClient.auth.getSession();
+              if ((_b = session == null ? void 0 : session.user) == null ? void 0 : _b.email) {
+                setEmail(session.user.email);
+                clearRecoveryParams();
+                setVerifying(false);
+                return;
+              }
+              await new Promise((r) => setTimeout(r, delay));
             }
+            setError("Unable to verify password reset link. Please request a new link.");
+            setVerifying(false);
+            return;
+          }
+          const { data: { session: existing } } = await supabaseClient.auth.getSession();
+          if ((_c = existing == null ? void 0 : existing.user) == null ? void 0 : _c.email) {
+            setEmail(existing.user.email);
           } else {
-            console.error("ResetPassword: No session found after waiting");
-            setError("Unable to verify password reset link. Please request a new one.");
+            setError((prev) => prev || "No active password reset session found. Please request a new reset link.");
           }
-          return;
+          setVerifying(false);
+        } catch {
+          setError("Failed to verify password reset link. Please try again.");
+          setVerifying(false);
         }
-        const { data: { session: existingSession } } = await supabaseClient.auth.getSession();
-        if ((_c = existingSession == null ? void 0 : existingSession.user) == null ? void 0 : _c.email) {
-          console.log("ResetPassword: Using existing session for:", existingSession.user.email);
-          setEmail(existingSession.user.email);
-          return;
-        }
-        console.log("ResetPassword: No valid recovery token or session found");
       };
       void run();
+      return () => sub.subscription.unsubscribe();
     }, [location.hash, location.search, supabaseClient]);
     const handleSubmit = async (e) => {
       var _a;
@@ -884,107 +879,61 @@
         setLoading(false);
         return;
       }
-      const hasLowercase = /[a-z]/.test(password);
-      const hasUppercase = /[A-Z]/.test(password);
-      const hasDigit = /\d/.test(password);
-      const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"|,.<>?`~]/.test(password);
-      if (password.length < 12 || !hasLowercase || !hasUppercase || !hasDigit || !hasSpecial) {
+      if (!isStrongPassword(password)) {
         setError("Password must be at least 12 characters long and contain at least one lowercase letter, one uppercase letter, one digit, and one special character");
         setLoading(false);
         return;
       }
       try {
-        let { data: { session: currentSession }, error: sessionError } = await supabaseClient.auth.getSession();
-        const retryOnce = async () => {
-          await new Promise((resolve) => setTimeout(resolve, 300));
-          const { data, error: error2 } = await supabaseClient.auth.getSession();
-          return error2 ? null : data.session;
-        };
-        if (sessionError || !currentSession) {
-          console.warn("ResetPassword: No session found initially, retrying once...");
-          const currentHash = window.location.hash;
-          const currentSearch = window.location.search;
-          const hasTokenParams = currentHash && (currentHash.includes("access_token") || currentHash.includes("type=recovery")) || currentSearch && (currentSearch.includes("token_hash") || currentSearch.includes("type=recovery"));
-          if (hasTokenParams) {
-            currentSession = await retryOnce();
-            if (currentSession) {
-              console.log("ResetPassword: Session found after retry");
-              sessionError = null;
-            }
-          }
-          if (!currentSession) {
-            throw new Error("Your password reset session has expired. Please request a new reset link.");
-          }
+        let { data: { session }, error: sessionErr } = await supabaseClient.auth.getSession();
+        if (sessionErr || !session) {
+          await new Promise((r) => setTimeout(r, 300));
+          const res = await supabaseClient.auth.getSession();
+          session = res.data.session;
         }
-        if (!((_a = currentSession.user) == null ? void 0 : _a.email)) {
-          console.error("ResetPassword: Session exists but no user email found");
-          throw new Error("Unable to verify your identity. Please request a new password reset link.");
+        if (!((_a = session == null ? void 0 : session.user) == null ? void 0 : _a.email)) {
+          throw new Error("Your password reset session has expired. Please request a new reset link.");
         }
-        if (currentSession.user.email !== email) {
-          setEmail(currentSession.user.email);
-        }
-        const { error: updateError } = await supabaseClient.auth.updateUser({
-          password
-        });
+        const { error: updateError } = await supabaseClient.auth.updateUser({ password });
         if (updateError) {
-          const errorMsg = updateError.message;
-          console.error("ResetPassword: updateUser error:", updateError);
-          if (errorMsg.toLowerCase().includes("weak") || errorMsg.toLowerCase().includes("password") && errorMsg.toLowerCase().includes("strong")) {
-            throw new Error("Password is too weak. Please use a stronger password with at least 12 characters, including uppercase, lowercase, numbers, and special characters.");
-          } else if (errorMsg.toLowerCase().includes("same")) {
-            throw new Error("New password cannot be the same as your current password. Please choose a different password.");
-          } else if (errorMsg.toLowerCase().includes("session") || errorMsg.toLowerCase().includes("expired") || errorMsg.toLowerCase().includes("invalid")) {
-            const sessionResult = await supabaseClient.auth.getSession();
-            const sessionAfterError = sessionResult.data.session;
-            if (!sessionAfterError) {
-              throw new Error("Your password reset link has expired. Please request a new reset link.");
-            }
-            throw new Error(errorMsg || "Failed to update password. Please try again.");
-          } else {
-            throw new Error(errorMsg);
+          const msg = (updateError.message || "").toLowerCase();
+          const status = updateError == null ? void 0 : updateError.status;
+          if (status === 401 || status === 410 || msg.includes("expired") || msg.includes("invalid") || msg.includes("session")) {
+            throw new Error("Your password reset link has expired or was already used. Please request a new link.");
           }
+          if (msg.includes("weak") || msg.includes("password") && msg.includes("strong")) {
+            throw new Error("Password is too weak. Please use a stronger password with at least 12 characters, including uppercase, lowercase, numbers, and special characters.");
+          }
+          if (msg.includes("same")) {
+            throw new Error("New password cannot be the same as your current password. Please choose a different password.");
+          }
+          throw new Error(updateError.message || "Failed to update password. Please try again.");
         }
         setSuccess("Password reset successfully! Redirecting to login...");
         await supabaseClient.auth.signOut();
-        setTimeout(() => {
-          navigate("/", { replace: true });
-        }, 2e3);
-      } catch (error2) {
-        setError(error2.message || "Failed to reset password. Please try again or request a new reset link.");
+        setTimeout(() => navigate("/", { replace: true }), 1500);
+      } catch (err) {
+        setError((err == null ? void 0 : err.message) || "Failed to reset password. Please try again or request a new reset link.");
       } finally {
         setLoading(false);
       }
     };
+    const formDisabled = verifying || !email || loading;
     return /* @__PURE__ */ jsxRuntime.jsx("div", { className: "min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8", children: /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "max-w-md w-full space-y-8", children: [
       /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "text-center mb-6", children: [
-        /* @__PURE__ */ jsxRuntime.jsx(
-          "img",
-          {
-            src: raynLogo,
-            alt: "RAYN Secure Logo",
-            className: "mx-auto h-12 w-auto mb-2"
-          }
-        ),
+        /* @__PURE__ */ jsxRuntime.jsx("img", { src: raynLogo, alt: "RAYN Secure Logo", className: "mx-auto h-12 w-auto mb-2" }),
         /* @__PURE__ */ jsxRuntime.jsx("h1", { className: "text-xl font-semibold text-gray-800", children: "RAYN Secure" }),
         /* @__PURE__ */ jsxRuntime.jsx("p", { className: "text-sm text-gray-600", children: "Get Secure, Stay Secure!" })
       ] }),
       /* @__PURE__ */ jsxRuntime.jsxs(card.Card, { className: "shadow-lg", children: [
         /* @__PURE__ */ jsxRuntime.jsx(card.CardHeader, { className: "text-center", children: /* @__PURE__ */ jsxRuntime.jsx(card.CardTitle, { className: "text-2xl font-bold", children: "Reset Your Password" }) }),
         /* @__PURE__ */ jsxRuntime.jsx(card.CardContent, { children: /* @__PURE__ */ jsxRuntime.jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
-          error && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { variant: "destructive", children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: error }) }),
+          verifying && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: "Verifying your reset link…" }) }),
+          error && !verifying && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { variant: "destructive", children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: error }) }),
           success && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: success }) }),
           email && /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
             /* @__PURE__ */ jsxRuntime.jsx(label.Label, { htmlFor: "email", children: "Email" }),
-            /* @__PURE__ */ jsxRuntime.jsx(
-              input.Input,
-              {
-                id: "email",
-                type: "email",
-                value: email,
-                disabled: true,
-                className: "bg-gray-50"
-              }
-            )
+            /* @__PURE__ */ jsxRuntime.jsx(input.Input, { id: "email", type: "email", value: email, disabled: true, className: "bg-gray-50" })
           ] }),
           /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
             /* @__PURE__ */ jsxRuntime.jsx(label.Label, { htmlFor: "password", children: "New Password" }),
@@ -999,7 +948,8 @@
                   required: true,
                   minLength: 12,
                   className: "pr-10",
-                  placeholder: "Enter your new password"
+                  placeholder: "Enter your new password",
+                  disabled: formDisabled
                 }
               ),
               /* @__PURE__ */ jsxRuntime.jsx(
@@ -1009,7 +959,8 @@
                   variant: "ghost",
                   size: "sm",
                   className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
-                  onClick: () => setShowPassword(!showPassword),
+                  onClick: () => setShowPassword((s) => !s),
+                  disabled: formDisabled,
                   children: showPassword ? /* @__PURE__ */ jsxRuntime.jsx(lucideReact.EyeOff, { className: "h-4 w-4 text-muted-foreground" }) : /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Eye, { className: "h-4 w-4 text-muted-foreground" })
                 }
               )
@@ -1028,7 +979,8 @@
                   required: true,
                   minLength: 12,
                   className: "pr-10",
-                  placeholder: "Confirm your new password"
+                  placeholder: "Confirm your new password",
+                  disabled: formDisabled
                 }
               ),
               /* @__PURE__ */ jsxRuntime.jsx(
@@ -1038,33 +990,18 @@
                   variant: "ghost",
                   size: "sm",
                   className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
-                  onClick: () => setShowConfirmPassword(!showConfirmPassword),
+                  onClick: () => setShowConfirmPassword((s) => !s),
+                  disabled: formDisabled,
                   children: showConfirmPassword ? /* @__PURE__ */ jsxRuntime.jsx(lucideReact.EyeOff, { className: "h-4 w-4 text-muted-foreground" }) : /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Eye, { className: "h-4 w-4 text-muted-foreground" })
                 }
               )
             ] })
           ] }),
-          /* @__PURE__ */ jsxRuntime.jsxs(
-            button.Button,
-            {
-              type: "submit",
-              className: "w-full",
-              disabled: loading,
-              children: [
-                loading && /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
-                "Reset Password"
-              ]
-            }
-          ),
-          /* @__PURE__ */ jsxRuntime.jsx("div", { className: "text-center", children: /* @__PURE__ */ jsxRuntime.jsx(
-            button.Button,
-            {
-              variant: "outline",
-              onClick: () => navigate("/"),
-              className: "w-full",
-              children: "Back to Login"
-            }
-          ) })
+          /* @__PURE__ */ jsxRuntime.jsxs(button.Button, { type: "submit", className: "w-full", disabled: formDisabled, children: [
+            (loading || verifying) && /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
+            "Reset Password"
+          ] }),
+          /* @__PURE__ */ jsxRuntime.jsx("div", { className: "text-center", children: /* @__PURE__ */ jsxRuntime.jsx(button.Button, { variant: "outline", onClick: () => navigate("/"), className: "w-full", disabled: loading, children: "Back to Login" }) })
         ] }) })
       ] })
     ] }) });
