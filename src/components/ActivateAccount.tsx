@@ -146,28 +146,38 @@ const ActivateAccount: React.FC = () => {
           }
         }
         
-        if (isDevOrStaging) {
-          const testDelay = 2000; // 2 second delay to simulate slow connection
-          console.log(`ActivateAccount: [TEST MODE] Simulating slow connection with ${testDelay}ms delay...`);
-          await new Promise(resolve => setTimeout(resolve, testDelay));
-        }
-        
         let session = null;
         const maxRetries = 10; // Try for up to 5 seconds (10 * 500ms)
         const retryDelay = 500; // 500ms between retries
         
+        // Simulate slow connection in dev/staging environments for testing
+        // In test mode, we'll simulate Supabase taking time to process the hash
+        const simulateSlowConnection = isDevOrStaging;
+        const testDelay = 2000; // 2 second delay to simulate Supabase taking time to process
+        
         for (let attempt = 0; attempt < maxRetries; attempt++) {
-          const { data: { session: currentSession } } = await supabaseClient.auth.getSession();
+          // In test mode, skip the first session check to simulate Supabase not having processed yet
+          // This forces the retry logic to actually run and be tested
+          const shouldCheckSession = !simulateSlowConnection || attempt > 0;
           
-          if (currentSession?.user?.email) {
-            session = currentSession;
-            console.log(`ActivateAccount: Session found on attempt ${attempt + 1}`);
-            break;
+          if (shouldCheckSession) {
+            const { data: { session: currentSession } } = await supabaseClient.auth.getSession();
+            
+            if (currentSession?.user?.email) {
+              session = currentSession;
+              console.log(`ActivateAccount: Session found on attempt ${attempt + 1}`);
+              break;
+            }
+          } else {
+            // First attempt in test mode - simulate Supabase not ready yet
+            console.log(`ActivateAccount: [TEST MODE] Simulating slow connection - Supabase not ready yet (attempt ${attempt + 1})`);
           }
           
           if (attempt < maxRetries - 1) {
-            console.log(`ActivateAccount: No session yet (attempt ${attempt + 1}/${maxRetries}), waiting ${retryDelay}ms...`);
-            await new Promise(resolve => setTimeout(resolve, retryDelay));
+            // In test mode on first attempt, wait longer to simulate slow processing
+            const waitTime = (simulateSlowConnection && attempt === 0) ? testDelay : retryDelay;
+            console.log(`ActivateAccount: No session yet (attempt ${attempt + 1}/${maxRetries}), waiting ${waitTime}ms...`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
           }
         }
         

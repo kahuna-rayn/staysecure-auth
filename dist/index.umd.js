@@ -334,24 +334,27 @@
               isDevOrStaging = true;
             }
           }
-          if (isDevOrStaging) {
-            const testDelay = 2e3;
-            console.log(`ActivateAccount: [TEST MODE] Simulating slow connection with ${testDelay}ms delay...`);
-            await new Promise((resolve) => setTimeout(resolve, testDelay));
-          }
           let session = null;
           const maxRetries = 10;
           const retryDelay = 500;
+          const simulateSlowConnection = isDevOrStaging;
+          const testDelay = 2e3;
           for (let attempt = 0; attempt < maxRetries; attempt++) {
-            const { data: { session: currentSession } } = await supabaseClient.auth.getSession();
-            if ((_a = currentSession == null ? void 0 : currentSession.user) == null ? void 0 : _a.email) {
-              session = currentSession;
-              console.log(`ActivateAccount: Session found on attempt ${attempt + 1}`);
-              break;
+            const shouldCheckSession = !simulateSlowConnection || attempt > 0;
+            if (shouldCheckSession) {
+              const { data: { session: currentSession } } = await supabaseClient.auth.getSession();
+              if ((_a = currentSession == null ? void 0 : currentSession.user) == null ? void 0 : _a.email) {
+                session = currentSession;
+                console.log(`ActivateAccount: Session found on attempt ${attempt + 1}`);
+                break;
+              }
+            } else {
+              console.log(`ActivateAccount: [TEST MODE] Simulating slow connection - Supabase not ready yet (attempt ${attempt + 1})`);
             }
             if (attempt < maxRetries - 1) {
-              console.log(`ActivateAccount: No session yet (attempt ${attempt + 1}/${maxRetries}), waiting ${retryDelay}ms...`);
-              await new Promise((resolve) => setTimeout(resolve, retryDelay));
+              const waitTime = simulateSlowConnection && attempt === 0 ? testDelay : retryDelay;
+              console.log(`ActivateAccount: No session yet (attempt ${attempt + 1}/${maxRetries}), waiting ${waitTime}ms...`);
+              await new Promise((resolve) => setTimeout(resolve, waitTime));
             }
           }
           if ((_b = session == null ? void 0 : session.user) == null ? void 0 : _b.email) {
