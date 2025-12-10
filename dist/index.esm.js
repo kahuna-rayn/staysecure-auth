@@ -791,6 +791,11 @@ const ResetPassword = () => {
       console.log("ResetPassword: URL hash:", window.location.hash);
       console.log("ResetPassword: URL search:", window.location.search);
       console.log("ResetPassword: Full URL:", window.location.href);
+      const isRestoring = typeof window !== "undefined" && sessionStorage.getItem("reset_password_restore") === "true";
+      if (isRestoring) {
+        console.log("ResetPassword: Detected restore flag, clearing it");
+        sessionStorage.removeItem("reset_password_restore");
+      }
       const hash = location.hash || window.location.hash;
       const hashParams = new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash);
       const searchParams = new URLSearchParams(location.search);
@@ -817,6 +822,10 @@ const ResetPassword = () => {
           } else if (data.user) {
             console.log("ResetPassword: Recovery verified successfully for:", data.user.email);
             setEmail(data.user.email || "");
+            const url = new URL(window.location.href);
+            url.searchParams.delete("token_hash");
+            url.searchParams.delete("type");
+            window.history.replaceState({}, document.title, url.toString());
           }
         } catch (e) {
           console.error("ResetPassword: verifyOtp exception:", e);
@@ -832,14 +841,17 @@ const ResetPassword = () => {
           console.log("ResetPassword: Stored hash backup for session restoration");
         }
         let session = null;
-        const maxRetries = 10;
+        const maxRetries = 15;
         const retryDelay = 500;
         for (let attempt = 0; attempt < maxRetries; attempt++) {
-          const { data: { session: currentSession } } = await supabaseClient.auth.getSession();
+          const { data: { session: currentSession }, error: sessionErr } = await supabaseClient.auth.getSession();
           if ((_a = currentSession == null ? void 0 : currentSession.user) == null ? void 0 : _a.email) {
             session = currentSession;
             console.log(`ResetPassword: Session found on attempt ${attempt + 1}`);
             break;
+          }
+          if (sessionErr) {
+            console.warn(`ResetPassword: Session error on attempt ${attempt + 1}:`, sessionErr);
           }
           if (attempt < maxRetries - 1) {
             console.log(`ResetPassword: No session yet (attempt ${attempt + 1}/${maxRetries}), waiting ${retryDelay}ms...`);
@@ -849,6 +861,9 @@ const ResetPassword = () => {
         if ((_b = session == null ? void 0 : session.user) == null ? void 0 : _b.email) {
           console.log("ResetPassword: Recovery session found for:", session.user.email);
           setEmail(session.user.email);
+          if (window.location.hash) {
+            window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+          }
         } else {
           console.error("ResetPassword: No session found after waiting");
           setError("Unable to verify password reset link. Please request a new one.");
@@ -887,29 +902,26 @@ const ResetPassword = () => {
     }
     try {
       let { data: { session: currentSession }, error: sessionError } = await supabaseClient.auth.getSession();
-      if ((sessionError || !currentSession) && hashBackupRef.current) {
-        console.log("ResetPassword: Session missing, attempting to restore from hash backup");
-        window.location.hash = hashBackupRef.current;
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        const sessionResult = await supabaseClient.auth.getSession();
-        currentSession = sessionResult.data.session;
-        sessionError = sessionResult.error;
-      }
-      if ((sessionError || !currentSession) && typeof window !== "undefined") {
-        const storedHash = sessionStorage.getItem("reset_password_hash_backup");
-        if (storedHash && storedHash !== hashBackupRef.current) {
-          hashBackupRef.current = storedHash;
-          console.log("ResetPassword: Found hash backup in sessionStorage, attempting restore");
-          window.location.hash = storedHash;
-          await new Promise((resolve) => setTimeout(resolve, 500));
-          const sessionResult = await supabaseClient.auth.getSession();
-          currentSession = sessionResult.data.session;
-          sessionError = sessionResult.error;
-        }
-      }
+      const retryOnce = async () => {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        const { data, error: error2 } = await supabaseClient.auth.getSession();
+        return error2 ? null : data.session;
+      };
       if (sessionError || !currentSession) {
-        console.error("ResetPassword: No valid session found after restore attempts:", sessionError);
-        throw new Error("Your password reset session has expired. Please request a new reset link.");
+        console.warn("ResetPassword: No session found initially, retrying once...");
+        const currentHash = window.location.hash;
+        const currentSearch = window.location.search;
+        const hasTokenParams = currentHash && (currentHash.includes("access_token") || currentHash.includes("type=recovery")) || currentSearch && (currentSearch.includes("token_hash") || currentSearch.includes("type=recovery"));
+        if (hasTokenParams) {
+          currentSession = await retryOnce();
+          if (currentSession) {
+            console.log("ResetPassword: Session found after retry");
+            sessionError = null;
+          }
+        }
+        if (!currentSession) {
+          throw new Error("Your password reset session has expired. Please request a new reset link.");
+        }
       }
       if (!((_a = currentSession.user) == null ? void 0 : _a.email)) {
         console.error("ResetPassword: Session exists but no user email found");
@@ -927,36 +939,12 @@ const ResetPassword = () => {
         if (errorMsg.toLowerCase().includes("weak") || errorMsg.toLowerCase().includes("password") && errorMsg.toLowerCase().includes("strong")) {
           throw new Error("Password is too weak. Please use a stronger password with at least 12 characters, including uppercase, lowercase, numbers, and special characters.");
         } else if (errorMsg.toLowerCase().includes("same")) {
-          let sessionAfterError;
-          if (!currentSession && hashBackupRef.current) {
-            console.log("ResetPassword: Same password error - attempting session restore");
-            window.location.hash = hashBackupRef.current;
-            await new Promise((resolve) => setTimeout(resolve, 500));
-            const sessionResult = await supabaseClient.auth.getSession();
-            sessionAfterError = sessionResult.data.session;
-          } else {
-            const sessionResult = await supabaseClient.auth.getSession();
-            sessionAfterError = sessionResult.data.session;
-          }
-          if (!sessionAfterError) {
-            console.error("ResetPassword: Session lost after same password error");
-            throw new Error("Your password reset session has expired. Please request a new reset link.");
-          }
           throw new Error("New password cannot be the same as your current password. Please choose a different password.");
         } else if (errorMsg.toLowerCase().includes("session") || errorMsg.toLowerCase().includes("expired") || errorMsg.toLowerCase().includes("invalid")) {
-          let sessionAfterError;
-          if (hashBackupRef.current) {
-            console.log("ResetPassword: Session error detected - attempting restore from backup");
-            window.location.hash = hashBackupRef.current;
-            await new Promise((resolve) => setTimeout(resolve, 500));
-            const sessionResult = await supabaseClient.auth.getSession();
-            sessionAfterError = sessionResult.data.session;
-          } else {
-            const sessionResult = await supabaseClient.auth.getSession();
-            sessionAfterError = sessionResult.data.session;
-          }
+          const sessionResult = await supabaseClient.auth.getSession();
+          const sessionAfterError = sessionResult.data.session;
           if (!sessionAfterError) {
-            throw new Error("Your password reset link has expired. Please request a new one.");
+            throw new Error("Your password reset link has expired. Please request a new reset link.");
           }
           throw new Error(errorMsg || "Failed to update password. Please try again.");
         } else {
