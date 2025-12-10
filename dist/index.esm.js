@@ -324,6 +324,28 @@ const ActivateAccount = () => {
           console.log("ActivateAccount: Stored hash in sessionStorage as backup");
         }
         console.log("ActivateAccount: Waiting for Supabase to process hash and create session...");
+        let isDevOrStaging = false;
+        if (typeof window !== "undefined") {
+          const hostname = window.location.hostname;
+          const pathParts = window.location.pathname.split("/").filter(Boolean);
+          const clientId = pathParts[0];
+          try {
+            const clientConfigs = void 0;
+            if (clientConfigs) ;
+          } catch (e) {
+          }
+          if (!isDevOrStaging && (clientId === "dev" || clientId === "staging")) {
+            isDevOrStaging = true;
+          }
+          if (!isDevOrStaging && (hostname.includes("dev.staysecure-learn") || hostname.includes("staging.staysecure-learn") || hostname.includes("localhost") || hostname.includes("127.0.0.1"))) {
+            isDevOrStaging = true;
+          }
+        }
+        if (isDevOrStaging) {
+          const testDelay = 2e3;
+          console.log(`ActivateAccount: [TEST MODE] Simulating slow connection with ${testDelay}ms delay...`);
+          await new Promise((resolve) => setTimeout(resolve, testDelay));
+        }
         let session = null;
         const maxRetries = 10;
         const retryDelay = 500;
