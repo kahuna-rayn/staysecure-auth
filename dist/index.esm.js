@@ -704,7 +704,13 @@ const LoginForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [success, setSuccess] = useState("");
   const { signIn, error, loading: authLoading } = useAuth();
-  const badgeText = useMemo(() => getDisplayName(), [location.pathname]);
+  const badgeText = useMemo(() => {
+    const displayName = getDisplayName();
+    console.log("[ForgotPassword] getDisplayName() result:", displayName);
+    console.log("[ForgotPassword] location.pathname:", location.pathname);
+    console.log("[ForgotPassword] VITE_CLIENT_CONFIGS exists:", false);
+    return displayName;
+  }, [location.pathname]);
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);

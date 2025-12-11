@@ -696,7 +696,13 @@
     const [showPassword, setShowPassword] = react.useState(false);
     const [success, setSuccess] = react.useState("");
     const { signIn, error, loading: authLoading } = useAuth();
-    const badgeText = react.useMemo(() => getDisplayName(), [location.pathname]);
+    const badgeText = react.useMemo(() => {
+      const displayName = getDisplayName();
+      console.log("[ForgotPassword] getDisplayName() result:", displayName);
+      console.log("[ForgotPassword] location.pathname:", location.pathname);
+      console.log("[ForgotPassword] VITE_CLIENT_CONFIGS exists:", false);
+      return displayName;
+    }, [location.pathname]);
     const handleSubmit = async (e) => {
       e.preventDefault();
       setLoading(true);
