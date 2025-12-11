@@ -341,8 +341,8 @@ const ActivateAccount = ({ displayName }) => {
       const access = hashParams.get("access_token");
       const refresh = hashParams.get("refresh_token");
       const errorCode = hashParams.get("error_code");
-      hashParams.get("error_description");
       if (errorCode === "otp_expired" || hash.includes("error_code=otp_expired")) {
+        console.log("ActivateAccount: OTP expired");
         setError("This activation link has expired. Please request a new activation link using the button below.");
         setIsExpiredLink(true);
         return;
