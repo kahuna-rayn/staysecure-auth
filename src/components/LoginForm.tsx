@@ -26,12 +26,12 @@ const LoginForm: React.FC = () => {
    const badgeText = useMemo(() => {
     const displayName = getDisplayName();
     // Debug logging
-    console.log('[ForgotPassword] getDisplayName() result:', displayName);
-    console.log('[ForgotPassword] location.pathname:', location.pathname);
-    console.log('[ForgotPassword] VITE_CLIENT_CONFIGS exists:', !!import.meta.env.VITE_CLIENT_CONFIGS);
+    console.log('[LoginForm] getDisplayName() result:', displayName);
+    console.log('[LoginForm] location.pathname:', location.pathname);
+    console.log('[LoginForm] VITE_CLIENT_CONFIGS exists:', !!import.meta.env.VITE_CLIENT_CONFIGS);
     return displayName;
   }, [location.pathname]);
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);

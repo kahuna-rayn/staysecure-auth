@@ -278,6 +278,8 @@ const getDisplayName = () => {
   }
   try {
     const clientConfigs = void 0;
+    console.log("[getDisplayName] VITE_CLIENT_CONFIGS:", clientConfigs);
+    console.log("[getDisplayName] VITE_CLIENT_CONFIGS exists:", false);
     if (!clientConfigs) {
       return null;
     }
@@ -706,9 +708,9 @@ const LoginForm = () => {
   const { signIn, error, loading: authLoading } = useAuth();
   const badgeText = useMemo(() => {
     const displayName = getDisplayName();
-    console.log("[ForgotPassword] getDisplayName() result:", displayName);
-    console.log("[ForgotPassword] location.pathname:", location.pathname);
-    console.log("[ForgotPassword] VITE_CLIENT_CONFIGS exists:", false);
+    console.log("[LoginForm] getDisplayName() result:", displayName);
+    console.log("[LoginForm] location.pathname:", location.pathname);
+    console.log("[LoginForm] VITE_CLIENT_CONFIGS exists:", false);
     return displayName;
   }, [location.pathname]);
   const handleSubmit = async (e) => {

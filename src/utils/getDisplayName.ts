@@ -9,6 +9,9 @@ export const getDisplayName = (): string | null => {
 
   try {
     const clientConfigs = import.meta.env.VITE_CLIENT_CONFIGS;
+        // Debug logging
+        console.log('[getDisplayName] VITE_CLIENT_CONFIGS:', clientConfigs);
+        console.log('[getDisplayName] VITE_CLIENT_CONFIGS exists:', !!import.meta.env.VITE_CLIENT_CONFIGS);
     if (!clientConfigs) {
       return null;
     }
