@@ -1019,7 +1019,7 @@ const ResetPassword = () => {
   };
   const formDisabled = verifying || !email || loading;
   return /* @__PURE__ */ jsx("div", { className: "min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8", children: /* @__PURE__ */ jsxs("div", { className: "max-w-md w-full space-y-8", children: [
-    /* @__PURE__ */ jsx(AuthBranding, { size: "small", className: "mb-6" }),
+    /* @__PURE__ */ jsx(AuthBranding, { size: "large", className: "mb-6" }),
     /* @__PURE__ */ jsxs(Card, { className: "shadow-lg", children: [
       /* @__PURE__ */ jsx(CardHeader, { className: "relative", children: /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-2", children: [
         /* @__PURE__ */ jsx(CardTitle, { className: "text-2xl font-bold", children: "Reset Your Password" }),
