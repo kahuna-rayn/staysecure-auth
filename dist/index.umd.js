@@ -247,6 +247,23 @@
     }
     return context;
   };
+  const AuthBranding = ({ size = "large", className = "" }) => {
+    const logoSize = size === "large" ? "h-20" : "h-12";
+    const headingSize = size === "large" ? "text-3xl" : "text-xl";
+    const textSize = size === "large" ? "mt-2" : "text-sm";
+    return /* @__PURE__ */ jsxRuntime.jsxs("div", { className: `text-center ${className}`, children: [
+      /* @__PURE__ */ jsxRuntime.jsx(
+        "img",
+        {
+          src: raynLogo,
+          alt: "RAYN Secure Logo",
+          className: `mx-auto ${logoSize} w-auto mb-4`
+        }
+      ),
+      /* @__PURE__ */ jsxRuntime.jsx("h1", { className: `${headingSize} font-bold text-learning-primary`, children: "RAYN Secure" }),
+      /* @__PURE__ */ jsxRuntime.jsx("p", { className: `text-muted-foreground ${textSize}`, children: "Get Secure, Stay Secure!" })
+    ] });
+  };
   const ActivateAccount = () => {
     const location = reactRouterDom.useLocation();
     const navigate = reactRouterDom.useNavigate();
@@ -431,18 +448,7 @@
       }
     };
     return /* @__PURE__ */ jsxRuntime.jsx("div", { className: "min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8", children: /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "max-w-md w-full space-y-8", children: [
-      /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "text-center mb-6", children: [
-        /* @__PURE__ */ jsxRuntime.jsx(
-          "img",
-          {
-            src: raynLogo,
-            alt: "RAYN Secure Logo",
-            className: "mx-auto h-12 w-auto mb-2"
-          }
-        ),
-        /* @__PURE__ */ jsxRuntime.jsx("h1", { className: "text-xl font-semibold text-gray-800", children: "RAYN Secure" }),
-        /* @__PURE__ */ jsxRuntime.jsx("p", { className: "text-sm text-gray-600", children: "Get Secure, Stay Secure!" })
-      ] }),
+      /* @__PURE__ */ jsxRuntime.jsx(AuthBranding, { size: "small", className: "mb-6" }),
       /* @__PURE__ */ jsxRuntime.jsxs(card.Card, { className: "shadow-lg", children: [
         /* @__PURE__ */ jsxRuntime.jsxs(card.CardHeader, { className: "text-center", children: [
           /* @__PURE__ */ jsxRuntime.jsx(card.CardTitle, { className: "text-2xl font-bold", children: "Activate Your Account" }),
@@ -601,18 +607,7 @@
       }
     };
     return /* @__PURE__ */ jsxRuntime.jsx("div", { className: "min-h-screen bg-learning-background flex items-center justify-center p-4", children: /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "w-full max-w-md space-y-6", children: [
-      /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "text-center", children: [
-        /* @__PURE__ */ jsxRuntime.jsx(
-          "img",
-          {
-            src: raynLogo,
-            alt: "RAYN Secure Logo",
-            className: "mx-auto h-20 w-auto mb-4"
-          }
-        ),
-        /* @__PURE__ */ jsxRuntime.jsx("h1", { className: "text-3xl font-bold text-learning-primary", children: "RAYN Secure" }),
-        /* @__PURE__ */ jsxRuntime.jsx("p", { className: "text-muted-foreground mt-2", children: "Get Secure, Stay Secure!" })
-      ] }),
+      /* @__PURE__ */ jsxRuntime.jsx(AuthBranding, { size: "large" }),
       /* @__PURE__ */ jsxRuntime.jsxs(card.Card, { children: [
         /* @__PURE__ */ jsxRuntime.jsxs(card.CardHeader, { children: [
           /* @__PURE__ */ jsxRuntime.jsx(card.CardTitle, { children: "Reset Your Password" }),
@@ -654,13 +649,13 @@
     ] }) });
   };
   const LoginForm = () => {
+    const navigate = reactRouterDom.useNavigate();
     const [email, setEmail] = react.useState("");
     const [password, setPassword] = react.useState("");
     const [loading, setLoading] = react.useState(false);
     const [showPassword, setShowPassword] = react.useState(false);
-    const [showForgotPassword, setShowForgotPassword] = react.useState(false);
     const [success, setSuccess] = react.useState("");
-    const { signIn, resetPassword, error, loading: authLoading } = useAuth();
+    const { signIn, error, loading: authLoading } = useAuth();
     const handleSubmit = async (e) => {
       e.preventDefault();
       setLoading(true);
@@ -673,96 +668,73 @@
         setLoading(false);
       }
     };
-    const handleForgotPassword = async (e) => {
-      e.preventDefault();
-      setLoading(true);
-      setSuccess("");
-      try {
-        await resetPassword(email);
-        setSuccess("Password reset instructions have been sent to your email.");
-        setShowForgotPassword(false);
-      } catch (error2) {
-        console.log("Reset password error:", error2);
-      } finally {
-        setLoading(false);
-      }
-    };
-    return /* @__PURE__ */ jsxRuntime.jsxs(card.Card, { className: "w-full max-w-md mx-auto", children: [
-      /* @__PURE__ */ jsxRuntime.jsxs(card.CardHeader, { children: [
-        /* @__PURE__ */ jsxRuntime.jsx(card.CardTitle, { children: showForgotPassword ? "Reset Password" : "Sign In" }),
-        /* @__PURE__ */ jsxRuntime.jsx(card.CardDescription, { children: showForgotPassword ? "Enter your email address to receive password reset instructions" : "Enter your email and password to access your learning dashboard" })
-      ] }),
-      /* @__PURE__ */ jsxRuntime.jsx(card.CardContent, { children: /* @__PURE__ */ jsxRuntime.jsxs("form", { onSubmit: showForgotPassword ? handleForgotPassword : handleSubmit, className: "space-y-4", children: [
-        error && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { variant: "destructive", children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: error }) }),
-        success && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: success }) }),
-        /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
-          /* @__PURE__ */ jsxRuntime.jsx(label.Label, { htmlFor: "email", children: "Email" }),
-          /* @__PURE__ */ jsxRuntime.jsx(
-            input.Input,
-            {
-              id: "email",
-              type: "email",
-              value: email,
-              onChange: (e) => setEmail(e.target.value),
-              required: true
-            }
-          )
+    return /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "w-full max-w-md mx-auto space-y-6", children: [
+      /* @__PURE__ */ jsxRuntime.jsx(AuthBranding, { size: "large" }),
+      /* @__PURE__ */ jsxRuntime.jsxs(card.Card, { children: [
+        /* @__PURE__ */ jsxRuntime.jsxs(card.CardHeader, { children: [
+          /* @__PURE__ */ jsxRuntime.jsx(card.CardTitle, { children: "Sign In" }),
+          /* @__PURE__ */ jsxRuntime.jsx(card.CardDescription, { children: "Enter your email and password to access your learning dashboard" })
         ] }),
-        !showForgotPassword && /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
-          /* @__PURE__ */ jsxRuntime.jsx(label.Label, { htmlFor: "password", children: "Password" }),
-          /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "relative", children: [
+        /* @__PURE__ */ jsxRuntime.jsx(card.CardContent, { children: /* @__PURE__ */ jsxRuntime.jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
+          error && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { variant: "destructive", children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: error }) }),
+          success && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: success }) }),
+          /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
+            /* @__PURE__ */ jsxRuntime.jsx(label.Label, { htmlFor: "email", children: "Email" }),
             /* @__PURE__ */ jsxRuntime.jsx(
               input.Input,
               {
-                id: "password",
-                type: showPassword ? "text" : "password",
-                value: password,
-                onChange: (e) => setPassword(e.target.value),
-                required: true,
-                className: "pr-10"
-              }
-            ),
-            /* @__PURE__ */ jsxRuntime.jsx(
-              button.Button,
-              {
-                type: "button",
-                variant: "ghost",
-                size: "sm",
-                className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
-                onClick: () => setShowPassword(!showPassword),
-                children: showPassword ? /* @__PURE__ */ jsxRuntime.jsx(lucideReact.EyeOff, { className: "h-4 w-4 text-muted-foreground" }) : /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Eye, { className: "h-4 w-4 text-muted-foreground" })
+                id: "email",
+                type: "email",
+                value: email,
+                onChange: (e) => setEmail(e.target.value),
+                required: true
               }
             )
-          ] })
-        ] }),
-        /* @__PURE__ */ jsxRuntime.jsxs(button.Button, { type: "submit", className: "w-full", disabled: loading || authLoading, children: [
-          (loading || authLoading) && /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
-          showForgotPassword ? "Send Reset Instructions" : "Sign In"
-        ] }),
-        /* @__PURE__ */ jsxRuntime.jsx("div", { className: "text-center", children: showForgotPassword ? /* @__PURE__ */ jsxRuntime.jsx(
-          button.Button,
-          {
-            variant: "link",
-            type: "button",
-            onClick: () => {
-              setShowForgotPassword(false);
-              setSuccess("");
-            },
-            children: "Back to Sign In"
-          }
-        ) : /* @__PURE__ */ jsxRuntime.jsx(
-          button.Button,
-          {
-            variant: "link",
-            type: "button",
-            onClick: () => {
-              setShowForgotPassword(true);
-              setSuccess("");
-            },
-            children: "Forgot Password?"
-          }
-        ) })
-      ] }) })
+          ] }),
+          /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
+            /* @__PURE__ */ jsxRuntime.jsx(label.Label, { htmlFor: "password", children: "Password" }),
+            /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "relative", children: [
+              /* @__PURE__ */ jsxRuntime.jsx(
+                input.Input,
+                {
+                  id: "password",
+                  type: showPassword ? "text" : "password",
+                  value: password,
+                  onChange: (e) => setPassword(e.target.value),
+                  required: true,
+                  className: "pr-10"
+                }
+              ),
+              /* @__PURE__ */ jsxRuntime.jsx(
+                button.Button,
+                {
+                  type: "button",
+                  variant: "ghost",
+                  size: "sm",
+                  className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
+                  onClick: () => setShowPassword(!showPassword),
+                  children: showPassword ? /* @__PURE__ */ jsxRuntime.jsx(lucideReact.EyeOff, { className: "h-4 w-4 text-muted-foreground" }) : /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Eye, { className: "h-4 w-4 text-muted-foreground" })
+                }
+              )
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxRuntime.jsxs(button.Button, { type: "submit", className: "w-full", disabled: loading || authLoading, children: [
+            (loading || authLoading) && /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
+            "Sign In"
+          ] }),
+          /* @__PURE__ */ jsxRuntime.jsx("div", { className: "text-center", children: /* @__PURE__ */ jsxRuntime.jsx(
+            button.Button,
+            {
+              variant: "link",
+              type: "button",
+              onClick: () => {
+                navigate("/forgot-password");
+              },
+              children: "Forgot Password?"
+            }
+          ) })
+        ] }) })
+      ] })
     ] });
   };
   const isStrongPassword = (pwd) => {
@@ -1007,11 +979,7 @@
     };
     const formDisabled = verifying || !email || loading;
     return /* @__PURE__ */ jsxRuntime.jsx("div", { className: "min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8", children: /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "max-w-md w-full space-y-8", children: [
-      /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "text-center mb-6", children: [
-        /* @__PURE__ */ jsxRuntime.jsx("img", { src: raynLogo, alt: "RAYN Secure Logo", className: "mx-auto h-12 w-auto mb-2" }),
-        /* @__PURE__ */ jsxRuntime.jsx("h1", { className: "text-xl font-semibold text-gray-800", children: "RAYN Secure" }),
-        /* @__PURE__ */ jsxRuntime.jsx("p", { className: "text-sm text-gray-600", children: "Get Secure, Stay Secure!" })
-      ] }),
+      /* @__PURE__ */ jsxRuntime.jsx(AuthBranding, { size: "small", className: "mb-6" }),
       /* @__PURE__ */ jsxRuntime.jsxs(card.Card, { className: "shadow-lg", children: [
         /* @__PURE__ */ jsxRuntime.jsx(card.CardHeader, { className: "text-center", children: /* @__PURE__ */ jsxRuntime.jsx(card.CardTitle, { className: "text-2xl font-bold", children: "Reset Your Password" }) }),
         /* @__PURE__ */ jsxRuntime.jsx(card.CardContent, { children: /* @__PURE__ */ jsxRuntime.jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
@@ -1316,6 +1284,7 @@
     };
   };
   exports2.ActivateAccount = ActivateAccount;
+  exports2.AuthBranding = AuthBranding;
   exports2.AuthEventRedirect = AuthEventRedirect;
   exports2.AuthProvider = AuthProvider;
   exports2.ForgotPassword = ForgotPassword;

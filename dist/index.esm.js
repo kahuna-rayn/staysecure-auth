@@ -254,6 +254,23 @@ const useAuth = () => {
   }
   return context;
 };
+const AuthBranding = ({ size = "large", className = "" }) => {
+  const logoSize = size === "large" ? "h-20" : "h-12";
+  const headingSize = size === "large" ? "text-3xl" : "text-xl";
+  const textSize = size === "large" ? "mt-2" : "text-sm";
+  return /* @__PURE__ */ jsxs("div", { className: `text-center ${className}`, children: [
+    /* @__PURE__ */ jsx(
+      "img",
+      {
+        src: raynLogo,
+        alt: "RAYN Secure Logo",
+        className: `mx-auto ${logoSize} w-auto mb-4`
+      }
+    ),
+    /* @__PURE__ */ jsx("h1", { className: `${headingSize} font-bold text-learning-primary`, children: "RAYN Secure" }),
+    /* @__PURE__ */ jsx("p", { className: `text-muted-foreground ${textSize}`, children: "Get Secure, Stay Secure!" })
+  ] });
+};
 const ActivateAccount = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -438,18 +455,7 @@ const ActivateAccount = () => {
     }
   };
   return /* @__PURE__ */ jsx("div", { className: "min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8", children: /* @__PURE__ */ jsxs("div", { className: "max-w-md w-full space-y-8", children: [
-    /* @__PURE__ */ jsxs("div", { className: "text-center mb-6", children: [
-      /* @__PURE__ */ jsx(
-        "img",
-        {
-          src: raynLogo,
-          alt: "RAYN Secure Logo",
-          className: "mx-auto h-12 w-auto mb-2"
-        }
-      ),
-      /* @__PURE__ */ jsx("h1", { className: "text-xl font-semibold text-gray-800", children: "RAYN Secure" }),
-      /* @__PURE__ */ jsx("p", { className: "text-sm text-gray-600", children: "Get Secure, Stay Secure!" })
-    ] }),
+    /* @__PURE__ */ jsx(AuthBranding, { size: "small", className: "mb-6" }),
     /* @__PURE__ */ jsxs(Card, { className: "shadow-lg", children: [
       /* @__PURE__ */ jsxs(CardHeader, { className: "text-center", children: [
         /* @__PURE__ */ jsx(CardTitle, { className: "text-2xl font-bold", children: "Activate Your Account" }),
@@ -608,18 +614,7 @@ const ForgotPassword = () => {
     }
   };
   return /* @__PURE__ */ jsx("div", { className: "min-h-screen bg-learning-background flex items-center justify-center p-4", children: /* @__PURE__ */ jsxs("div", { className: "w-full max-w-md space-y-6", children: [
-    /* @__PURE__ */ jsxs("div", { className: "text-center", children: [
-      /* @__PURE__ */ jsx(
-        "img",
-        {
-          src: raynLogo,
-          alt: "RAYN Secure Logo",
-          className: "mx-auto h-20 w-auto mb-4"
-        }
-      ),
-      /* @__PURE__ */ jsx("h1", { className: "text-3xl font-bold text-learning-primary", children: "RAYN Secure" }),
-      /* @__PURE__ */ jsx("p", { className: "text-muted-foreground mt-2", children: "Get Secure, Stay Secure!" })
-    ] }),
+    /* @__PURE__ */ jsx(AuthBranding, { size: "large" }),
     /* @__PURE__ */ jsxs(Card, { children: [
       /* @__PURE__ */ jsxs(CardHeader, { children: [
         /* @__PURE__ */ jsx(CardTitle, { children: "Reset Your Password" }),
@@ -661,13 +656,13 @@ const ForgotPassword = () => {
   ] }) });
 };
 const LoginForm = () => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [success, setSuccess] = useState("");
-  const { signIn, resetPassword, error, loading: authLoading } = useAuth();
+  const { signIn, error, loading: authLoading } = useAuth();
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -680,96 +675,73 @@ const LoginForm = () => {
       setLoading(false);
     }
   };
-  const handleForgotPassword = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setSuccess("");
-    try {
-      await resetPassword(email);
-      setSuccess("Password reset instructions have been sent to your email.");
-      setShowForgotPassword(false);
-    } catch (error2) {
-      console.log("Reset password error:", error2);
-    } finally {
-      setLoading(false);
-    }
-  };
-  return /* @__PURE__ */ jsxs(Card, { className: "w-full max-w-md mx-auto", children: [
-    /* @__PURE__ */ jsxs(CardHeader, { children: [
-      /* @__PURE__ */ jsx(CardTitle, { children: showForgotPassword ? "Reset Password" : "Sign In" }),
-      /* @__PURE__ */ jsx(CardDescription, { children: showForgotPassword ? "Enter your email address to receive password reset instructions" : "Enter your email and password to access your learning dashboard" })
-    ] }),
-    /* @__PURE__ */ jsx(CardContent, { children: /* @__PURE__ */ jsxs("form", { onSubmit: showForgotPassword ? handleForgotPassword : handleSubmit, className: "space-y-4", children: [
-      error && /* @__PURE__ */ jsx(Alert, { variant: "destructive", children: /* @__PURE__ */ jsx(AlertDescription, { children: error }) }),
-      success && /* @__PURE__ */ jsx(Alert, { children: /* @__PURE__ */ jsx(AlertDescription, { children: success }) }),
-      /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
-        /* @__PURE__ */ jsx(Label, { htmlFor: "email", children: "Email" }),
-        /* @__PURE__ */ jsx(
-          Input,
-          {
-            id: "email",
-            type: "email",
-            value: email,
-            onChange: (e) => setEmail(e.target.value),
-            required: true
-          }
-        )
+  return /* @__PURE__ */ jsxs("div", { className: "w-full max-w-md mx-auto space-y-6", children: [
+    /* @__PURE__ */ jsx(AuthBranding, { size: "large" }),
+    /* @__PURE__ */ jsxs(Card, { children: [
+      /* @__PURE__ */ jsxs(CardHeader, { children: [
+        /* @__PURE__ */ jsx(CardTitle, { children: "Sign In" }),
+        /* @__PURE__ */ jsx(CardDescription, { children: "Enter your email and password to access your learning dashboard" })
       ] }),
-      !showForgotPassword && /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
-        /* @__PURE__ */ jsx(Label, { htmlFor: "password", children: "Password" }),
-        /* @__PURE__ */ jsxs("div", { className: "relative", children: [
+      /* @__PURE__ */ jsx(CardContent, { children: /* @__PURE__ */ jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
+        error && /* @__PURE__ */ jsx(Alert, { variant: "destructive", children: /* @__PURE__ */ jsx(AlertDescription, { children: error }) }),
+        success && /* @__PURE__ */ jsx(Alert, { children: /* @__PURE__ */ jsx(AlertDescription, { children: success }) }),
+        /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
+          /* @__PURE__ */ jsx(Label, { htmlFor: "email", children: "Email" }),
           /* @__PURE__ */ jsx(
             Input,
             {
-              id: "password",
-              type: showPassword ? "text" : "password",
-              value: password,
-              onChange: (e) => setPassword(e.target.value),
-              required: true,
-              className: "pr-10"
-            }
-          ),
-          /* @__PURE__ */ jsx(
-            Button,
-            {
-              type: "button",
-              variant: "ghost",
-              size: "sm",
-              className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
-              onClick: () => setShowPassword(!showPassword),
-              children: showPassword ? /* @__PURE__ */ jsx(EyeOff, { className: "h-4 w-4 text-muted-foreground" }) : /* @__PURE__ */ jsx(Eye, { className: "h-4 w-4 text-muted-foreground" })
+              id: "email",
+              type: "email",
+              value: email,
+              onChange: (e) => setEmail(e.target.value),
+              required: true
             }
           )
-        ] })
-      ] }),
-      /* @__PURE__ */ jsxs(Button, { type: "submit", className: "w-full", disabled: loading || authLoading, children: [
-        (loading || authLoading) && /* @__PURE__ */ jsx(Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
-        showForgotPassword ? "Send Reset Instructions" : "Sign In"
-      ] }),
-      /* @__PURE__ */ jsx("div", { className: "text-center", children: showForgotPassword ? /* @__PURE__ */ jsx(
-        Button,
-        {
-          variant: "link",
-          type: "button",
-          onClick: () => {
-            setShowForgotPassword(false);
-            setSuccess("");
-          },
-          children: "Back to Sign In"
-        }
-      ) : /* @__PURE__ */ jsx(
-        Button,
-        {
-          variant: "link",
-          type: "button",
-          onClick: () => {
-            setShowForgotPassword(true);
-            setSuccess("");
-          },
-          children: "Forgot Password?"
-        }
-      ) })
-    ] }) })
+        ] }),
+        /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
+          /* @__PURE__ */ jsx(Label, { htmlFor: "password", children: "Password" }),
+          /* @__PURE__ */ jsxs("div", { className: "relative", children: [
+            /* @__PURE__ */ jsx(
+              Input,
+              {
+                id: "password",
+                type: showPassword ? "text" : "password",
+                value: password,
+                onChange: (e) => setPassword(e.target.value),
+                required: true,
+                className: "pr-10"
+              }
+            ),
+            /* @__PURE__ */ jsx(
+              Button,
+              {
+                type: "button",
+                variant: "ghost",
+                size: "sm",
+                className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
+                onClick: () => setShowPassword(!showPassword),
+                children: showPassword ? /* @__PURE__ */ jsx(EyeOff, { className: "h-4 w-4 text-muted-foreground" }) : /* @__PURE__ */ jsx(Eye, { className: "h-4 w-4 text-muted-foreground" })
+              }
+            )
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxs(Button, { type: "submit", className: "w-full", disabled: loading || authLoading, children: [
+          (loading || authLoading) && /* @__PURE__ */ jsx(Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
+          "Sign In"
+        ] }),
+        /* @__PURE__ */ jsx("div", { className: "text-center", children: /* @__PURE__ */ jsx(
+          Button,
+          {
+            variant: "link",
+            type: "button",
+            onClick: () => {
+              navigate("/forgot-password");
+            },
+            children: "Forgot Password?"
+          }
+        ) })
+      ] }) })
+    ] })
   ] });
 };
 const isStrongPassword = (pwd) => {
@@ -1014,11 +986,7 @@ const ResetPassword = () => {
   };
   const formDisabled = verifying || !email || loading;
   return /* @__PURE__ */ jsx("div", { className: "min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8", children: /* @__PURE__ */ jsxs("div", { className: "max-w-md w-full space-y-8", children: [
-    /* @__PURE__ */ jsxs("div", { className: "text-center mb-6", children: [
-      /* @__PURE__ */ jsx("img", { src: raynLogo, alt: "RAYN Secure Logo", className: "mx-auto h-12 w-auto mb-2" }),
-      /* @__PURE__ */ jsx("h1", { className: "text-xl font-semibold text-gray-800", children: "RAYN Secure" }),
-      /* @__PURE__ */ jsx("p", { className: "text-sm text-gray-600", children: "Get Secure, Stay Secure!" })
-    ] }),
+    /* @__PURE__ */ jsx(AuthBranding, { size: "small", className: "mb-6" }),
     /* @__PURE__ */ jsxs(Card, { className: "shadow-lg", children: [
       /* @__PURE__ */ jsx(CardHeader, { className: "text-center", children: /* @__PURE__ */ jsx(CardTitle, { className: "text-2xl font-bold", children: "Reset Your Password" }) }),
       /* @__PURE__ */ jsx(CardContent, { children: /* @__PURE__ */ jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
@@ -1324,6 +1292,7 @@ const createUseAuth = (dependencies) => {
 };
 export {
   ActivateAccount,
+  AuthBranding,
   AuthEventRedirect,
   AuthProvider,
   ForgotPassword,

@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import raynLogo from '@/assets/rayn-logo.png';
+import AuthBranding from './AuthBranding';
 
 const ForgotPassword: React.FC = () => {
   const location = useLocation();
@@ -56,16 +56,7 @@ const ForgotPassword: React.FC = () => {
   return (
     <div className="min-h-screen bg-learning-background flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
-        {/* RAYN Secure Branding */}
-        <div className="text-center">
-          <img 
-            src={raynLogo} 
-            alt="RAYN Secure Logo" 
-            className="mx-auto h-20 w-auto mb-4"
-          />
-          <h1 className="text-3xl font-bold text-learning-primary">RAYN Secure</h1>
-          <p className="text-muted-foreground mt-2">Get Secure, Stay Secure!</p>
-        </div>
+        <AuthBranding size="large" />
         
         <Card>
           <CardHeader>
