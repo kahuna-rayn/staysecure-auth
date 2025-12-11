@@ -299,8 +299,8 @@ const ResetPassword: React.FC = () => {
         <AuthBranding size="small" className="mb-6" />
 
         <Card className="shadow-lg">
-          <CardHeader className="text-center relative">
-            <div className="flex items-center justify-center gap-2">
+          <CardHeader className="relative">
+            <div className="flex items-center gap-2">
               <CardTitle className="text-2xl font-bold">Reset Your Password</CardTitle>
               {badgeText && (
                 <Badge variant="outline" className="text-xs">

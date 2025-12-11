@@ -65,7 +65,7 @@ const ForgotPassword: React.FC = () => {
         
         <Card>
           <CardHeader className="relative">
-            <div className="flex items-center justify-center gap-2">
+            <div className="flex items-center gap-2">
               <CardTitle>Reset Your Password</CardTitle>
               {badgeText && (
                 <Badge variant="outline" className="text-xs">

@@ -477,8 +477,8 @@ const ActivateAccount = () => {
   return /* @__PURE__ */ jsx("div", { className: "min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8", children: /* @__PURE__ */ jsxs("div", { className: "max-w-md w-full space-y-8", children: [
     /* @__PURE__ */ jsx(AuthBranding, { size: "small", className: "mb-6" }),
     /* @__PURE__ */ jsxs(Card, { className: "shadow-lg", children: [
-      /* @__PURE__ */ jsxs(CardHeader, { className: "text-center relative", children: [
-        /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-center gap-2", children: [
+      /* @__PURE__ */ jsxs(CardHeader, { className: "relative", children: [
+        /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-2", children: [
           /* @__PURE__ */ jsx(CardTitle, { className: "text-2xl font-bold", children: "Activate Your Account" }),
           badgeText && /* @__PURE__ */ jsx(Badge, { variant: "outline", className: "text-xs", children: badgeText })
         ] }),
@@ -641,7 +641,7 @@ const ForgotPassword = () => {
     /* @__PURE__ */ jsx(AuthBranding, { size: "large" }),
     /* @__PURE__ */ jsxs(Card, { children: [
       /* @__PURE__ */ jsxs(CardHeader, { className: "relative", children: [
-        /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-center gap-2", children: [
+        /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-2", children: [
           /* @__PURE__ */ jsx(CardTitle, { children: "Reset Your Password" }),
           badgeText && /* @__PURE__ */ jsx(Badge, { variant: "outline", className: "text-xs", children: badgeText })
         ] }),
@@ -708,7 +708,7 @@ const LoginForm = () => {
     /* @__PURE__ */ jsx(AuthBranding, { size: "large" }),
     /* @__PURE__ */ jsxs(Card, { children: [
       /* @__PURE__ */ jsxs(CardHeader, { className: "relative", children: [
-        /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-center gap-2", children: [
+        /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-2", children: [
           /* @__PURE__ */ jsx(CardTitle, { children: "Sign In" }),
           badgeText && /* @__PURE__ */ jsx(Badge, { variant: "outline", className: "text-xs", children: badgeText })
         ] }),
@@ -1021,7 +1021,7 @@ const ResetPassword = () => {
   return /* @__PURE__ */ jsx("div", { className: "min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8", children: /* @__PURE__ */ jsxs("div", { className: "max-w-md w-full space-y-8", children: [
     /* @__PURE__ */ jsx(AuthBranding, { size: "small", className: "mb-6" }),
     /* @__PURE__ */ jsxs(Card, { className: "shadow-lg", children: [
-      /* @__PURE__ */ jsx(CardHeader, { className: "text-center relative", children: /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-center gap-2", children: [
+      /* @__PURE__ */ jsx(CardHeader, { className: "relative", children: /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-2", children: [
         /* @__PURE__ */ jsx(CardTitle, { className: "text-2xl font-bold", children: "Reset Your Password" }),
         badgeText && /* @__PURE__ */ jsx(Badge, { variant: "outline", className: "text-xs", children: badgeText })
       ] }) }),

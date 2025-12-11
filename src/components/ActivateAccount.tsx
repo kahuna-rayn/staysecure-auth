@@ -293,8 +293,8 @@ if (password.length < 12 || !hasLowercase || !hasUppercase || !hasDigit || !hasS
         <AuthBranding size="small" className="mb-6" />
         
         <Card className="shadow-lg">
-          <CardHeader className="text-center relative">
-            <div className="flex items-center justify-center gap-2">
+          <CardHeader className="relative">
+            <div className="flex items-center gap-2">
               <CardTitle className="text-2xl font-bold">
                 Activate Your Account
               </CardTitle>
