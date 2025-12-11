@@ -24,7 +24,7 @@ const LoginForm: React.FC = () => {
   
    // Get displayName for badge
    const badgeText = useMemo(() => {
-    const displayName = getDisplayName();
+   const displayName = getDisplayName();
     // Debug logging
     console.log('[LoginForm] getDisplayName() result:', displayName);
     console.log('[LoginForm] location.pathname:', location.pathname);
