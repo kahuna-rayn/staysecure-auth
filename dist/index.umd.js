@@ -275,8 +275,15 @@
       }
       const parsed = JSON.parse(clientConfigs);
       const pathParts = window.location.pathname.split("/").filter(Boolean);
-      const clientId = pathParts[0];
-      const currentClientConfig = parsed[clientId] || parsed["default"];
+      const firstSegment = pathParts[0];
+      const authRoutes = ["forgot-password", "reset-password", "activate-account", "signup", "login"];
+      let clientId = null;
+      if (firstSegment && parsed[firstSegment] && !authRoutes.includes(firstSegment)) {
+        clientId = firstSegment;
+      } else {
+        clientId = "default";
+      }
+      const currentClientConfig = parsed[clientId];
       return (currentClientConfig == null ? void 0 : currentClientConfig.displayName) || null;
     } catch (e) {
       return null;
@@ -601,7 +608,13 @@
     const [message, setMessage] = react.useState("");
     const [isError, setIsError] = react.useState(false);
     const { resetPassword } = useAuth();
-    const badgeText = react.useMemo(() => getDisplayName(), [location.pathname]);
+    const badgeText = react.useMemo(() => {
+      const displayName = getDisplayName();
+      console.log("[ForgotPassword] getDisplayName() result:", displayName);
+      console.log("[ForgotPassword] location.pathname:", location.pathname);
+      console.log("[ForgotPassword] VITE_CLIENT_CONFIGS exists:", false);
+      return displayName;
+    }, [location.pathname]);
     react.useEffect(() => {
       if (location.hash && (location.hash.includes("access_token") || location.hash.includes("refresh_token"))) {
         const newUrl = window.location.pathname + (location.search || "");

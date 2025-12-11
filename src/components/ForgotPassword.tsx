@@ -20,7 +20,14 @@ const ForgotPassword: React.FC = () => {
   const { resetPassword } = useAuth();
   
   // Get displayName for badge
-  const badgeText = useMemo(() => getDisplayName(), [location.pathname]);
+  const badgeText = useMemo(() => {
+    const displayName = getDisplayName();
+    // Debug logging
+    console.log('[ForgotPassword] getDisplayName() result:', displayName);
+    console.log('[ForgotPassword] location.pathname:', location.pathname);
+    console.log('[ForgotPassword] VITE_CLIENT_CONFIGS exists:', !!import.meta.env.VITE_CLIENT_CONFIGS);
+    return displayName;
+  }, [location.pathname]);
 
   // Clear any hash tokens when on forgot-password page
   // This page is for requesting a reset, not for processing reset links
@@ -62,7 +69,6 @@ const ForgotPassword: React.FC = () => {
     <div className="min-h-screen bg-learning-background flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
         <AuthBranding size="large" />
-        
         <Card>
           <CardHeader className="relative">
             <div className="flex items-center gap-2">

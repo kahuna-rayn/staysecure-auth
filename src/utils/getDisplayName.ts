@@ -15,10 +15,22 @@ export const getDisplayName = (): string | null => {
 
     const parsed = JSON.parse(clientConfigs);
     const pathParts = window.location.pathname.split('/').filter(Boolean);
-    const clientId = pathParts[0];
+    const firstSegment = pathParts[0];
+    
+    // List of known auth routes that are NOT clientIds
+    const authRoutes = ['forgot-password', 'reset-password', 'activate-account', 'signup', 'login'];
+    
+    // Check if first segment is a valid clientId (exists in config) and not an auth route
+    let clientId: string | null = null;
+    if (firstSegment && parsed[firstSegment] && !authRoutes.includes(firstSegment)) {
+      clientId = firstSegment;
+    } else {
+      // Fall back to 'default'
+      clientId = 'default';
+    }
 
-    // Get the config for the current client or fall back to 'default'
-    const currentClientConfig = parsed[clientId] || parsed['default'];
+    // Get the config for the current client
+    const currentClientConfig = parsed[clientId];
     return currentClientConfig?.displayName || null;
   } catch (e) {
     // Silently fail - badge is optional
