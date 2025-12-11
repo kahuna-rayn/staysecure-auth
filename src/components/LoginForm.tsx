@@ -27,7 +27,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ displayName }) => {
   const { signIn, error, loading: authLoading } = useAuth();
   
   // Use displayName from props (passed by consuming app)
-  const badgeText = displayNameProp || null;
+  const badgeText = displayName || null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

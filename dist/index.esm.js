@@ -673,7 +673,7 @@ const LoginForm = ({ displayName }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [success, setSuccess] = useState("");
   const { signIn, error, loading: authLoading } = useAuth();
-  const badgeText = displayNameProp || null;
+  const badgeText = displayName || null;
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);

@@ -665,7 +665,7 @@
     const [showPassword, setShowPassword] = react.useState(false);
     const [success, setSuccess] = react.useState("");
     const { signIn, error, loading: authLoading } = useAuth();
-    const badgeText = displayNameProp || null;
+    const badgeText = displayName || null;
     const handleSubmit = async (e) => {
       e.preventDefault();
       setLoading(true);
