@@ -236,33 +236,39 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
         accessTokenLength: session.access_token?.length || 0
       })
 
-      const { error: updateError } = await supabaseClient.auth.updateUser({ password })
-      console.log('[ResetPassword] updateUser call completed')
+      // Use the update-user-password Edge Function to also activate account and update status
+      const { data, error: updateError } = await supabaseClient.functions.invoke('update-user-password', {
+        body: {
+          email: session.user.email,
+          password: password,
+          user_id: session.user.id
+        }
+      });
+      console.log('[ResetPassword] update-user-password Edge Function call completed')
 
+      // Check for Edge Function invocation error first
       if (updateError) {
-        console.error('[ResetPassword] ❌ updateUser error:', {
+        console.error('[ResetPassword] ❌ Edge Function error:', {
           message: updateError.message,
-          status: (updateError as any)?.status,
-          name: updateError.name
+          error: updateError
         })
-
-        // Check session immediately after error
+        
+        // Check session after error
         const { data: { session: sessionAfterError }, error: sessionCheckErr } = await supabaseClient.auth.getSession()
         console.log('[ResetPassword] Session check after error:', {
           hasSession: !!sessionAfterError,
           hasError: !!sessionCheckErr,
           userEmail: sessionAfterError?.user?.email,
-          sessionExpiresAt: sessionAfterError?.expires_at,
           sessionStillValid: !!sessionAfterError?.user?.email
         })
 
-        // Handle common statuses and messages
+        // Handle common error statuses and messages
         const msg = (updateError.message || '').toLowerCase()
         const status = (updateError as any)?.status as number | undefined
 
         if (status === 401 || status === 410 || msg.includes('expired') || msg.includes('invalid') || msg.includes('session')) {
           if (!sessionAfterError) {
-            console.error('[ResetPassword] ❌ Session lost after updateUser error - this is why second attempt fails')
+            console.error('[ResetPassword] ❌ Session lost after updateUser error')
           }
           throw new Error('Your password reset link has expired or was already used. Please request a new link.')
         }
@@ -279,8 +285,15 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
         throw new Error(updateError.message || 'Failed to update password. Please try again.')
       }
 
-      console.log('[ResetPassword] ✅ Password updated successfully!')
-      setSuccess('Password reset successfully! Redirecting to login...')
+      // Check if Edge Function returned an error in the response data
+      if (data?.error) {
+        console.error('[ResetPassword] ❌ Edge Function returned error:', data.error)
+        throw new Error(data.error)
+      }
+
+      // Success - password updated and account activated
+      console.log('[ResetPassword] ✅ Password updated successfully and account activated!')
+      setSuccess('Password reset successfully! Your account has been activated. Redirecting to login...')
       await supabaseClient.auth.signOut()
       setTimeout(() => navigate('/', { replace: true }), 1500)
     } catch (err: any) {

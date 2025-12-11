@@ -18,7 +18,7 @@ interface ActivateAccountProps {
 const ActivateAccount: React.FC<ActivateAccountProps> = ({ displayName }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { activateUser, error: authError, loading: authLoading, signOut, supabaseClient } = useAuth();
+  const { activateUser, error: authError, loading: authLoading, signOut, supabaseClient, sendActivationEmail } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -28,7 +28,10 @@ const ActivateAccount: React.FC<ActivateAccountProps> = ({ displayName }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const clientPathRef = useRef<string>('');
-  
+  const [requestingNewLink, setRequestingNewLink] = useState(false);
+  const [newLinkRequested, setNewLinkRequested] = useState(false);
+  const [isExpiredLink, setIsExpiredLink] = useState(false);
+
   // Parse URL parameters at component level
   const searchParams = new URLSearchParams(location.search);
   
@@ -64,6 +67,18 @@ const ActivateAccount: React.FC<ActivateAccountProps> = ({ displayName }) => {
     }
   }, []);
 
+  // Check for error from navigation state (expired link)
+  useEffect(() => {
+    if (location.state?.authError) {
+      setError(location.state.authError);
+      // If expired link, enable the email field for requesting new link
+      if (location.state.expiredLink) {
+        setIsExpiredLink(true);
+      }
+    }
+  }, [location.state]);
+
+
   useEffect(() => {
     const run = async () => {
       // Debug logging
@@ -83,12 +98,21 @@ const ActivateAccount: React.FC<ActivateAccountProps> = ({ displayName }) => {
       
       // Parse tokens from hash fragment: #access_token=...&refresh_token=...&type=recovery
       // This is what Supabase generates when using generateLink with type='recovery'
-      const hash = location.hash || window.location.hash || backupHash;
+      const hash = location.hash || window.location.hash || backupHash || '';
       const hashParams = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
       
       const type = hashParams.get('type') || searchParams.get('type');
       const access = hashParams.get('access_token');
       const refresh = hashParams.get('refresh_token');
+
+      const errorCode = hashParams.get('error_code');
+      const errorDescription = hashParams.get('error_description');
+
+      if (errorCode === 'otp_expired' || hash.includes('error_code=otp_expired')) {
+        setError('This activation link has expired. Please request a new activation link using the button below.');
+        setIsExpiredLink(true);
+        return;
+      }
 
       console.log('ActivateAccount: Parsed URL params:', { 
         type, 
@@ -231,6 +255,27 @@ const ActivateAccount: React.FC<ActivateAccountProps> = ({ displayName }) => {
     void run();
   }, [location.hash, supabaseClient]);
 
+  const handleRequestNewLink = async () => {
+    if (!email) {
+      setError('Please enter your email address');
+      return;
+    }
+    
+    setRequestingNewLink(true);
+    setError('');
+    setNewLinkRequested(false);
+    
+    try {
+      await sendActivationEmail(email);
+      setNewLinkRequested(true);
+      setSuccess('A new activation link has been sent to your email address. Please check your inbox.');
+    } catch (error: any) {
+      setError(error.message || 'Failed to send activation email. Please try again.');
+    } finally {
+      setRequestingNewLink(false);
+    }
+  };
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log('🚀 [ActivateAccount] Form submitted');
@@ -332,10 +377,11 @@ if (password.length < 12 || !hasLowercase || !hasUppercase || !hasDigit || !hasS
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                   required
-                  disabled
+                  disabled={!!email && !isExpiredLink} // Disable if email is set and not expired link
                   className="bg-gray-50"
+                  placeholder="Enter your email address"
                 />
               </div>
               
@@ -346,7 +392,7 @@ if (password.length < 12 || !hasLowercase || !hasUppercase || !hasDigit || !hasS
                     id="password"
                     type={showPassword ? "text" : "password"}
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                     required
                     minLength={6}
                     className="pr-10"
@@ -375,7 +421,7 @@ if (password.length < 12 || !hasLowercase || !hasUppercase || !hasDigit || !hasS
                     id="confirmPassword"
                     type={showConfirmPassword ? "text" : "password"}
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
                     required
                     minLength={6}
                     className="pr-10"
@@ -419,6 +465,32 @@ if (password.length < 12 || !hasLowercase || !hasUppercase || !hasDigit || !hasS
                 </Button>
               </div>
             </form>
+            {/* Request New Activation Link Section */}
+            {(error && isExpiredLink) && (
+              <div className="space-y-4 pt-4 border-t">
+                <div className="text-sm text-muted-foreground">
+                  {newLinkRequested 
+                    ? 'Check your email for the new activation link.'
+                    : 'Enter your email address and click the button below to request a new activation link.'}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleRequestNewLink}
+                  disabled={requestingNewLink || !email || authLoading}
+                  className="w-full"
+                >
+                  {requestingNewLink ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    'Request New Activation Link'
+                  )}
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
