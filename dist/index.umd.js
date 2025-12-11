@@ -269,25 +269,29 @@
       return null;
     }
     try {
-      const clientConfigs = void 0;
-      console.log("[getDisplayName] VITE_CLIENT_CONFIGS:", clientConfigs);
-      console.log("[getDisplayName] VITE_CLIENT_CONFIGS exists:", false);
-      if (!clientConfigs) {
-        return null;
-      }
-      const parsed = JSON.parse(clientConfigs);
+      const hostname = window.location.hostname;
       const pathParts = window.location.pathname.split("/").filter(Boolean);
       const firstSegment = pathParts[0];
       const authRoutes = ["forgot-password", "reset-password", "activate-account", "signup", "login"];
-      let clientId = null;
-      if (firstSegment && parsed[firstSegment] && !authRoutes.includes(firstSegment)) {
-        clientId = firstSegment;
-      } else {
+      let clientId = "default";
+      if (hostname.includes("dev.") || hostname.includes("staging.")) {
         clientId = "default";
+      } else if (firstSegment && !authRoutes.includes(firstSegment)) {
+        clientId = firstSegment;
       }
-      const currentClientConfig = parsed[clientId];
-      return (currentClientConfig == null ? void 0 : currentClientConfig.displayName) || null;
+      console.log("[getDisplayName] URL:", window.location.href);
+      console.log("[getDisplayName] hostname:", hostname, "pathname:", window.location.pathname, "→ clientId:", clientId);
+      const clientConfigs = window.__CLIENT_CONFIGS__;
+      if (!clientConfigs) {
+        console.log("[getDisplayName] window.__CLIENT_CONFIGS__ not found");
+        return null;
+      }
+      const clientConfig = clientConfigs[clientId] || clientConfigs["default"];
+      const displayName = (clientConfig == null ? void 0 : clientConfig.displayName) || null;
+      console.log("[getDisplayName] Resolved displayName:", displayName, "for clientId:", clientId);
+      return displayName;
     } catch (e) {
+      console.error("[getDisplayName] Error:", e);
       return null;
     }
   };
