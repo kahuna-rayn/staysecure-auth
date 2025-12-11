@@ -9,9 +9,13 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import AuthBranding from './AuthBranding';
-import { getDisplayName } from '../utils/getDisplayName';
 
-const ActivateAccount: React.FC = () => {
+interface ActivateAccountProps {
+  /** Optional displayName badge text. If not provided, badge won't show. */
+  displayName?: string | null;
+}
+
+const ActivateAccount: React.FC<ActivateAccountProps> = ({ displayName }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { activateUser, error: authError, loading: authLoading, signOut, supabaseClient } = useAuth();
@@ -28,8 +32,8 @@ const ActivateAccount: React.FC = () => {
   // Parse URL parameters at component level
   const searchParams = new URLSearchParams(location.search);
   
-  // Get displayName for badge
-  const badgeText = useMemo(() => getDisplayName(), [location.pathname]);
+  // Use displayName from props (passed by consuming app)
+  const badgeText = displayName || null;
 
   // Extract client path from URL on mount (preserve for redirects)
   useEffect(() => {

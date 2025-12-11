@@ -9,7 +9,11 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, Eye, EyeOff } from 'lucide-react'
 import AuthBranding from './AuthBranding'
-import { getDisplayName } from '../utils/getDisplayName'
+
+interface ResetPasswordProps {
+  /** Optional displayName badge text. If not provided, badge won't show. */
+  displayName?: string | null;
+}
 
 const isStrongPassword = (pwd: string) => {
   const hasLowercase = /[a-z]/.test(pwd)
@@ -19,13 +23,13 @@ const isStrongPassword = (pwd: string) => {
   return pwd.length >= 12 && hasLowercase && hasUppercase && hasDigit && hasSpecial
 }
 
-const ResetPassword: React.FC = () => {
+const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
   const location = useLocation()
   const navigate = useNavigate()
   const { supabaseClient } = useAuth()
   
-  // Get displayName for badge
-  const badgeText = useMemo(() => getDisplayName(), [location.pathname])
+  // Use displayName from props (passed by consuming app)
+  const badgeText = displayName || null
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')

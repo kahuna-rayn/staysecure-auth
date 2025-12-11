@@ -8,9 +8,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import AuthBranding from './AuthBranding';
-import { getDisplayName } from '../utils/getDisplayName';
 
-const ForgotPassword: React.FC = () => {
+interface ForgotPasswordProps {
+  /** Optional displayName badge text. If not provided, badge won't show. */
+  displayName?: string | null;
+}
+
+const ForgotPassword: React.FC<ForgotPasswordProps> = ({ displayName }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -19,15 +23,8 @@ const ForgotPassword: React.FC = () => {
   const [isError, setIsError] = useState(false);
   const { resetPassword } = useAuth();
   
-  // Get displayName for badge
-  const badgeText = useMemo(() => {
-    const displayName = getDisplayName();
-    // Debug logging
-    console.log('[ForgotPassword] getDisplayName() result:', displayName);
-    console.log('[ForgotPassword] location.pathname:', location.pathname);
-    console.log('[ForgotPassword] VITE_CLIENT_CONFIGS exists:', !!import.meta.env.VITE_CLIENT_CONFIGS);
-    return displayName;
-  }, [location.pathname]);
+  // Use displayName from props (passed by consuming app)
+  const badgeText = displayName || null;
 
   // Clear any hash tokens when on forgot-password page
   // This page is for requesting a reset, not for processing reset links

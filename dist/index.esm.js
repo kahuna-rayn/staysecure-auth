@@ -1,5 +1,5 @@
 import { jsx, jsxs } from "react/jsx-runtime";
-import { createContext, useState, useEffect, useContext, useRef, useMemo, useCallback } from "react";
+import { createContext, useState, useEffect, useContext, useRef, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -272,38 +272,7 @@ const AuthBranding = ({ size = "large", className = "" }) => {
     /* @__PURE__ */ jsx("p", { className: `text-muted-foreground ${textSize}`, children: "Get Secure, Stay Secure!" })
   ] });
 };
-const getDisplayName = () => {
-  if (typeof window === "undefined") {
-    return null;
-  }
-  try {
-    const hostname = window.location.hostname;
-    const pathParts = window.location.pathname.split("/").filter(Boolean);
-    const firstSegment = pathParts[0];
-    const authRoutes = ["forgot-password", "reset-password", "activate-account", "signup", "login"];
-    let clientId = "default";
-    if (hostname.includes("dev.") || hostname.includes("staging.")) {
-      clientId = "default";
-    } else if (firstSegment && !authRoutes.includes(firstSegment)) {
-      clientId = firstSegment;
-    }
-    console.log("[getDisplayName] URL:", window.location.href);
-    console.log("[getDisplayName] hostname:", hostname, "pathname:", window.location.pathname, "→ clientId:", clientId);
-    const clientConfigs = window.__CLIENT_CONFIGS__;
-    if (!clientConfigs) {
-      console.log("[getDisplayName] window.__CLIENT_CONFIGS__ not found");
-      return null;
-    }
-    const clientConfig = clientConfigs[clientId] || clientConfigs["default"];
-    const displayName = (clientConfig == null ? void 0 : clientConfig.displayName) || null;
-    console.log("[getDisplayName] Resolved displayName:", displayName, "for clientId:", clientId);
-    return displayName;
-  } catch (e) {
-    console.error("[getDisplayName] Error:", e);
-    return null;
-  }
-};
-const ActivateAccount = () => {
+const ActivateAccount = ({ displayName }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { activateUser, error: authError, loading: authLoading, signOut, supabaseClient } = useAuth();
@@ -317,7 +286,7 @@ const ActivateAccount = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const clientPathRef = useRef("");
   const searchParams = new URLSearchParams(location.search);
-  const badgeText = useMemo(() => getDisplayName(), [location.pathname]);
+  const badgeText = displayName || null;
   useEffect(() => {
     if (typeof window !== "undefined") {
       const pathParts = window.location.pathname.split("/").filter(Boolean);
@@ -614,7 +583,7 @@ const AuthEventRedirect = () => {
   }, [navigate]);
   return null;
 };
-const ForgotPassword = () => {
+const ForgotPassword = ({ displayName }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -622,13 +591,7 @@ const ForgotPassword = () => {
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const { resetPassword } = useAuth();
-  const badgeText = useMemo(() => {
-    const displayName = getDisplayName();
-    console.log("[ForgotPassword] getDisplayName() result:", displayName);
-    console.log("[ForgotPassword] location.pathname:", location.pathname);
-    console.log("[ForgotPassword] VITE_CLIENT_CONFIGS exists:", false);
-    return displayName;
-  }, [location.pathname]);
+  const badgeText = displayName || null;
   useEffect(() => {
     if (location.hash && (location.hash.includes("access_token") || location.hash.includes("refresh_token"))) {
       const newUrl = window.location.pathname + (location.search || "");
@@ -701,24 +664,16 @@ const ForgotPassword = () => {
     ] })
   ] }) });
 };
-const LoginForm = () => {
+const LoginForm = ({ displayName }) => {
   const navigate = useNavigate();
-  const location = useLocation();
+  useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [success, setSuccess] = useState("");
   const { signIn, error, loading: authLoading } = useAuth();
-  console.log("[LoginForm] Component rendering, pathname:", location.pathname);
-  const badgeText = useMemo(() => {
-    console.log("[LoginForm] useMemo callback executing");
-    const displayName = getDisplayName();
-    console.log("[LoginForm] getDisplayName() result:", displayName);
-    console.log("[LoginForm] location.pathname:", location.pathname);
-    console.log("[LoginForm] VITE_CLIENT_CONFIGS exists:", false);
-    return displayName;
-  }, [location.pathname]);
+  const badgeText = displayNameProp || null;
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -810,11 +765,11 @@ const isStrongPassword = (pwd) => {
   const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"|,.<>?`~]/.test(pwd);
   return pwd.length >= 12 && hasLowercase && hasUppercase && hasDigit && hasSpecial;
 };
-const ResetPassword = () => {
+const ResetPassword = ({ displayName }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { supabaseClient } = useAuth();
-  const badgeText = useMemo(() => getDisplayName(), [location.pathname]);
+  const badgeText = displayName || null;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");

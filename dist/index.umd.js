@@ -264,38 +264,7 @@
       /* @__PURE__ */ jsxRuntime.jsx("p", { className: `text-muted-foreground ${textSize}`, children: "Get Secure, Stay Secure!" })
     ] });
   };
-  const getDisplayName = () => {
-    if (typeof window === "undefined") {
-      return null;
-    }
-    try {
-      const hostname = window.location.hostname;
-      const pathParts = window.location.pathname.split("/").filter(Boolean);
-      const firstSegment = pathParts[0];
-      const authRoutes = ["forgot-password", "reset-password", "activate-account", "signup", "login"];
-      let clientId = "default";
-      if (hostname.includes("dev.") || hostname.includes("staging.")) {
-        clientId = "default";
-      } else if (firstSegment && !authRoutes.includes(firstSegment)) {
-        clientId = firstSegment;
-      }
-      console.log("[getDisplayName] URL:", window.location.href);
-      console.log("[getDisplayName] hostname:", hostname, "pathname:", window.location.pathname, "→ clientId:", clientId);
-      const clientConfigs = window.__CLIENT_CONFIGS__;
-      if (!clientConfigs) {
-        console.log("[getDisplayName] window.__CLIENT_CONFIGS__ not found");
-        return null;
-      }
-      const clientConfig = clientConfigs[clientId] || clientConfigs["default"];
-      const displayName = (clientConfig == null ? void 0 : clientConfig.displayName) || null;
-      console.log("[getDisplayName] Resolved displayName:", displayName, "for clientId:", clientId);
-      return displayName;
-    } catch (e) {
-      console.error("[getDisplayName] Error:", e);
-      return null;
-    }
-  };
-  const ActivateAccount = () => {
+  const ActivateAccount = ({ displayName }) => {
     const location = reactRouterDom.useLocation();
     const navigate = reactRouterDom.useNavigate();
     const { activateUser, error: authError, loading: authLoading, signOut, supabaseClient } = useAuth();
@@ -309,7 +278,7 @@
     const [showConfirmPassword, setShowConfirmPassword] = react.useState(false);
     const clientPathRef = react.useRef("");
     const searchParams = new URLSearchParams(location.search);
-    const badgeText = react.useMemo(() => getDisplayName(), [location.pathname]);
+    const badgeText = displayName || null;
     react.useEffect(() => {
       if (typeof window !== "undefined") {
         const pathParts = window.location.pathname.split("/").filter(Boolean);
@@ -606,7 +575,7 @@
     }, [navigate]);
     return null;
   };
-  const ForgotPassword = () => {
+  const ForgotPassword = ({ displayName }) => {
     const location = reactRouterDom.useLocation();
     const navigate = reactRouterDom.useNavigate();
     const [email, setEmail] = react.useState("");
@@ -614,13 +583,7 @@
     const [message, setMessage] = react.useState("");
     const [isError, setIsError] = react.useState(false);
     const { resetPassword } = useAuth();
-    const badgeText = react.useMemo(() => {
-      const displayName = getDisplayName();
-      console.log("[ForgotPassword] getDisplayName() result:", displayName);
-      console.log("[ForgotPassword] location.pathname:", location.pathname);
-      console.log("[ForgotPassword] VITE_CLIENT_CONFIGS exists:", false);
-      return displayName;
-    }, [location.pathname]);
+    const badgeText = displayName || null;
     react.useEffect(() => {
       if (location.hash && (location.hash.includes("access_token") || location.hash.includes("refresh_token"))) {
         const newUrl = window.location.pathname + (location.search || "");
@@ -693,24 +656,16 @@
       ] })
     ] }) });
   };
-  const LoginForm = () => {
+  const LoginForm = ({ displayName }) => {
     const navigate = reactRouterDom.useNavigate();
-    const location = reactRouterDom.useLocation();
+    reactRouterDom.useLocation();
     const [email, setEmail] = react.useState("");
     const [password, setPassword] = react.useState("");
     const [loading, setLoading] = react.useState(false);
     const [showPassword, setShowPassword] = react.useState(false);
     const [success, setSuccess] = react.useState("");
     const { signIn, error, loading: authLoading } = useAuth();
-    console.log("[LoginForm] Component rendering, pathname:", location.pathname);
-    const badgeText = react.useMemo(() => {
-      console.log("[LoginForm] useMemo callback executing");
-      const displayName = getDisplayName();
-      console.log("[LoginForm] getDisplayName() result:", displayName);
-      console.log("[LoginForm] location.pathname:", location.pathname);
-      console.log("[LoginForm] VITE_CLIENT_CONFIGS exists:", false);
-      return displayName;
-    }, [location.pathname]);
+    const badgeText = displayNameProp || null;
     const handleSubmit = async (e) => {
       e.preventDefault();
       setLoading(true);
@@ -802,11 +757,11 @@
     const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"|,.<>?`~]/.test(pwd);
     return pwd.length >= 12 && hasLowercase && hasUppercase && hasDigit && hasSpecial;
   };
-  const ResetPassword = () => {
+  const ResetPassword = ({ displayName }) => {
     const location = reactRouterDom.useLocation();
     const navigate = reactRouterDom.useNavigate();
     const { supabaseClient } = useAuth();
-    const badgeText = react.useMemo(() => getDisplayName(), [location.pathname]);
+    const badgeText = displayName || null;
     const [email, setEmail] = react.useState("");
     const [password, setPassword] = react.useState("");
     const [confirmPassword, setConfirmPassword] = react.useState("");

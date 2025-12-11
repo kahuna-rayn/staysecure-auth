@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
 import { Button } from '@/components/ui/button';
@@ -9,9 +9,13 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import AuthBranding from './AuthBranding';
-import { getDisplayName } from '../utils/getDisplayName';
 
-const LoginForm: React.FC = () => {
+interface LoginFormProps {
+  /** Optional displayName badge text. If not provided, badge won't show. */
+  displayName?: string | null;
+}
+
+const LoginForm: React.FC<LoginFormProps> = ({ displayName }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [email, setEmail] = useState('');
@@ -22,19 +26,8 @@ const LoginForm: React.FC = () => {
   
   const { signIn, error, loading: authLoading } = useAuth();
   
-  // Debug: Log component mount
-  console.log('[LoginForm] Component rendering, pathname:', location.pathname);
-  
-  // Get displayName for badge
-  const badgeText = useMemo(() => {
-    console.log('[LoginForm] useMemo callback executing');
-    const displayName = getDisplayName();
-    // Debug logging
-    console.log('[LoginForm] getDisplayName() result:', displayName);
-    console.log('[LoginForm] location.pathname:', location.pathname);
-    console.log('[LoginForm] VITE_CLIENT_CONFIGS exists:', !!import.meta.env.VITE_CLIENT_CONFIGS);
-    return displayName;
-  }, [location.pathname]);
+  // Use displayName from props (passed by consuming app)
+  const badgeText = displayNameProp || null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
