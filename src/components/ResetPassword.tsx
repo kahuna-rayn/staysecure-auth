@@ -304,7 +304,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
 
         <Card className="shadow-lg">
           <CardHeader className="relative">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between">
               <CardTitle className="text-2xl font-bold">Reset Your Password</CardTitle>
               {badgeText && (
                 <Badge variant="outline" className="text-xs">

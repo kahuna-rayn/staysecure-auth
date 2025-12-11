@@ -298,7 +298,7 @@ if (password.length < 12 || !hasLowercase || !hasUppercase || !hasDigit || !hasS
         
         <Card className="shadow-lg">
           <CardHeader className="relative">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between">
               <CardTitle className="text-2xl font-bold">
                 Activate Your Account
               </CardTitle>

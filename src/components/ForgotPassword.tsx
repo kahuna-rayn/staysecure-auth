@@ -68,7 +68,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ displayName }) => {
         <AuthBranding size="large" />
         <Card>
           <CardHeader className="relative">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between">
               <CardTitle>Reset Your Password</CardTitle>
               {badgeText && (
                 <Badge variant="outline" className="text-xs">
