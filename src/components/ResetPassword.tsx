@@ -46,34 +46,45 @@ const ResetPassword: React.FC = () => {
     if (initializedRef.current) return
     initializedRef.current = true
 
-    // Session listener for access_token flow
-    const { data: sub } = supabaseClient.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session?.user?.email) {
-        setEmail(session.user.email)
-        clearRecoveryParams()
-        setVerifying(false)
-      }
-    })
+     // Session listener for access_token flow
+     console.log('[ResetPassword] Setting up auth state change listener...')
+     const { data: sub } = supabaseClient.auth.onAuthStateChange((event: string, session: any) => {
+       console.log('[ResetPassword] Auth state change:', {
+         event,
+         hasSession: !!session,
+         userEmail: session?.user?.email
+       })
+       if (event === 'SIGNED_IN' && session?.user?.email) {
+         console.log('[ResetPassword] ✅ Session signed in, setting email:', session.user.email)
+         setEmail(session.user.email)
+         clearRecoveryParams()
+         setVerifying(false)
+       }
+     })
 
-    const run = async () => {
-      try {
-        // Parse params
-        const hash = location.hash || window.location.hash || ''
-        const hashParams = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash)
-        const searchParams = new URLSearchParams(location.search || window.location.search || '')
-        const type = hashParams.get('type') || searchParams.get('type')
-        const tokenHash = searchParams.get('token_hash')
-        const hasAccessToken = hashParams.has('access_token') || hash.includes('access_token')
+     const run = async () => {
+       console.log('[ResetPassword] useEffect run() starting')
+       console.log('[ResetPassword] Location:', {
+         pathname: location.pathname,
+         hashLength: (location.hash || '').length,
+         searchLength: (location.search || '').length
+       })
 
-        // Dev-only debug (avoid logging tokens in prod)
-        if (import.meta.env.MODE === 'development') {
-          // eslint-disable-next-line no-console
-          console.log('ResetPassword debug:', {
-            type,
-            token_hash: !!tokenHash,
-            access_token: hasAccessToken,
-          })
-        }
+       try {
+         // Parse params
+         const hash = location.hash || window.location.hash || ''
+         const hashParams = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash)
+         const searchParams = new URLSearchParams(location.search || window.location.search || '')
+         const type = hashParams.get('type') || searchParams.get('type')
+         const tokenHash = searchParams.get('token_hash')
+         const hasAccessToken = hashParams.has('access_token') || hash.includes('access_token')
+
+         console.log('[ResetPassword] Parsed URL params:', {
+           type,
+           hasTokenHash: !!tokenHash,
+           hasAccessToken,
+           hashLength: hash.length
+         })
 
         // If "recovery" but no token present, likely email scanner burned the link
         if (type === 'recovery' && !tokenHash && !hasAccessToken) {
@@ -82,55 +93,73 @@ const ResetPassword: React.FC = () => {
           return
         }
 
-        // token_hash flow
-        if (tokenHash && type === 'recovery') {
-          const { data, error: verifyError } = await supabaseClient.auth.verifyOtp({
-            token_hash: tokenHash,
-            type: 'recovery',
-          })
-          if (verifyError) {
-            setError('Invalid or expired password reset link. Please request a new one.')
-            setVerifying(false)
-            return
-          }
-          if (data.user?.email) {
-            setEmail(data.user.email)
-            clearRecoveryParams()
-            setVerifying(false)
-            return
-          }
-        }
+         // token_hash flow
+         if (tokenHash && type === 'recovery') {
+           console.log('[ResetPassword] Processing token_hash flow...')
+           const { data, error: verifyError } = await supabaseClient.auth.verifyOtp({
+             token_hash: tokenHash,
+             type: 'recovery',
+           })
+           if (verifyError) {
+             console.error('[ResetPassword] ❌ verifyOtp error:', verifyError.message)
+             setError('Invalid or expired password reset link. Please request a new one.')
+             setVerifying(false)
+             return
+           }
+           if (data.user?.email) {
+             console.log('[ResetPassword] ✅ verifyOtp success, email:', data.user.email)
+             setEmail(data.user.email)
+             clearRecoveryParams()
+             setVerifying(false)
+             return
+           }
+         }
 
-        // access_token flow (session should be created by the client automatically)
-        if (hasAccessToken && type === 'recovery') {
-          // Short fallback polling (most handled by onAuthStateChange)
-          const maxAttempts = 10
-          const delay = 300
-          for (let i = 0; i < maxAttempts; i++) {
-            const { data: { session } } = await supabaseClient.auth.getSession()
-            if (session?.user?.email) {
-              setEmail(session.user.email)
-              clearRecoveryParams()
-              setVerifying(false)
-              return
-            }
-            await new Promise((r) => setTimeout(r, delay))
-          }
-          // Timed out
-          setError('Unable to verify password reset link. Please request a new link.')
-          setVerifying(false)
-          return
-        }
+         // access_token flow (session should be created by the client automatically)
+         if (hasAccessToken && type === 'recovery') {
+           console.log('[ResetPassword] Processing access_token flow, waiting for session...')
+           // Short fallback polling (most handled by onAuthStateChange)
+           const maxAttempts = 10
+           const delay = 300
+           for (let i = 0; i < maxAttempts; i++) {
+             const { data: { session } } = await supabaseClient.auth.getSession()
+             if (session?.user?.email) {
+               console.log(`[ResetPassword] ✅ Session found on attempt ${i + 1}, email:`, session.user.email)
+               setEmail(session.user.email)
+               clearRecoveryParams()
+               setVerifying(false)
+               return
+             }
+             if (i < maxAttempts - 1) {
+               console.log(`[ResetPassword] No session yet (attempt ${i + 1}/${maxAttempts}), waiting...`)
+             }
+             await new Promise((r) => setTimeout(r, delay))
+           }
+           // Timed out
+           console.error('[ResetPassword] ❌ No session found after polling')
+           setError('Unable to verify password reset link. Please request a new link.')
+           setVerifying(false)
+           return
+         }
 
-        // Existing session (e.g., page refresh)
-        const { data: { session: existing } } = await supabaseClient.auth.getSession()
-        if (existing?.user?.email) {
-          setEmail(existing.user.email)
-        } else {
-          // No session and no valid params — user can still enter password after manual verify, but we keep form disabled until email available
-          setError((prev) => prev || 'No active password reset session found. Please request a new reset link.')
-        }
-        setVerifying(false)
+         // Existing session (e.g., page refresh)
+         console.log('[ResetPassword] Checking for existing session...')
+         const { data: { session: existing }, error: existingErr } = await supabaseClient.auth.getSession()
+         console.log('[ResetPassword] Existing session check:', {
+           hasSession: !!existing,
+           hasError: !!existingErr,
+           userEmail: existing?.user?.email,
+           expiresAt: existing?.expires_at
+         })
+         if (existing?.user?.email) {
+           console.log('[ResetPassword] ✅ Using existing session, email:', existing.user.email)
+           setEmail(existing.user.email)
+         } else {
+           // No session and no valid params — user can still enter password after manual verify, but we keep form disabled until email available
+           console.warn('[ResetPassword] ⚠️ No session found and no valid recovery params')
+           setError((prev) => prev || 'No active password reset session found. Please request a new reset link.')
+         }
+         setVerifying(false)
       } catch {
         setError('Failed to verify password reset link. Please try again.')
         setVerifying(false)
@@ -147,6 +176,10 @@ const ResetPassword: React.FC = () => {
     setError('')
     setSuccess('')
 
+    console.log('[ResetPassword] handleSubmit called')
+    console.log('[ResetPassword] Email:', email)
+    console.log('[ResetPassword] Password length:', password.length)
+
     if (password !== confirmPassword) {
       setError('Passwords do not match')
       setLoading(false)
@@ -159,43 +192,97 @@ const ResetPassword: React.FC = () => {
     }
 
     try {
+      console.log('[ResetPassword] Step 1: Checking session before updateUser...')
       let { data: { session }, error: sessionErr } = await supabaseClient.auth.getSession()
+      console.log('[ResetPassword] Initial session check:', {
+        hasSession: !!session,
+        hasError: !!sessionErr,
+        sessionError: sessionErr?.message,
+        userEmail: session?.user?.email,
+        sessionExpiresAt: session?.expires_at
+      })
+
       if (sessionErr || !session) {
+        console.log('[ResetPassword] No session initially, retrying after 300ms...')
         // quick retry
         await new Promise((r) => setTimeout(r, 300))
         const res = await supabaseClient.auth.getSession()
         session = res.data.session
+        console.log('[ResetPassword] Retry session check:', {
+          hasSession: !!session,
+          userEmail: session?.user?.email,
+          sessionExpiresAt: session?.expires_at
+        })
       }
+
       if (!session?.user?.email) {
+        console.error('[ResetPassword] ❌ No valid session found - cannot proceed')
         throw new Error('Your password reset session has expired. Please request a new reset link.')
       }
 
+      console.log('[ResetPassword] ✅ Session valid, proceeding with updateUser...')
+      console.log('[ResetPassword] Session details:', {
+        email: session.user.email,
+        expiresAt: session.expires_at,
+        accessTokenLength: session.access_token?.length || 0
+      })
+
       const { error: updateError } = await supabaseClient.auth.updateUser({ password })
+      console.log('[ResetPassword] updateUser call completed')
+
       if (updateError) {
+        console.error('[ResetPassword] ❌ updateUser error:', {
+          message: updateError.message,
+          status: (updateError as any)?.status,
+          name: updateError.name
+        })
+
+        // Check session immediately after error
+        const { data: { session: sessionAfterError }, error: sessionCheckErr } = await supabaseClient.auth.getSession()
+        console.log('[ResetPassword] Session check after error:', {
+          hasSession: !!sessionAfterError,
+          hasError: !!sessionCheckErr,
+          userEmail: sessionAfterError?.user?.email,
+          sessionExpiresAt: sessionAfterError?.expires_at,
+          sessionStillValid: !!sessionAfterError?.user?.email
+        })
+
         // Handle common statuses and messages
         const msg = (updateError.message || '').toLowerCase()
-        // @ts-expect-error - status exists on AuthApiError
         const status = (updateError as any)?.status as number | undefined
 
         if (status === 401 || status === 410 || msg.includes('expired') || msg.includes('invalid') || msg.includes('session')) {
+          if (!sessionAfterError) {
+            console.error('[ResetPassword] ❌ Session lost after updateUser error - this is why second attempt fails')
+          }
           throw new Error('Your password reset link has expired or was already used. Please request a new link.')
         }
         if (msg.includes('weak') || (msg.includes('password') && msg.includes('strong'))) {
           throw new Error('Password is too weak. Please use a stronger password with at least 12 characters, including uppercase, lowercase, numbers, and special characters.')
         }
         if (msg.includes('same')) {
+          console.log('[ResetPassword] Same password error - session status:', {
+            sessionStillValid: !!sessionAfterError?.user?.email,
+            canRetry: !!sessionAfterError?.user?.email
+          })
           throw new Error('New password cannot be the same as your current password. Please choose a different password.')
         }
         throw new Error(updateError.message || 'Failed to update password. Please try again.')
       }
 
+      console.log('[ResetPassword] ✅ Password updated successfully!')
       setSuccess('Password reset successfully! Redirecting to login...')
       await supabaseClient.auth.signOut()
       setTimeout(() => navigate('/', { replace: true }), 1500)
     } catch (err: any) {
+      console.error('[ResetPassword] ❌ Exception caught:', {
+        message: err?.message,
+        error: err
+      })
       setError(err?.message || 'Failed to reset password. Please try again or request a new reset link.')
     } finally {
       setLoading(false)
+      console.log('[ResetPassword] handleSubmit completed (loading set to false)')
     }
   }
 
@@ -246,7 +333,7 @@ const ResetPassword: React.FC = () => {
                     id="password"
                     type={showPassword ? 'text' : 'password'}
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                     required
                     minLength={12}
                     className="pr-10"
@@ -273,7 +360,7 @@ const ResetPassword: React.FC = () => {
                     id="confirmPassword"
                     type={showConfirmPassword ? 'text' : 'password'}
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
                     required
                     minLength={12}
                     className="pr-10"

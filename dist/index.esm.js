@@ -803,16 +803,29 @@ const ResetPassword = () => {
   useEffect(() => {
     if (initializedRef.current) return;
     initializedRef.current = true;
+    console.log("[ResetPassword] Setting up auth state change listener...");
     const { data: sub } = supabaseClient.auth.onAuthStateChange((event, session) => {
-      var _a;
-      if (event === "SIGNED_IN" && ((_a = session == null ? void 0 : session.user) == null ? void 0 : _a.email)) {
+      var _a, _b;
+      console.log("[ResetPassword] Auth state change:", {
+        event,
+        hasSession: !!session,
+        userEmail: (_a = session == null ? void 0 : session.user) == null ? void 0 : _a.email
+      });
+      if (event === "SIGNED_IN" && ((_b = session == null ? void 0 : session.user) == null ? void 0 : _b.email)) {
+        console.log("[ResetPassword] ✅ Session signed in, setting email:", session.user.email);
         setEmail(session.user.email);
         clearRecoveryParams();
         setVerifying(false);
       }
     });
     const run = async () => {
-      var _a, _b, _c;
+      var _a, _b, _c, _d;
+      console.log("[ResetPassword] useEffect run() starting");
+      console.log("[ResetPassword] Location:", {
+        pathname: location.pathname,
+        hashLength: (location.hash || "").length,
+        searchLength: (location.search || "").length
+      });
       try {
         const hash = location.hash || window.location.hash || "";
         const hashParams = new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash);
@@ -820,23 +833,31 @@ const ResetPassword = () => {
         const type = hashParams.get("type") || searchParams.get("type");
         const tokenHash = searchParams.get("token_hash");
         const hasAccessToken = hashParams.has("access_token") || hash.includes("access_token");
-        if (false) ;
+        console.log("[ResetPassword] Parsed URL params:", {
+          type,
+          hasTokenHash: !!tokenHash,
+          hasAccessToken,
+          hashLength: hash.length
+        });
         if (type === "recovery" && !tokenHash && !hasAccessToken) {
           setError("This password reset link may have been opened already by an email scanner. Please request a new link and open it only once.");
           setVerifying(false);
           return;
         }
         if (tokenHash && type === "recovery") {
+          console.log("[ResetPassword] Processing token_hash flow...");
           const { data, error: verifyError } = await supabaseClient.auth.verifyOtp({
             token_hash: tokenHash,
             type: "recovery"
           });
           if (verifyError) {
+            console.error("[ResetPassword] ❌ verifyOtp error:", verifyError.message);
             setError("Invalid or expired password reset link. Please request a new one.");
             setVerifying(false);
             return;
           }
           if ((_a = data.user) == null ? void 0 : _a.email) {
+            console.log("[ResetPassword] ✅ verifyOtp success, email:", data.user.email);
             setEmail(data.user.email);
             clearRecoveryParams();
             setVerifying(false);
@@ -844,26 +865,41 @@ const ResetPassword = () => {
           }
         }
         if (hasAccessToken && type === "recovery") {
+          console.log("[ResetPassword] Processing access_token flow, waiting for session...");
           const maxAttempts = 10;
           const delay = 300;
           for (let i = 0; i < maxAttempts; i++) {
             const { data: { session } } = await supabaseClient.auth.getSession();
             if ((_b = session == null ? void 0 : session.user) == null ? void 0 : _b.email) {
+              console.log(`[ResetPassword] ✅ Session found on attempt ${i + 1}, email:`, session.user.email);
               setEmail(session.user.email);
               clearRecoveryParams();
               setVerifying(false);
               return;
             }
+            if (i < maxAttempts - 1) {
+              console.log(`[ResetPassword] No session yet (attempt ${i + 1}/${maxAttempts}), waiting...`);
+            }
             await new Promise((r) => setTimeout(r, delay));
           }
+          console.error("[ResetPassword] ❌ No session found after polling");
           setError("Unable to verify password reset link. Please request a new link.");
           setVerifying(false);
           return;
         }
-        const { data: { session: existing } } = await supabaseClient.auth.getSession();
-        if ((_c = existing == null ? void 0 : existing.user) == null ? void 0 : _c.email) {
+        console.log("[ResetPassword] Checking for existing session...");
+        const { data: { session: existing }, error: existingErr } = await supabaseClient.auth.getSession();
+        console.log("[ResetPassword] Existing session check:", {
+          hasSession: !!existing,
+          hasError: !!existingErr,
+          userEmail: (_c = existing == null ? void 0 : existing.user) == null ? void 0 : _c.email,
+          expiresAt: existing == null ? void 0 : existing.expires_at
+        });
+        if ((_d = existing == null ? void 0 : existing.user) == null ? void 0 : _d.email) {
+          console.log("[ResetPassword] ✅ Using existing session, email:", existing.user.email);
           setEmail(existing.user.email);
         } else {
+          console.warn("[ResetPassword] ⚠️ No session found and no valid recovery params");
           setError((prev) => prev || "No active password reset session found. Please request a new reset link.");
         }
         setVerifying(false);
@@ -876,11 +912,14 @@ const ResetPassword = () => {
     return () => sub.subscription.unsubscribe();
   }, [location.hash, location.search, supabaseClient]);
   const handleSubmit = async (e) => {
-    var _a;
+    var _a, _b, _c, _d, _e, _f, _g, _h;
     e.preventDefault();
     setLoading(true);
     setError("");
     setSuccess("");
+    console.log("[ResetPassword] handleSubmit called");
+    console.log("[ResetPassword] Email:", email);
+    console.log("[ResetPassword] Password length:", password.length);
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       setLoading(false);
@@ -892,37 +931,85 @@ const ResetPassword = () => {
       return;
     }
     try {
+      console.log("[ResetPassword] Step 1: Checking session before updateUser...");
       let { data: { session }, error: sessionErr } = await supabaseClient.auth.getSession();
+      console.log("[ResetPassword] Initial session check:", {
+        hasSession: !!session,
+        hasError: !!sessionErr,
+        sessionError: sessionErr == null ? void 0 : sessionErr.message,
+        userEmail: (_a = session == null ? void 0 : session.user) == null ? void 0 : _a.email,
+        sessionExpiresAt: session == null ? void 0 : session.expires_at
+      });
       if (sessionErr || !session) {
+        console.log("[ResetPassword] No session initially, retrying after 300ms...");
         await new Promise((r) => setTimeout(r, 300));
         const res = await supabaseClient.auth.getSession();
         session = res.data.session;
+        console.log("[ResetPassword] Retry session check:", {
+          hasSession: !!session,
+          userEmail: (_b = session == null ? void 0 : session.user) == null ? void 0 : _b.email,
+          sessionExpiresAt: session == null ? void 0 : session.expires_at
+        });
       }
-      if (!((_a = session == null ? void 0 : session.user) == null ? void 0 : _a.email)) {
+      if (!((_c = session == null ? void 0 : session.user) == null ? void 0 : _c.email)) {
+        console.error("[ResetPassword] ❌ No valid session found - cannot proceed");
         throw new Error("Your password reset session has expired. Please request a new reset link.");
       }
+      console.log("[ResetPassword] ✅ Session valid, proceeding with updateUser...");
+      console.log("[ResetPassword] Session details:", {
+        email: session.user.email,
+        expiresAt: session.expires_at,
+        accessTokenLength: ((_d = session.access_token) == null ? void 0 : _d.length) || 0
+      });
       const { error: updateError } = await supabaseClient.auth.updateUser({ password });
+      console.log("[ResetPassword] updateUser call completed");
       if (updateError) {
+        console.error("[ResetPassword] ❌ updateUser error:", {
+          message: updateError.message,
+          status: updateError == null ? void 0 : updateError.status,
+          name: updateError.name
+        });
+        const { data: { session: sessionAfterError }, error: sessionCheckErr } = await supabaseClient.auth.getSession();
+        console.log("[ResetPassword] Session check after error:", {
+          hasSession: !!sessionAfterError,
+          hasError: !!sessionCheckErr,
+          userEmail: (_e = sessionAfterError == null ? void 0 : sessionAfterError.user) == null ? void 0 : _e.email,
+          sessionExpiresAt: sessionAfterError == null ? void 0 : sessionAfterError.expires_at,
+          sessionStillValid: !!((_f = sessionAfterError == null ? void 0 : sessionAfterError.user) == null ? void 0 : _f.email)
+        });
         const msg = (updateError.message || "").toLowerCase();
         const status = updateError == null ? void 0 : updateError.status;
         if (status === 401 || status === 410 || msg.includes("expired") || msg.includes("invalid") || msg.includes("session")) {
+          if (!sessionAfterError) {
+            console.error("[ResetPassword] ❌ Session lost after updateUser error - this is why second attempt fails");
+          }
           throw new Error("Your password reset link has expired or was already used. Please request a new link.");
         }
         if (msg.includes("weak") || msg.includes("password") && msg.includes("strong")) {
           throw new Error("Password is too weak. Please use a stronger password with at least 12 characters, including uppercase, lowercase, numbers, and special characters.");
         }
         if (msg.includes("same")) {
+          console.log("[ResetPassword] Same password error - session status:", {
+            sessionStillValid: !!((_g = sessionAfterError == null ? void 0 : sessionAfterError.user) == null ? void 0 : _g.email),
+            canRetry: !!((_h = sessionAfterError == null ? void 0 : sessionAfterError.user) == null ? void 0 : _h.email)
+          });
           throw new Error("New password cannot be the same as your current password. Please choose a different password.");
         }
         throw new Error(updateError.message || "Failed to update password. Please try again.");
       }
+      console.log("[ResetPassword] ✅ Password updated successfully!");
       setSuccess("Password reset successfully! Redirecting to login...");
       await supabaseClient.auth.signOut();
       setTimeout(() => navigate("/", { replace: true }), 1500);
     } catch (err) {
+      console.error("[ResetPassword] ❌ Exception caught:", {
+        message: err == null ? void 0 : err.message,
+        error: err
+      });
       setError((err == null ? void 0 : err.message) || "Failed to reset password. Please try again or request a new reset link.");
     } finally {
       setLoading(false);
+      console.log("[ResetPassword] handleSubmit completed (loading set to false)");
     }
   };
   const formDisabled = verifying || !email || loading;
