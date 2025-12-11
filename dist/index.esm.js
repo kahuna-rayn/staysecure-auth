@@ -706,7 +706,9 @@ const LoginForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [success, setSuccess] = useState("");
   const { signIn, error, loading: authLoading } = useAuth();
+  console.log("[LoginForm] Component rendering, pathname:", location.pathname);
   const badgeText = useMemo(() => {
+    console.log("[LoginForm] useMemo callback executing");
     const displayName = getDisplayName();
     console.log("[LoginForm] getDisplayName() result:", displayName);
     console.log("[LoginForm] location.pathname:", location.pathname);

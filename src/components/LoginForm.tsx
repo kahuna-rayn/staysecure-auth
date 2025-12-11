@@ -22,9 +22,13 @@ const LoginForm: React.FC = () => {
   
   const { signIn, error, loading: authLoading } = useAuth();
   
-   // Get displayName for badge
-   const badgeText = useMemo(() => {
-   const displayName = getDisplayName();
+  // Debug: Log component mount
+  console.log('[LoginForm] Component rendering, pathname:', location.pathname);
+  
+  // Get displayName for badge
+  const badgeText = useMemo(() => {
+    console.log('[LoginForm] useMemo callback executing');
+    const displayName = getDisplayName();
     // Debug logging
     console.log('[LoginForm] getDisplayName() result:', displayName);
     console.log('[LoginForm] location.pathname:', location.pathname);
