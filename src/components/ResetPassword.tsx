@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../components/AuthProvider'
 import { Button } from '@/components/ui/button'
@@ -6,8 +6,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Loader2, Eye, EyeOff } from 'lucide-react'
 import AuthBranding from './AuthBranding'
+import { getDisplayName } from '../utils/getDisplayName'
 
 const isStrongPassword = (pwd: string) => {
   const hasLowercase = /[a-z]/.test(pwd)
@@ -21,6 +23,9 @@ const ResetPassword: React.FC = () => {
   const location = useLocation()
   const navigate = useNavigate()
   const { supabaseClient } = useAuth()
+  
+  // Get displayName for badge
+  const badgeText = useMemo(() => getDisplayName(), [location.pathname])
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -294,8 +299,15 @@ const ResetPassword: React.FC = () => {
         <AuthBranding size="small" className="mb-6" />
 
         <Card className="shadow-lg">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold">Reset Your Password</CardTitle>
+          <CardHeader className="text-center relative">
+            <div className="flex items-center justify-center gap-2">
+              <CardTitle className="text-2xl font-bold">Reset Your Password</CardTitle>
+              {badgeText && (
+                <Badge variant="outline" className="text-xs">
+                  {badgeText}
+                </Badge>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">

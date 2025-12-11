@@ -1,11 +1,12 @@
 import { jsx, jsxs } from "react/jsx-runtime";
-import { createContext, useState, useEffect, useContext, useRef, useCallback } from "react";
+import { createContext, useState, useEffect, useContext, useRef, useMemo, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { EyeOff, Eye, Loader2 } from "lucide-react";
 import raynLogo from "@/assets/rayn-logo.png";
 import { supabase } from "@/integrations/supabase/client";
@@ -271,6 +272,24 @@ const AuthBranding = ({ size = "large", className = "" }) => {
     /* @__PURE__ */ jsx("p", { className: `text-muted-foreground ${textSize}`, children: "Get Secure, Stay Secure!" })
   ] });
 };
+const getDisplayName = () => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  try {
+    const clientConfigs = void 0;
+    if (!clientConfigs) {
+      return null;
+    }
+    const parsed = JSON.parse(clientConfigs);
+    const pathParts = window.location.pathname.split("/").filter(Boolean);
+    const clientId = pathParts[0];
+    const currentClientConfig = parsed[clientId] || parsed["default"];
+    return (currentClientConfig == null ? void 0 : currentClientConfig.displayName) || null;
+  } catch (e) {
+    return null;
+  }
+};
 const ActivateAccount = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -285,6 +304,7 @@ const ActivateAccount = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const clientPathRef = useRef("");
   const searchParams = new URLSearchParams(location.search);
+  const badgeText = useMemo(() => getDisplayName(), [location.pathname]);
   useEffect(() => {
     if (typeof window !== "undefined") {
       const pathParts = window.location.pathname.split("/").filter(Boolean);
@@ -457,8 +477,11 @@ const ActivateAccount = () => {
   return /* @__PURE__ */ jsx("div", { className: "min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8", children: /* @__PURE__ */ jsxs("div", { className: "max-w-md w-full space-y-8", children: [
     /* @__PURE__ */ jsx(AuthBranding, { size: "small", className: "mb-6" }),
     /* @__PURE__ */ jsxs(Card, { className: "shadow-lg", children: [
-      /* @__PURE__ */ jsxs(CardHeader, { className: "text-center", children: [
-        /* @__PURE__ */ jsx(CardTitle, { className: "text-2xl font-bold", children: "Activate Your Account" }),
+      /* @__PURE__ */ jsxs(CardHeader, { className: "text-center relative", children: [
+        /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-center gap-2", children: [
+          /* @__PURE__ */ jsx(CardTitle, { className: "text-2xl font-bold", children: "Activate Your Account" }),
+          badgeText && /* @__PURE__ */ jsx(Badge, { variant: "outline", className: "text-xs", children: badgeText })
+        ] }),
         /* @__PURE__ */ jsx(CardDescription, { children: "Set your password to complete account activation" })
       ] }),
       /* @__PURE__ */ jsx(CardContent, { children: /* @__PURE__ */ jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
@@ -586,6 +609,7 @@ const ForgotPassword = () => {
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const { resetPassword } = useAuth();
+  const badgeText = useMemo(() => getDisplayName(), [location.pathname]);
   useEffect(() => {
     if (location.hash && (location.hash.includes("access_token") || location.hash.includes("refresh_token"))) {
       const newUrl = window.location.pathname + (location.search || "");
@@ -616,8 +640,11 @@ const ForgotPassword = () => {
   return /* @__PURE__ */ jsx("div", { className: "min-h-screen bg-learning-background flex items-center justify-center p-4", children: /* @__PURE__ */ jsxs("div", { className: "w-full max-w-md space-y-6", children: [
     /* @__PURE__ */ jsx(AuthBranding, { size: "large" }),
     /* @__PURE__ */ jsxs(Card, { children: [
-      /* @__PURE__ */ jsxs(CardHeader, { children: [
-        /* @__PURE__ */ jsx(CardTitle, { children: "Reset Your Password" }),
+      /* @__PURE__ */ jsxs(CardHeader, { className: "relative", children: [
+        /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-center gap-2", children: [
+          /* @__PURE__ */ jsx(CardTitle, { children: "Reset Your Password" }),
+          badgeText && /* @__PURE__ */ jsx(Badge, { variant: "outline", className: "text-xs", children: badgeText })
+        ] }),
         /* @__PURE__ */ jsx(CardDescription, { children: "Enter your email address and we'll send you a link to reset your password" })
       ] }),
       /* @__PURE__ */ jsxs(CardContent, { children: [
@@ -657,12 +684,14 @@ const ForgotPassword = () => {
 };
 const LoginForm = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [success, setSuccess] = useState("");
   const { signIn, error, loading: authLoading } = useAuth();
+  const badgeText = useMemo(() => getDisplayName(), [location.pathname]);
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -678,8 +707,11 @@ const LoginForm = () => {
   return /* @__PURE__ */ jsxs("div", { className: "w-full max-w-md mx-auto space-y-6", children: [
     /* @__PURE__ */ jsx(AuthBranding, { size: "large" }),
     /* @__PURE__ */ jsxs(Card, { children: [
-      /* @__PURE__ */ jsxs(CardHeader, { children: [
-        /* @__PURE__ */ jsx(CardTitle, { children: "Sign In" }),
+      /* @__PURE__ */ jsxs(CardHeader, { className: "relative", children: [
+        /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-center gap-2", children: [
+          /* @__PURE__ */ jsx(CardTitle, { children: "Sign In" }),
+          badgeText && /* @__PURE__ */ jsx(Badge, { variant: "outline", className: "text-xs", children: badgeText })
+        ] }),
         /* @__PURE__ */ jsx(CardDescription, { children: "Enter your email and password to access your learning dashboard" })
       ] }),
       /* @__PURE__ */ jsx(CardContent, { children: /* @__PURE__ */ jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
@@ -755,6 +787,7 @@ const ResetPassword = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { supabaseClient } = useAuth();
+  const badgeText = useMemo(() => getDisplayName(), [location.pathname]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -988,7 +1021,10 @@ const ResetPassword = () => {
   return /* @__PURE__ */ jsx("div", { className: "min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8", children: /* @__PURE__ */ jsxs("div", { className: "max-w-md w-full space-y-8", children: [
     /* @__PURE__ */ jsx(AuthBranding, { size: "small", className: "mb-6" }),
     /* @__PURE__ */ jsxs(Card, { className: "shadow-lg", children: [
-      /* @__PURE__ */ jsx(CardHeader, { className: "text-center", children: /* @__PURE__ */ jsx(CardTitle, { className: "text-2xl font-bold", children: "Reset Your Password" }) }),
+      /* @__PURE__ */ jsx(CardHeader, { className: "text-center relative", children: /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-center gap-2", children: [
+        /* @__PURE__ */ jsx(CardTitle, { className: "text-2xl font-bold", children: "Reset Your Password" }),
+        badgeText && /* @__PURE__ */ jsx(Badge, { variant: "outline", className: "text-xs", children: badgeText })
+      ] }) }),
       /* @__PURE__ */ jsx(CardContent, { children: /* @__PURE__ */ jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
         verifying && /* @__PURE__ */ jsx(Alert, { children: /* @__PURE__ */ jsx(AlertDescription, { children: "Verifying your reset link…" }) }),
         error && !verifying && /* @__PURE__ */ jsx(Alert, { variant: "destructive", children: /* @__PURE__ */ jsx(AlertDescription, { children: error }) }),

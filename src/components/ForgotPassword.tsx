@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import AuthBranding from './AuthBranding';
+import { getDisplayName } from '../utils/getDisplayName';
 
 const ForgotPassword: React.FC = () => {
   const location = useLocation();
@@ -16,6 +18,9 @@ const ForgotPassword: React.FC = () => {
   const [message, setMessage] = useState('');
   const [isError, setIsError] = useState(false);
   const { resetPassword } = useAuth();
+  
+  // Get displayName for badge
+  const badgeText = useMemo(() => getDisplayName(), [location.pathname]);
 
   // Clear any hash tokens when on forgot-password page
   // This page is for requesting a reset, not for processing reset links
@@ -59,8 +64,15 @@ const ForgotPassword: React.FC = () => {
         <AuthBranding size="large" />
         
         <Card>
-          <CardHeader>
-            <CardTitle>Reset Your Password</CardTitle>
+          <CardHeader className="relative">
+            <div className="flex items-center justify-center gap-2">
+              <CardTitle>Reset Your Password</CardTitle>
+              {badgeText && (
+                <Badge variant="outline" className="text-xs">
+                  {badgeText}
+                </Badge>
+              )}
+            </div>
             <CardDescription>
               Enter your email address and we'll send you a link to reset your password
             </CardDescription>

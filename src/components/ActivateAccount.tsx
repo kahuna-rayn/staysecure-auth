@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/AuthProvider';
 import { Button } from '@/components/ui/button';
@@ -6,8 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import AuthBranding from './AuthBranding';
+import { getDisplayName } from '../utils/getDisplayName';
 
 const ActivateAccount: React.FC = () => {
   const location = useLocation();
@@ -25,6 +27,9 @@ const ActivateAccount: React.FC = () => {
   
   // Parse URL parameters at component level
   const searchParams = new URLSearchParams(location.search);
+  
+  // Get displayName for badge
+  const badgeText = useMemo(() => getDisplayName(), [location.pathname]);
 
   // Extract client path from URL on mount (preserve for redirects)
   useEffect(() => {
@@ -288,10 +293,17 @@ if (password.length < 12 || !hasLowercase || !hasUppercase || !hasDigit || !hasS
         <AuthBranding size="small" className="mb-6" />
         
         <Card className="shadow-lg">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold">
-              Activate Your Account
-            </CardTitle>
+          <CardHeader className="text-center relative">
+            <div className="flex items-center justify-center gap-2">
+              <CardTitle className="text-2xl font-bold">
+                Activate Your Account
+              </CardTitle>
+              {badgeText && (
+                <Badge variant="outline" className="text-xs">
+                  {badgeText}
+                </Badge>
+              )}
+            </div>
             <CardDescription>
               Set your password to complete account activation
             </CardDescription>

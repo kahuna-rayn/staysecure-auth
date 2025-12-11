@@ -1,16 +1,19 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useMemo } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import AuthBranding from './AuthBranding';
+import { getDisplayName } from '../utils/getDisplayName';
 
 const LoginForm: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,6 +21,9 @@ const LoginForm: React.FC = () => {
   const [success, setSuccess] = useState('');
   
   const { signIn, error, loading: authLoading } = useAuth();
+  
+  // Get displayName for badge
+  const badgeText = useMemo(() => getDisplayName(), [location.pathname]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,8 +44,15 @@ const LoginForm: React.FC = () => {
     <div className="w-full max-w-md mx-auto space-y-6">
       <AuthBranding size="large" />
       <Card>
-        <CardHeader>
-          <CardTitle>Sign In</CardTitle>
+        <CardHeader className="relative">
+          <div className="flex items-center justify-center gap-2">
+            <CardTitle>Sign In</CardTitle>
+            {badgeText && (
+              <Badge variant="outline" className="text-xs">
+                {badgeText}
+              </Badge>
+            )}
+          </div>
           <CardDescription>
             Enter your email and password to access your learning dashboard
           </CardDescription>

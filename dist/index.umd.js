@@ -1,6 +1,6 @@
 (function(global, factory) {
-  typeof exports === "object" && typeof module !== "undefined" ? factory(exports, require("react/jsx-runtime"), require("react"), require("react-router-dom"), require("@/components/ui/button"), require("@/components/ui/input"), require("@/components/ui/label"), require("@/components/ui/card"), require("@/components/ui/alert"), require("lucide-react"), require("@/assets/rayn-logo.png"), require("@/integrations/supabase/client")) : typeof define === "function" && define.amd ? define(["exports", "react/jsx-runtime", "react", "react-router-dom", "@/components/ui/button", "@/components/ui/input", "@/components/ui/label", "@/components/ui/card", "@/components/ui/alert", "lucide-react", "@/assets/rayn-logo.png", "@/integrations/supabase/client"], factory) : (global = typeof globalThis !== "undefined" ? globalThis : global || self, factory(global.StaySecureAuth = {}, global["react/jsx-runtime"], global.React, global.reactRouterDom, global.button, global.input, global.label, global.card, global.alert, global.lucideReact, global.raynLogo, global.client));
-})(this, function(exports2, jsxRuntime, react, reactRouterDom, button, input, label, card, alert, lucideReact, raynLogo, client) {
+  typeof exports === "object" && typeof module !== "undefined" ? factory(exports, require("react/jsx-runtime"), require("react"), require("react-router-dom"), require("@/components/ui/button"), require("@/components/ui/input"), require("@/components/ui/label"), require("@/components/ui/card"), require("@/components/ui/alert"), require("@/components/ui/badge"), require("lucide-react"), require("@/assets/rayn-logo.png"), require("@/integrations/supabase/client")) : typeof define === "function" && define.amd ? define(["exports", "react/jsx-runtime", "react", "react-router-dom", "@/components/ui/button", "@/components/ui/input", "@/components/ui/label", "@/components/ui/card", "@/components/ui/alert", "@/components/ui/badge", "lucide-react", "@/assets/rayn-logo.png", "@/integrations/supabase/client"], factory) : (global = typeof globalThis !== "undefined" ? globalThis : global || self, factory(global.StaySecureAuth = {}, global["react/jsx-runtime"], global.React, global.reactRouterDom, global.button, global.input, global.label, global.card, global.alert, global.badge, global.lucideReact, global.raynLogo, global.client));
+})(this, function(exports2, jsxRuntime, react, reactRouterDom, button, input, label, card, alert, badge, lucideReact, raynLogo, client) {
   "use strict";
   const AuthContext = react.createContext(null);
   const defaultAuthContext = {
@@ -264,6 +264,24 @@
       /* @__PURE__ */ jsxRuntime.jsx("p", { className: `text-muted-foreground ${textSize}`, children: "Get Secure, Stay Secure!" })
     ] });
   };
+  const getDisplayName = () => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+    try {
+      const clientConfigs = void 0;
+      if (!clientConfigs) {
+        return null;
+      }
+      const parsed = JSON.parse(clientConfigs);
+      const pathParts = window.location.pathname.split("/").filter(Boolean);
+      const clientId = pathParts[0];
+      const currentClientConfig = parsed[clientId] || parsed["default"];
+      return (currentClientConfig == null ? void 0 : currentClientConfig.displayName) || null;
+    } catch (e) {
+      return null;
+    }
+  };
   const ActivateAccount = () => {
     const location = reactRouterDom.useLocation();
     const navigate = reactRouterDom.useNavigate();
@@ -278,6 +296,7 @@
     const [showConfirmPassword, setShowConfirmPassword] = react.useState(false);
     const clientPathRef = react.useRef("");
     const searchParams = new URLSearchParams(location.search);
+    const badgeText = react.useMemo(() => getDisplayName(), [location.pathname]);
     react.useEffect(() => {
       if (typeof window !== "undefined") {
         const pathParts = window.location.pathname.split("/").filter(Boolean);
@@ -450,8 +469,11 @@
     return /* @__PURE__ */ jsxRuntime.jsx("div", { className: "min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8", children: /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "max-w-md w-full space-y-8", children: [
       /* @__PURE__ */ jsxRuntime.jsx(AuthBranding, { size: "small", className: "mb-6" }),
       /* @__PURE__ */ jsxRuntime.jsxs(card.Card, { className: "shadow-lg", children: [
-        /* @__PURE__ */ jsxRuntime.jsxs(card.CardHeader, { className: "text-center", children: [
-          /* @__PURE__ */ jsxRuntime.jsx(card.CardTitle, { className: "text-2xl font-bold", children: "Activate Your Account" }),
+        /* @__PURE__ */ jsxRuntime.jsxs(card.CardHeader, { className: "text-center relative", children: [
+          /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "flex items-center justify-center gap-2", children: [
+            /* @__PURE__ */ jsxRuntime.jsx(card.CardTitle, { className: "text-2xl font-bold", children: "Activate Your Account" }),
+            badgeText && /* @__PURE__ */ jsxRuntime.jsx(badge.Badge, { variant: "outline", className: "text-xs", children: badgeText })
+          ] }),
           /* @__PURE__ */ jsxRuntime.jsx(card.CardDescription, { children: "Set your password to complete account activation" })
         ] }),
         /* @__PURE__ */ jsxRuntime.jsx(card.CardContent, { children: /* @__PURE__ */ jsxRuntime.jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
@@ -579,6 +601,7 @@
     const [message, setMessage] = react.useState("");
     const [isError, setIsError] = react.useState(false);
     const { resetPassword } = useAuth();
+    const badgeText = react.useMemo(() => getDisplayName(), [location.pathname]);
     react.useEffect(() => {
       if (location.hash && (location.hash.includes("access_token") || location.hash.includes("refresh_token"))) {
         const newUrl = window.location.pathname + (location.search || "");
@@ -609,8 +632,11 @@
     return /* @__PURE__ */ jsxRuntime.jsx("div", { className: "min-h-screen bg-learning-background flex items-center justify-center p-4", children: /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "w-full max-w-md space-y-6", children: [
       /* @__PURE__ */ jsxRuntime.jsx(AuthBranding, { size: "large" }),
       /* @__PURE__ */ jsxRuntime.jsxs(card.Card, { children: [
-        /* @__PURE__ */ jsxRuntime.jsxs(card.CardHeader, { children: [
-          /* @__PURE__ */ jsxRuntime.jsx(card.CardTitle, { children: "Reset Your Password" }),
+        /* @__PURE__ */ jsxRuntime.jsxs(card.CardHeader, { className: "relative", children: [
+          /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "flex items-center justify-center gap-2", children: [
+            /* @__PURE__ */ jsxRuntime.jsx(card.CardTitle, { children: "Reset Your Password" }),
+            badgeText && /* @__PURE__ */ jsxRuntime.jsx(badge.Badge, { variant: "outline", className: "text-xs", children: badgeText })
+          ] }),
           /* @__PURE__ */ jsxRuntime.jsx(card.CardDescription, { children: "Enter your email address and we'll send you a link to reset your password" })
         ] }),
         /* @__PURE__ */ jsxRuntime.jsxs(card.CardContent, { children: [
@@ -650,12 +676,14 @@
   };
   const LoginForm = () => {
     const navigate = reactRouterDom.useNavigate();
+    const location = reactRouterDom.useLocation();
     const [email, setEmail] = react.useState("");
     const [password, setPassword] = react.useState("");
     const [loading, setLoading] = react.useState(false);
     const [showPassword, setShowPassword] = react.useState(false);
     const [success, setSuccess] = react.useState("");
     const { signIn, error, loading: authLoading } = useAuth();
+    const badgeText = react.useMemo(() => getDisplayName(), [location.pathname]);
     const handleSubmit = async (e) => {
       e.preventDefault();
       setLoading(true);
@@ -671,8 +699,11 @@
     return /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "w-full max-w-md mx-auto space-y-6", children: [
       /* @__PURE__ */ jsxRuntime.jsx(AuthBranding, { size: "large" }),
       /* @__PURE__ */ jsxRuntime.jsxs(card.Card, { children: [
-        /* @__PURE__ */ jsxRuntime.jsxs(card.CardHeader, { children: [
-          /* @__PURE__ */ jsxRuntime.jsx(card.CardTitle, { children: "Sign In" }),
+        /* @__PURE__ */ jsxRuntime.jsxs(card.CardHeader, { className: "relative", children: [
+          /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "flex items-center justify-center gap-2", children: [
+            /* @__PURE__ */ jsxRuntime.jsx(card.CardTitle, { children: "Sign In" }),
+            badgeText && /* @__PURE__ */ jsxRuntime.jsx(badge.Badge, { variant: "outline", className: "text-xs", children: badgeText })
+          ] }),
           /* @__PURE__ */ jsxRuntime.jsx(card.CardDescription, { children: "Enter your email and password to access your learning dashboard" })
         ] }),
         /* @__PURE__ */ jsxRuntime.jsx(card.CardContent, { children: /* @__PURE__ */ jsxRuntime.jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
@@ -748,6 +779,7 @@
     const location = reactRouterDom.useLocation();
     const navigate = reactRouterDom.useNavigate();
     const { supabaseClient } = useAuth();
+    const badgeText = react.useMemo(() => getDisplayName(), [location.pathname]);
     const [email, setEmail] = react.useState("");
     const [password, setPassword] = react.useState("");
     const [confirmPassword, setConfirmPassword] = react.useState("");
@@ -981,7 +1013,10 @@
     return /* @__PURE__ */ jsxRuntime.jsx("div", { className: "min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8", children: /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "max-w-md w-full space-y-8", children: [
       /* @__PURE__ */ jsxRuntime.jsx(AuthBranding, { size: "small", className: "mb-6" }),
       /* @__PURE__ */ jsxRuntime.jsxs(card.Card, { className: "shadow-lg", children: [
-        /* @__PURE__ */ jsxRuntime.jsx(card.CardHeader, { className: "text-center", children: /* @__PURE__ */ jsxRuntime.jsx(card.CardTitle, { className: "text-2xl font-bold", children: "Reset Your Password" }) }),
+        /* @__PURE__ */ jsxRuntime.jsx(card.CardHeader, { className: "text-center relative", children: /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "flex items-center justify-center gap-2", children: [
+          /* @__PURE__ */ jsxRuntime.jsx(card.CardTitle, { className: "text-2xl font-bold", children: "Reset Your Password" }),
+          badgeText && /* @__PURE__ */ jsxRuntime.jsx(badge.Badge, { variant: "outline", className: "text-xs", children: badgeText })
+        ] }) }),
         /* @__PURE__ */ jsxRuntime.jsx(card.CardContent, { children: /* @__PURE__ */ jsxRuntime.jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
           verifying && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: "Verifying your reset link…" }) }),
           error && !verifying && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { variant: "destructive", children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: error }) }),
