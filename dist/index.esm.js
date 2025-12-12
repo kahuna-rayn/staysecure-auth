@@ -699,6 +699,7 @@ const ForgotPassword = ({ displayName }) => {
       ] }),
       /* @__PURE__ */ jsxs(CardContent, { children: [
         /* @__PURE__ */ jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
+          message && /* @__PURE__ */ jsx(Alert, { variant: isError ? "destructive" : "default", children: /* @__PURE__ */ jsx(AlertDescription, { children: message }) }),
           /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
             /* @__PURE__ */ jsx(Label, { htmlFor: "email", children: "Email" }),
             /* @__PURE__ */ jsx(
@@ -713,7 +714,6 @@ const ForgotPassword = ({ displayName }) => {
               }
             )
           ] }),
-          message && /* @__PURE__ */ jsx(Alert, { variant: isError ? "destructive" : "default", children: /* @__PURE__ */ jsx(AlertDescription, { children: message }) }),
           /* @__PURE__ */ jsxs(Button, { type: "submit", className: "w-full", disabled: loading, children: [
             loading && /* @__PURE__ */ jsx("div", { className: "mr-2 h-4 w-4 animate-spin border-2 border-current border-t-transparent rounded-full" }),
             "Send Reset Link"

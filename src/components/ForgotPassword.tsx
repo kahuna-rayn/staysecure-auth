@@ -90,6 +90,12 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ displayName }) => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {message && (
+                <Alert variant={isError ? "destructive" : "default"}>
+                  <AlertDescription>{message}</AlertDescription>
+                </Alert>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -101,12 +107,6 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ displayName }) => {
                   required
                 />
               </div>
-
-              {message && (
-                <Alert variant={isError ? "destructive" : "default"}>
-                  <AlertDescription>{message}</AlertDescription>
-                </Alert>
-              )}
 
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading && <div className="mr-2 h-4 w-4 animate-spin border-2 border-current border-t-transparent rounded-full" />}

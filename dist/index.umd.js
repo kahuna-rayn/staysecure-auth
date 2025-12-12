@@ -691,6 +691,7 @@
         ] }),
         /* @__PURE__ */ jsxRuntime.jsxs(card.CardContent, { children: [
           /* @__PURE__ */ jsxRuntime.jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
+            message && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { variant: isError ? "destructive" : "default", children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: message }) }),
             /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
               /* @__PURE__ */ jsxRuntime.jsx(label.Label, { htmlFor: "email", children: "Email" }),
               /* @__PURE__ */ jsxRuntime.jsx(
@@ -705,7 +706,6 @@
                 }
               )
             ] }),
-            message && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { variant: isError ? "destructive" : "default", children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: message }) }),
             /* @__PURE__ */ jsxRuntime.jsxs(button.Button, { type: "submit", className: "w-full", disabled: loading, children: [
               loading && /* @__PURE__ */ jsxRuntime.jsx("div", { className: "mr-2 h-4 w-4 animate-spin border-2 border-current border-t-transparent rounded-full" }),
               "Send Reset Link"
