@@ -84,17 +84,17 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ displayName }) => {
                 </Badge>
               )}
             </div>
+            {message && (
+                <Alert variant={isError ? "destructive" : "default"}>
+                  <AlertDescription>{message}</AlertDescription>
+                </Alert>
+              )} 
             <CardDescription>
               Enter your email address and we'll send you a link to reset your password
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {message && (
-                <Alert variant={isError ? "destructive" : "default"}>
-                  <AlertDescription>{message}</AlertDescription>
-                </Alert>
-              )}
 
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
