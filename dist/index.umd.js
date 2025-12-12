@@ -991,7 +991,7 @@
       return () => sub.subscription.unsubscribe();
     }, [location.hash, location.search, supabaseClient]);
     const handleSubmit = async (e) => {
-      var _a, _b, _c, _d, _e, _f, _g, _h, _i;
+      var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l;
       e.preventDefault();
       setLoading(true);
       setError("");
@@ -1047,7 +1047,12 @@
             user_id: session.user.id
           }
         });
-        console.log("[ResetPassword] update-user-password Edge Function call completed");
+        console.log("[ResetPassword] update-user-password Edge Function call completed", {
+          hasData: !!data,
+          hasError: !!updateError,
+          dataKeys: data ? Object.keys(data) : [],
+          errorMessage: updateError == null ? void 0 : updateError.message
+        });
         if (updateError) {
           console.error("[ResetPassword] ❌ Edge Function error:", {
             message: updateError.message,
@@ -1060,10 +1065,24 @@
             userEmail: (_e = sessionAfterError == null ? void 0 : sessionAfterError.user) == null ? void 0 : _e.email,
             sessionStillValid: !!((_f = sessionAfterError == null ? void 0 : sessionAfterError.user) == null ? void 0 : _f.email)
           });
+          const errorAny = updateError;
+          const status = (errorAny == null ? void 0 : errorAny.status) || ((_g = errorAny == null ? void 0 : errorAny.context) == null ? void 0 : _g.status) || ((_h = errorAny == null ? void 0 : errorAny.context) == null ? void 0 : _h.statusCode) || (errorAny == null ? void 0 : errorAny.statusCode) || ((_i = errorAny == null ? void 0 : errorAny.response) == null ? void 0 : _i.status);
           const msg = (updateError.message || "").toLowerCase();
-          const status = updateError == null ? void 0 : updateError.status;
-          if (status === 422 || msg.includes("same")) {
-            const sessionStillValid2 = !!((_g = sessionAfterError == null ? void 0 : sessionAfterError.user) == null ? void 0 : _g.email);
+          const statusFromMessage = msg.match(/\b422\b/) ? 422 : void 0;
+          const finalStatus = status || statusFromMessage;
+          const dataErrorMsg = (data == null ? void 0 : data.error) ? String(data.error).toLowerCase() : "";
+          const hasSamePasswordError = msg.includes("same") || msg.includes("cannot be the same") || dataErrorMsg.includes("same") || dataErrorMsg.includes("cannot be the same") || finalStatus === 422;
+          console.log("[ResetPassword] Extracted error details:", {
+            status: finalStatus,
+            statusFromMessage,
+            message: msg,
+            dataError: data == null ? void 0 : data.error,
+            dataErrorMsg,
+            hasSamePasswordError,
+            errorKeys: Object.keys(errorAny || {})
+          });
+          if (finalStatus === 422 || hasSamePasswordError) {
+            const sessionStillValid2 = !!((_j = sessionAfterError == null ? void 0 : sessionAfterError.user) == null ? void 0 : _j.email);
             console.log("[ResetPassword] Same password error detected - preventing success flow:", {
               status,
               message: msg,
@@ -1101,7 +1120,7 @@
             setLoading(false);
             return;
           }
-          const sessionStillValid = !!((_h = sessionAfterError == null ? void 0 : sessionAfterError.user) == null ? void 0 : _h.email);
+          const sessionStillValid = !!((_k = sessionAfterError == null ? void 0 : sessionAfterError.user) == null ? void 0 : _k.email);
           if (!sessionStillValid) {
             navigate("/forgot-password", {
               replace: true,
@@ -1120,7 +1139,7 @@
           const { data: { session: sessionAfterDataError } } = await supabaseClient.auth.getSession();
           const msg = (data.error || "").toLowerCase();
           if (msg.includes("same")) {
-            const sessionStillValid = !!((_i = sessionAfterDataError == null ? void 0 : sessionAfterDataError.user) == null ? void 0 : _i.email);
+            const sessionStillValid = !!((_l = sessionAfterDataError == null ? void 0 : sessionAfterDataError.user) == null ? void 0 : _l.email);
             console.log("[ResetPassword] Same password error in data response - preventing success flow");
             if (!sessionStillValid) {
               navigate("/forgot-password", {

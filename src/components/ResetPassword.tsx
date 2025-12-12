@@ -281,7 +281,12 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
           user_id: session.user.id
         }
       });
-      console.log('[ResetPassword] update-user-password Edge Function call completed')
+      console.log('[ResetPassword] update-user-password Edge Function call completed', {
+        hasData: !!data,
+        hasError: !!updateError,
+        dataKeys: data ? Object.keys(data) : [],
+        errorMessage: updateError?.message
+      })
 
       // Check for Edge Function invocation error first
       if (updateError) {
@@ -300,11 +305,37 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
         })
 
         // Handle common error statuses and messages
+        // Try multiple ways to extract status code from Supabase functions.invoke error
+        const errorAny = updateError as any
+        const status = errorAny?.status || errorAny?.context?.status || errorAny?.context?.statusCode || errorAny?.statusCode || errorAny?.response?.status
         const msg = (updateError.message || '').toLowerCase()
-        const status = (updateError as any)?.status as number | undefined
+        
+        // Also check if error message contains status code (e.g., "422" or "non-2xx")
+        // Supabase returns "Edge Function returned a non-2xx status code" for HTTP errors
+        const statusFromMessage = msg.match(/\b422\b/) ? 422 : undefined
+        const finalStatus = status || statusFromMessage
+        
+        // Check if error message contains "same password" text (from both error message and data.error if available)
+        const dataErrorMsg = data?.error ? String(data.error).toLowerCase() : ''
+        const hasSamePasswordError = msg.includes('same') || 
+          msg.includes('cannot be the same') || 
+          dataErrorMsg.includes('same') || 
+          dataErrorMsg.includes('cannot be the same') ||
+          finalStatus === 422  // 422 status typically means "same password" from our Edge Function
+        
+        console.log('[ResetPassword] Extracted error details:', {
+          status: finalStatus,
+          statusFromMessage,
+          message: msg,
+          dataError: data?.error,
+          dataErrorMsg,
+          hasSamePasswordError,
+          errorKeys: Object.keys(errorAny || {})
+        })
 
         // Handle "same password" error - CRITICAL: Do not proceed to success, do not redirect
-        if (status === 422 || msg.includes('same')) {
+        // Check for 422 status OR "same password" in error message OR in data.error
+        if (finalStatus === 422 || hasSamePasswordError) {
           const sessionStillValid = !!sessionAfterError?.user?.email
           console.log('[ResetPassword] Same password error detected - preventing success flow:', {
             status,
