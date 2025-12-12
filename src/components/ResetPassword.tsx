@@ -317,20 +317,28 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
         const msg = (updateError.message || '').toLowerCase()
         const status = (updateError as any)?.status as number | undefined
 
-        // Handle "same password" error - only throw if session is still valid (allows retry)
-        if (msg.includes('same')) {
+        // Handle "same password" error - CRITICAL: Do not proceed to success, do not redirect
+        if (status === 422 || msg.includes('same')) {
           const sessionStillValid = !!sessionAfterError?.user?.email
-          console.log('[ResetPassword] Same password error - session status:', {
+          console.log('[ResetPassword] Same password error detected - preventing success flow:', {
+            status,
+            message: msg,
             sessionStillValid,
             canRetry: sessionStillValid
           })
           
           // If session is still valid, just show error (allows user to retry)
+          // CRITICAL: Return early to prevent any success/redirect logic
           if (sessionStillValid) {
-            throw new Error('New password cannot be the same as your current password. Please choose a different password.')
+            setError('New password cannot be the same as your current password. Please choose a different password.')
+            setLoading(false)
+            return // Exit early - do not proceed to success
           } else {
             // Session was invalidated - treat as expired
-            throw new Error('Your password reset session has expired. Please request a new reset link.')
+            setError('Your password reset session has expired. Please request a new reset link.')
+            setIsExpiredLink(true)
+            setLoading(false)
+            return // Exit early - do not proceed to success
           }
         }
 
@@ -339,41 +347,66 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
           if (!sessionAfterError) {
             console.error('[ResetPassword] ❌ Session lost after updateUser error')
           }
-          throw new Error('Your password reset link has expired or was already used. Please request a new link.')
+          setError('Your password reset link has expired or was already used. Please request a new link.')
+          setIsExpiredLink(true)
+          setLoading(false)
+          return // Exit early - do not proceed to success
         }
         
         // Handle weak password errors
         if (msg.includes('weak') || (msg.includes('password') && msg.includes('strong'))) {
-          throw new Error('Password is too weak. Please use a stronger password with at least 12 characters, including uppercase, lowercase, numbers, and special characters.')
+          setError('Password is too weak. Please use a stronger password with at least 12 characters, including uppercase, lowercase, numbers, and special characters.')
+          setLoading(false)
+          return // Exit early - do not proceed to success
         }
         
         // For other errors, check if session is still valid for retry
         const sessionStillValid = !!sessionAfterError?.user?.email
         if (!sessionStillValid) {
-          throw new Error('Your password reset session has expired. Please request a new reset link.')
+          setError('Your password reset session has expired. Please request a new reset link.')
+          setIsExpiredLink(true)
+          setLoading(false)
+          return // Exit early - do not proceed to success
         }
         
-        throw new Error(updateError.message || 'Failed to update password. Please try again.')
+        setError(updateError.message || 'Failed to update password. Please try again.')
+        setLoading(false)
+        return // Exit early - do not proceed to success
       }
 
       // Check if Edge Function returned an error in the response data
       if (data?.error) {
-        console.error('[ResetPassword] ❌ Edge Function returned error:', data.error)
+        console.error('[ResetPassword] ❌ Edge Function returned error in data:', data.error)
         
         // Check session after data error to determine if we can retry
         const { data: { session: sessionAfterDataError } } = await supabaseClient.auth.getSession()
         const msg = (data.error || '').toLowerCase()
         
-        // Handle "same password" error in data response
+        // Handle "same password" error in data response - CRITICAL: Do not proceed to success
         if (msg.includes('same')) {
           const sessionStillValid = !!sessionAfterDataError?.user?.email
+          console.log('[ResetPassword] Same password error in data response - preventing success flow')
           if (!sessionStillValid) {
-            throw new Error('Your password reset session has expired. Please request a new reset link.')
+            setError('Your password reset session has expired. Please request a new reset link.')
+            setIsExpiredLink(true)
+          } else {
+            setError('New password cannot be the same as your current password. Please choose a different password.')
           }
-          throw new Error('New password cannot be the same as your current password. Please choose a different password.')
+          setLoading(false)
+          return // Exit early - do not proceed to success
         }
         
-        throw new Error(data.error)
+        setError(data.error)
+        setLoading(false)
+        return // Exit early - do not proceed to success
+      }
+
+      // Only proceed to success if we have explicit success confirmation
+      if (!data?.success) {
+        console.error('[ResetPassword] ❌ No success flag in response, treating as error')
+        setError('Failed to update password. Please try again.')
+        setLoading(false)
+        return // Exit early - do not proceed to success
       }
 
       // Success - password updated and account activated
@@ -393,7 +426,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
     }
   }
 
-  const formDisabled = verifying || !email || loading
+  const formDisabled = verifying || (!email && !isExpiredLink) || loading
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -429,12 +462,18 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
                 </Alert>
               )}
 
-              {email && (
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" value={email} disabled className="bg-gray-50" />
-                </div>
-              )}
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input 
+                  id="email" 
+                  type="email" 
+                  value={email} 
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+                  disabled={!isExpiredLink && !!email}
+                  className={!isExpiredLink && !!email ? "bg-gray-50" : ""}
+                  placeholder={isExpiredLink ? "Enter your email address" : ""}
+                />
+              </div>
 
               <div className="space-y-2">
                 <Label htmlFor="password">New Password</Label>
@@ -502,13 +541,13 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
               </div>
             </form>
             
-            {/* Request New Password Reset Link Section */}
-            {(error && isExpiredLink) && (
+            {/* Request New Password Reset Link Section - Show when expired */}
+            {isExpiredLink && (
               <div className="space-y-4 pt-4 border-t">
                 <div className="text-sm text-muted-foreground">
                   {newLinkRequested 
                     ? 'Check your email for the new password reset link.'
-                    : 'Enter your email address and click the button below to request a new password reset link.'}
+                    : 'Enter your email address above and click the button below to request a new password reset link.'}
                 </div>
                 <Button
                   type="button"
