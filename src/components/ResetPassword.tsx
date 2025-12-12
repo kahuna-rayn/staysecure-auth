@@ -40,22 +40,20 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
   const [success, setSuccess] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [requestingNewLink, setRequestingNewLink] = useState(false)
-  const [newLinkRequested, setNewLinkRequested] = useState(false)
-  const [isExpiredLink, setIsExpiredLink] = useState(false)
 
   const initializedRef = useRef(false)
 
-  // Check for error from navigation state (expired link)
+  // If we arrive here with an expired link state, redirect to forgot-password
   useEffect(() => {
-    if (location.state?.authError) {
-      setError(location.state.authError)
-      // If expired link, enable the email field for requesting new link
-      if (location.state.expiredLink) {
-        setIsExpiredLink(true)
-      }
+    if (location.state?.authError && location.state?.expiredLink) {
+      navigate('/forgot-password', {
+        replace: true,
+        state: {
+          authError: location.state.authError
+        }
+      })
     }
-  }, [location.state])
+  }, [location.state, navigate])
 
   const clearRecoveryParams = () => {
     const url = new URL(window.location.href)
@@ -65,26 +63,6 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
     window.history.replaceState({}, document.title, url.toString())
   }
 
-  const handleRequestNewLink = async () => {
-    if (!email) {
-      setError('Please enter your email address')
-      return
-    }
-    
-    setRequestingNewLink(true)
-    setError('')
-    setNewLinkRequested(false)
-    
-    try {
-      await resetPassword(email)
-      setNewLinkRequested(true)
-      setSuccess('A new password reset link has been sent to your email address. Please check your inbox.')
-    } catch (error: any) {
-      setError(error.message || 'Failed to send password reset email. Please try again.')
-    } finally {
-      setRequestingNewLink(false)
-    }
-  }
 
   useEffect(() => {
     if (initializedRef.current) return
@@ -137,13 +115,16 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
           return
         }
 
-        // Check for expired link error in hash
+        // Check for expired link error in hash - redirect to forgot-password
         const errorCode = hashParams.get('error_code')
         if (errorCode === 'otp_expired' || hash.includes('error_code=otp_expired')) {
-          console.log('[ResetPassword] OTP expired')
-          setError('This password reset link has expired. Please enter your email address below and click "Request New Password Reset Link" to receive a new one.')
-          setIsExpiredLink(true)
-          setVerifying(false)
+          console.log('[ResetPassword] OTP expired - redirecting to forgot-password')
+          navigate('/forgot-password', {
+            replace: true,
+            state: {
+              authError: 'This password reset link has expired. Please enter your email address below to request a new one.'
+            }
+          })
           return
         }
 
@@ -156,12 +137,17 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
           })
           if (verifyError) {
             console.error('[ResetPassword] ❌ verifyOtp error:', verifyError.message)
-            // Check if it's an expired link
+            // Check if it's an expired link - redirect to forgot-password
             if (verifyError.message?.includes('expired') || verifyError.message?.includes('otp_expired')) {
-              setError('This password reset link has expired. Please enter your email address below and click "Request New Password Reset Link" to receive a new one.')
-              setIsExpiredLink(true)
+              console.log('[ResetPassword] Expired link detected - redirecting to forgot-password')
+              navigate('/forgot-password', {
+                replace: true,
+                state: {
+                  authError: 'This password reset link has expired. Please enter your email address below to request a new one.'
+                }
+              })
             } else {
-              setError('Invalid or expired password reset link. Please request a new one.')
+              setError('Invalid password reset link. Please request a new one.')
             }
             setVerifying(false)
             return
@@ -334,23 +320,29 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
             setLoading(false)
             return // Exit early - do not proceed to success
           } else {
-            // Session was invalidated - treat as expired
-            setError('Your password reset session has expired. Please request a new reset link.')
-            setIsExpiredLink(true)
-            setLoading(false)
-            return // Exit early - do not proceed to success
+            // Session was invalidated - redirect to forgot-password
+            navigate('/forgot-password', {
+              replace: true,
+              state: {
+                authError: 'Your password reset session has expired. Please enter your email address below to request a new one.'
+              }
+            })
+            return
           }
         }
 
-        // Handle expired/invalid session errors
+        // Handle expired/invalid session errors - redirect to forgot-password
         if (status === 401 || status === 410 || msg.includes('expired') || msg.includes('invalid') || msg.includes('session')) {
           if (!sessionAfterError) {
             console.error('[ResetPassword] ❌ Session lost after updateUser error')
           }
-          setError('Your password reset link has expired or was already used. Please request a new link.')
-          setIsExpiredLink(true)
-          setLoading(false)
-          return // Exit early - do not proceed to success
+          navigate('/forgot-password', {
+            replace: true,
+            state: {
+              authError: 'Your password reset link has expired or was already used. Please enter your email address below to request a new one.'
+            }
+          })
+          return
         }
         
         // Handle weak password errors
@@ -363,10 +355,13 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
         // For other errors, check if session is still valid for retry
         const sessionStillValid = !!sessionAfterError?.user?.email
         if (!sessionStillValid) {
-          setError('Your password reset session has expired. Please request a new reset link.')
-          setIsExpiredLink(true)
-          setLoading(false)
-          return // Exit early - do not proceed to success
+          navigate('/forgot-password', {
+            replace: true,
+            state: {
+              authError: 'Your password reset session has expired. Please enter your email address below to request a new one.'
+            }
+          })
+          return
         }
         
         setError(updateError.message || 'Failed to update password. Please try again.')
@@ -387,8 +382,12 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
           const sessionStillValid = !!sessionAfterDataError?.user?.email
           console.log('[ResetPassword] Same password error in data response - preventing success flow')
           if (!sessionStillValid) {
-            setError('Your password reset session has expired. Please request a new reset link.')
-            setIsExpiredLink(true)
+            navigate('/forgot-password', {
+              replace: true,
+              state: {
+                authError: 'Your password reset session has expired. Please enter your email address below to request a new one.'
+              }
+            })
           } else {
             setError('New password cannot be the same as your current password. Please choose a different password.')
           }
@@ -426,7 +425,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
     }
   }
 
-  const formDisabled = verifying || (!email && !isExpiredLink) || loading
+  const formDisabled = verifying || !email || loading
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -462,18 +461,12 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
                 </Alert>
               )}
 
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input 
-                  id="email" 
-                  type="email" 
-                  value={email} 
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
-                  disabled={!isExpiredLink && !!email}
-                  className={!isExpiredLink && !!email ? "bg-gray-50" : ""}
-                  placeholder={isExpiredLink ? "Enter your email address" : ""}
-                />
-              </div>
+              {email && (
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input id="email" type="email" value={email} disabled className="bg-gray-50" />
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="password">New Password</Label>
@@ -541,32 +534,6 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
               </div>
             </form>
             
-            {/* Request New Password Reset Link Section - Show when expired */}
-            {isExpiredLink && (
-              <div className="space-y-4 pt-4 border-t">
-                <div className="text-sm text-muted-foreground">
-                  {newLinkRequested 
-                    ? 'Check your email for the new password reset link.'
-                    : 'Enter your email address above and click the button below to request a new password reset link.'}
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleRequestNewLink}
-                  disabled={requestingNewLink || !email || loading}
-                  className="w-full"
-                >
-                  {requestingNewLink ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Sending...
-                    </>
-                  ) : (
-                    'Request New Password Reset Link'
-                  )}
-                </Button>
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>

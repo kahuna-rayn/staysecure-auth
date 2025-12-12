@@ -26,6 +26,14 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ displayName }) => {
   // Use displayName from props (passed by consuming app)
   const badgeText = displayName || null;
 
+  // Check for error message from navigation state (e.g., expired link)
+  useEffect(() => {
+    if (location.state?.authError) {
+      setMessage(location.state.authError);
+      setIsError(true);
+    }
+  }, [location.state]);
+
   // Clear any hash tokens when on forgot-password page
   // This page is for requesting a reset, not for processing reset links
   useEffect(() => {
