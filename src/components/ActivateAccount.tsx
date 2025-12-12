@@ -106,8 +106,13 @@ const ActivateAccount: React.FC<ActivateAccountProps> = ({ displayName }) => {
       const refresh = hashParams.get('refresh_token');
 
       const errorCode = hashParams.get('error_code');
+      const error = hashParams.get('error');
+      console.log('ActivateAccount: Parsed errorCode from hashParams:', errorCode);
+      console.log('ActivateAccount: Parsed error from hashParams:', error);
+      console.log('ActivateAccount: Full hash string:', hash);
 
-      if (errorCode === 'otp_expired' || hash.includes('error_code=otp_expired')) {
+      // Check for expired link: either error_code=otp_expired OR error=access_denied with error_code in hash
+      if (errorCode === 'otp_expired' || (error === 'access_denied' && hash.includes('error_code=otp_expired'))) {
         console.log('ActivateAccount: OTP expired');
         setError('This activation link has expired. Please request a new activation link using the button below.');
         setIsExpiredLink(true);

@@ -333,7 +333,11 @@
         const access = hashParams.get("access_token");
         const refresh = hashParams.get("refresh_token");
         const errorCode = hashParams.get("error_code");
-        if (errorCode === "otp_expired" || hash.includes("error_code=otp_expired")) {
+        const error2 = hashParams.get("error");
+        console.log("ActivateAccount: Parsed errorCode from hashParams:", errorCode);
+        console.log("ActivateAccount: Parsed error from hashParams:", error2);
+        console.log("ActivateAccount: Full hash string:", hash);
+        if (errorCode === "otp_expired" || error2 === "access_denied" && hash.includes("error_code=otp_expired")) {
           console.log("ActivateAccount: OTP expired");
           setError("This activation link has expired. Please request a new activation link using the button below.");
           setIsExpiredLink(true);
