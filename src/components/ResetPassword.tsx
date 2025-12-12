@@ -26,7 +26,7 @@ const isStrongPassword = (pwd: string) => {
 const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
   const location = useLocation()
   const navigate = useNavigate()
-  const { supabaseClient } = useAuth()
+  const { supabaseClient, resetPassword } = useAuth()
   
   // Use displayName from props (passed by consuming app)
   const badgeText = displayName || null
@@ -40,8 +40,22 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
   const [success, setSuccess] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [requestingNewLink, setRequestingNewLink] = useState(false)
+  const [newLinkRequested, setNewLinkRequested] = useState(false)
+  const [isExpiredLink, setIsExpiredLink] = useState(false)
 
   const initializedRef = useRef(false)
+
+  // Check for error from navigation state (expired link)
+  useEffect(() => {
+    if (location.state?.authError) {
+      setError(location.state.authError)
+      // If expired link, enable the email field for requesting new link
+      if (location.state.expiredLink) {
+        setIsExpiredLink(true)
+      }
+    }
+  }, [location.state])
 
   const clearRecoveryParams = () => {
     const url = new URL(window.location.href)
@@ -49,6 +63,27 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
     url.searchParams.delete('type')
     url.searchParams.delete('token_hash')
     window.history.replaceState({}, document.title, url.toString())
+  }
+
+  const handleRequestNewLink = async () => {
+    if (!email) {
+      setError('Please enter your email address')
+      return
+    }
+    
+    setRequestingNewLink(true)
+    setError('')
+    setNewLinkRequested(false)
+    
+    try {
+      await resetPassword(email)
+      setNewLinkRequested(true)
+      setSuccess('A new password reset link has been sent to your email address. Please check your inbox.')
+    } catch (error: any) {
+      setError(error.message || 'Failed to send password reset email. Please try again.')
+    } finally {
+      setRequestingNewLink(false)
+    }
   }
 
   useEffect(() => {
@@ -102,19 +137,35 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
           return
         }
 
-         // token_hash flow
-         if (tokenHash && type === 'recovery') {
-           console.log('[ResetPassword] Processing token_hash flow...')
-           const { data, error: verifyError } = await supabaseClient.auth.verifyOtp({
-             token_hash: tokenHash,
-             type: 'recovery',
-           })
-           if (verifyError) {
-             console.error('[ResetPassword] ❌ verifyOtp error:', verifyError.message)
-             setError('Invalid or expired password reset link. Please request a new one.')
-             setVerifying(false)
-             return
-           }
+        // Check for expired link error in hash
+        const errorCode = hashParams.get('error_code')
+        if (errorCode === 'otp_expired' || hash.includes('error_code=otp_expired')) {
+          console.log('[ResetPassword] OTP expired')
+          setError('This password reset link has expired. Please enter your email address below and click "Request New Password Reset Link" to receive a new one.')
+          setIsExpiredLink(true)
+          setVerifying(false)
+          return
+        }
+
+        // token_hash flow
+        if (tokenHash && type === 'recovery') {
+          console.log('[ResetPassword] Processing token_hash flow...')
+          const { data, error: verifyError } = await supabaseClient.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: 'recovery',
+          })
+          if (verifyError) {
+            console.error('[ResetPassword] ❌ verifyOtp error:', verifyError.message)
+            // Check if it's an expired link
+            if (verifyError.message?.includes('expired') || verifyError.message?.includes('otp_expired')) {
+              setError('This password reset link has expired. Please enter your email address below and click "Request New Password Reset Link" to receive a new one.')
+              setIsExpiredLink(true)
+            } else {
+              setError('Invalid or expired password reset link. Please request a new one.')
+            }
+            setVerifying(false)
+            return
+          }
            if (data.user?.email) {
              console.log('[ResetPassword] ✅ verifyOtp success, email:', data.user.email)
              setEmail(data.user.email)
@@ -253,7 +304,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
           error: updateError
         })
         
-        // Check session after error
+        // Check session after error to determine if we can retry
         const { data: { session: sessionAfterError }, error: sessionCheckErr } = await supabaseClient.auth.getSession()
         console.log('[ResetPassword] Session check after error:', {
           hasSession: !!sessionAfterError,
@@ -266,28 +317,62 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
         const msg = (updateError.message || '').toLowerCase()
         const status = (updateError as any)?.status as number | undefined
 
+        // Handle "same password" error - only throw if session is still valid (allows retry)
+        if (msg.includes('same')) {
+          const sessionStillValid = !!sessionAfterError?.user?.email
+          console.log('[ResetPassword] Same password error - session status:', {
+            sessionStillValid,
+            canRetry: sessionStillValid
+          })
+          
+          // If session is still valid, just show error (allows user to retry)
+          if (sessionStillValid) {
+            throw new Error('New password cannot be the same as your current password. Please choose a different password.')
+          } else {
+            // Session was invalidated - treat as expired
+            throw new Error('Your password reset session has expired. Please request a new reset link.')
+          }
+        }
+
+        // Handle expired/invalid session errors
         if (status === 401 || status === 410 || msg.includes('expired') || msg.includes('invalid') || msg.includes('session')) {
           if (!sessionAfterError) {
             console.error('[ResetPassword] ❌ Session lost after updateUser error')
           }
           throw new Error('Your password reset link has expired or was already used. Please request a new link.')
         }
+        
+        // Handle weak password errors
         if (msg.includes('weak') || (msg.includes('password') && msg.includes('strong'))) {
           throw new Error('Password is too weak. Please use a stronger password with at least 12 characters, including uppercase, lowercase, numbers, and special characters.')
         }
-        if (msg.includes('same')) {
-          console.log('[ResetPassword] Same password error - session status:', {
-            sessionStillValid: !!sessionAfterError?.user?.email,
-            canRetry: !!sessionAfterError?.user?.email
-          })
-          throw new Error('New password cannot be the same as your current password. Please choose a different password.')
+        
+        // For other errors, check if session is still valid for retry
+        const sessionStillValid = !!sessionAfterError?.user?.email
+        if (!sessionStillValid) {
+          throw new Error('Your password reset session has expired. Please request a new reset link.')
         }
+        
         throw new Error(updateError.message || 'Failed to update password. Please try again.')
       }
 
       // Check if Edge Function returned an error in the response data
       if (data?.error) {
         console.error('[ResetPassword] ❌ Edge Function returned error:', data.error)
+        
+        // Check session after data error to determine if we can retry
+        const { data: { session: sessionAfterDataError } } = await supabaseClient.auth.getSession()
+        const msg = (data.error || '').toLowerCase()
+        
+        // Handle "same password" error in data response
+        if (msg.includes('same')) {
+          const sessionStillValid = !!sessionAfterDataError?.user?.email
+          if (!sessionStillValid) {
+            throw new Error('Your password reset session has expired. Please request a new reset link.')
+          }
+          throw new Error('New password cannot be the same as your current password. Please choose a different password.')
+        }
+        
         throw new Error(data.error)
       }
 
@@ -416,6 +501,33 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
                 </Button>
               </div>
             </form>
+            
+            {/* Request New Password Reset Link Section */}
+            {(error && isExpiredLink) && (
+              <div className="space-y-4 pt-4 border-t">
+                <div className="text-sm text-muted-foreground">
+                  {newLinkRequested 
+                    ? 'Check your email for the new password reset link.'
+                    : 'Enter your email address and click the button below to request a new password reset link.'}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleRequestNewLink}
+                  disabled={requestingNewLink || !email || loading}
+                  className="w-full"
+                >
+                  {requestingNewLink ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    'Request New Password Reset Link'
+                  )}
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
