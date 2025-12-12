@@ -825,7 +825,7 @@ const isStrongPassword = (pwd) => {
 const ResetPassword = ({ displayName }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { supabaseClient } = useAuth();
+  const { supabaseClient, resetPassword } = useAuth();
   const badgeText = displayName || null;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -836,13 +836,43 @@ const ResetPassword = ({ displayName }) => {
   const [success, setSuccess] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [requestingNewLink, setRequestingNewLink] = useState(false);
+  const [newLinkRequested, setNewLinkRequested] = useState(false);
+  const [isExpiredLink, setIsExpiredLink] = useState(false);
   const initializedRef = useRef(false);
+  useEffect(() => {
+    var _a;
+    if ((_a = location.state) == null ? void 0 : _a.authError) {
+      setError(location.state.authError);
+      if (location.state.expiredLink) {
+        setIsExpiredLink(true);
+      }
+    }
+  }, [location.state]);
   const clearRecoveryParams = () => {
     const url = new URL(window.location.href);
     url.hash = "";
     url.searchParams.delete("type");
     url.searchParams.delete("token_hash");
     window.history.replaceState({}, document.title, url.toString());
+  };
+  const handleRequestNewLink = async () => {
+    if (!email) {
+      setError("Please enter your email address");
+      return;
+    }
+    setRequestingNewLink(true);
+    setError("");
+    setNewLinkRequested(false);
+    try {
+      await resetPassword(email);
+      setNewLinkRequested(true);
+      setSuccess("A new password reset link has been sent to your email address. Please check your inbox.");
+    } catch (error2) {
+      setError(error2.message || "Failed to send password reset email. Please try again.");
+    } finally {
+      setRequestingNewLink(false);
+    }
   };
   useEffect(() => {
     if (initializedRef.current) return;
@@ -863,7 +893,7 @@ const ResetPassword = ({ displayName }) => {
       }
     });
     const run = async () => {
-      var _a, _b, _c, _d;
+      var _a, _b, _c, _d, _e, _f;
       console.log("[ResetPassword] useEffect run() starting");
       console.log("[ResetPassword] Location:", {
         pathname: location.pathname,
@@ -888,6 +918,14 @@ const ResetPassword = ({ displayName }) => {
           setVerifying(false);
           return;
         }
+        const errorCode = hashParams.get("error_code");
+        if (errorCode === "otp_expired" || hash.includes("error_code=otp_expired")) {
+          console.log("[ResetPassword] OTP expired");
+          setError('This password reset link has expired. Please enter your email address below and click "Request New Password Reset Link" to receive a new one.');
+          setIsExpiredLink(true);
+          setVerifying(false);
+          return;
+        }
         if (tokenHash && type === "recovery") {
           console.log("[ResetPassword] Processing token_hash flow...");
           const { data, error: verifyError } = await supabaseClient.auth.verifyOtp({
@@ -896,11 +934,16 @@ const ResetPassword = ({ displayName }) => {
           });
           if (verifyError) {
             console.error("[ResetPassword] ❌ verifyOtp error:", verifyError.message);
-            setError("Invalid or expired password reset link. Please request a new one.");
+            if (((_a = verifyError.message) == null ? void 0 : _a.includes("expired")) || ((_b = verifyError.message) == null ? void 0 : _b.includes("otp_expired"))) {
+              setError('This password reset link has expired. Please enter your email address below and click "Request New Password Reset Link" to receive a new one.');
+              setIsExpiredLink(true);
+            } else {
+              setError("Invalid or expired password reset link. Please request a new one.");
+            }
             setVerifying(false);
             return;
           }
-          if ((_a = data.user) == null ? void 0 : _a.email) {
+          if ((_c = data.user) == null ? void 0 : _c.email) {
             console.log("[ResetPassword] ✅ verifyOtp success, email:", data.user.email);
             setEmail(data.user.email);
             clearRecoveryParams();
@@ -914,7 +957,7 @@ const ResetPassword = ({ displayName }) => {
           const delay = 300;
           for (let i = 0; i < maxAttempts; i++) {
             const { data: { session } } = await supabaseClient.auth.getSession();
-            if ((_b = session == null ? void 0 : session.user) == null ? void 0 : _b.email) {
+            if ((_d = session == null ? void 0 : session.user) == null ? void 0 : _d.email) {
               console.log(`[ResetPassword] ✅ Session found on attempt ${i + 1}, email:`, session.user.email);
               setEmail(session.user.email);
               clearRecoveryParams();
@@ -936,10 +979,10 @@ const ResetPassword = ({ displayName }) => {
         console.log("[ResetPassword] Existing session check:", {
           hasSession: !!existing,
           hasError: !!existingErr,
-          userEmail: (_c = existing == null ? void 0 : existing.user) == null ? void 0 : _c.email,
+          userEmail: (_e = existing == null ? void 0 : existing.user) == null ? void 0 : _e.email,
           expiresAt: existing == null ? void 0 : existing.expires_at
         });
-        if ((_d = existing == null ? void 0 : existing.user) == null ? void 0 : _d.email) {
+        if ((_f = existing == null ? void 0 : existing.user) == null ? void 0 : _f.email) {
           console.log("[ResetPassword] ✅ Using existing session, email:", existing.user.email);
           setEmail(existing.user.email);
         } else {
@@ -956,7 +999,7 @@ const ResetPassword = ({ displayName }) => {
     return () => sub.subscription.unsubscribe();
   }, [location.hash, location.search, supabaseClient]);
   const handleSubmit = async (e) => {
-    var _a, _b, _c, _d, _e, _f, _g, _h;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i;
     e.preventDefault();
     setLoading(true);
     setError("");
@@ -1027,6 +1070,18 @@ const ResetPassword = ({ displayName }) => {
         });
         const msg = (updateError.message || "").toLowerCase();
         const status = updateError == null ? void 0 : updateError.status;
+        if (msg.includes("same")) {
+          const sessionStillValid2 = !!((_g = sessionAfterError == null ? void 0 : sessionAfterError.user) == null ? void 0 : _g.email);
+          console.log("[ResetPassword] Same password error - session status:", {
+            sessionStillValid: sessionStillValid2,
+            canRetry: sessionStillValid2
+          });
+          if (sessionStillValid2) {
+            throw new Error("New password cannot be the same as your current password. Please choose a different password.");
+          } else {
+            throw new Error("Your password reset session has expired. Please request a new reset link.");
+          }
+        }
         if (status === 401 || status === 410 || msg.includes("expired") || msg.includes("invalid") || msg.includes("session")) {
           if (!sessionAfterError) {
             console.error("[ResetPassword] ❌ Session lost after updateUser error");
@@ -1036,17 +1091,23 @@ const ResetPassword = ({ displayName }) => {
         if (msg.includes("weak") || msg.includes("password") && msg.includes("strong")) {
           throw new Error("Password is too weak. Please use a stronger password with at least 12 characters, including uppercase, lowercase, numbers, and special characters.");
         }
-        if (msg.includes("same")) {
-          console.log("[ResetPassword] Same password error - session status:", {
-            sessionStillValid: !!((_g = sessionAfterError == null ? void 0 : sessionAfterError.user) == null ? void 0 : _g.email),
-            canRetry: !!((_h = sessionAfterError == null ? void 0 : sessionAfterError.user) == null ? void 0 : _h.email)
-          });
-          throw new Error("New password cannot be the same as your current password. Please choose a different password.");
+        const sessionStillValid = !!((_h = sessionAfterError == null ? void 0 : sessionAfterError.user) == null ? void 0 : _h.email);
+        if (!sessionStillValid) {
+          throw new Error("Your password reset session has expired. Please request a new reset link.");
         }
         throw new Error(updateError.message || "Failed to update password. Please try again.");
       }
       if (data == null ? void 0 : data.error) {
         console.error("[ResetPassword] ❌ Edge Function returned error:", data.error);
+        const { data: { session: sessionAfterDataError } } = await supabaseClient.auth.getSession();
+        const msg = (data.error || "").toLowerCase();
+        if (msg.includes("same")) {
+          const sessionStillValid = !!((_i = sessionAfterDataError == null ? void 0 : sessionAfterDataError.user) == null ? void 0 : _i.email);
+          if (!sessionStillValid) {
+            throw new Error("Your password reset session has expired. Please request a new reset link.");
+          }
+          throw new Error("New password cannot be the same as your current password. Please choose a different password.");
+        }
         throw new Error(data.error);
       }
       console.log("[ResetPassword] ✅ Password updated successfully and account activated!");
@@ -1072,82 +1133,101 @@ const ResetPassword = ({ displayName }) => {
         /* @__PURE__ */ jsx(CardTitle, { className: "text-2xl font-bold", children: "Reset Your Password" }),
         badgeText && /* @__PURE__ */ jsx(Badge, { variant: "outline", className: "text-xs", children: badgeText })
       ] }) }),
-      /* @__PURE__ */ jsx(CardContent, { children: /* @__PURE__ */ jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
-        verifying && /* @__PURE__ */ jsx(Alert, { children: /* @__PURE__ */ jsx(AlertDescription, { children: "Verifying your reset link…" }) }),
-        error && !verifying && /* @__PURE__ */ jsx(Alert, { variant: "destructive", children: /* @__PURE__ */ jsx(AlertDescription, { children: error }) }),
-        success && /* @__PURE__ */ jsx(Alert, { children: /* @__PURE__ */ jsx(AlertDescription, { children: success }) }),
-        email && /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
-          /* @__PURE__ */ jsx(Label, { htmlFor: "email", children: "Email" }),
-          /* @__PURE__ */ jsx(Input, { id: "email", type: "email", value: email, disabled: true, className: "bg-gray-50" })
+      /* @__PURE__ */ jsxs(CardContent, { children: [
+        /* @__PURE__ */ jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
+          verifying && /* @__PURE__ */ jsx(Alert, { children: /* @__PURE__ */ jsx(AlertDescription, { children: "Verifying your reset link…" }) }),
+          error && !verifying && /* @__PURE__ */ jsx(Alert, { variant: "destructive", children: /* @__PURE__ */ jsx(AlertDescription, { children: error }) }),
+          success && /* @__PURE__ */ jsx(Alert, { children: /* @__PURE__ */ jsx(AlertDescription, { children: success }) }),
+          email && /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
+            /* @__PURE__ */ jsx(Label, { htmlFor: "email", children: "Email" }),
+            /* @__PURE__ */ jsx(Input, { id: "email", type: "email", value: email, disabled: true, className: "bg-gray-50" })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
+            /* @__PURE__ */ jsx(Label, { htmlFor: "password", children: "New Password" }),
+            /* @__PURE__ */ jsxs("div", { className: "relative", children: [
+              /* @__PURE__ */ jsx(
+                Input,
+                {
+                  id: "password",
+                  type: showPassword ? "text" : "password",
+                  value: password,
+                  onChange: (e) => setPassword(e.target.value),
+                  required: true,
+                  minLength: 12,
+                  className: "pr-10",
+                  placeholder: "Enter your new password",
+                  disabled: formDisabled
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                Button,
+                {
+                  type: "button",
+                  variant: "ghost",
+                  size: "sm",
+                  className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
+                  onClick: () => setShowPassword((s) => !s),
+                  disabled: formDisabled,
+                  children: showPassword ? /* @__PURE__ */ jsx(EyeOff, { className: "h-4 w-4 text-muted-foreground" }) : /* @__PURE__ */ jsx(Eye, { className: "h-4 w-4 text-muted-foreground" })
+                }
+              )
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
+            /* @__PURE__ */ jsx(Label, { htmlFor: "confirmPassword", children: "Confirm New Password" }),
+            /* @__PURE__ */ jsxs("div", { className: "relative", children: [
+              /* @__PURE__ */ jsx(
+                Input,
+                {
+                  id: "confirmPassword",
+                  type: showConfirmPassword ? "text" : "password",
+                  value: confirmPassword,
+                  onChange: (e) => setConfirmPassword(e.target.value),
+                  required: true,
+                  minLength: 12,
+                  className: "pr-10",
+                  placeholder: "Confirm your new password",
+                  disabled: formDisabled
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                Button,
+                {
+                  type: "button",
+                  variant: "ghost",
+                  size: "sm",
+                  className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
+                  onClick: () => setShowConfirmPassword((s) => !s),
+                  disabled: formDisabled,
+                  children: showConfirmPassword ? /* @__PURE__ */ jsx(EyeOff, { className: "h-4 w-4 text-muted-foreground" }) : /* @__PURE__ */ jsx(Eye, { className: "h-4 w-4 text-muted-foreground" })
+                }
+              )
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxs(Button, { type: "submit", className: "w-full", disabled: formDisabled, children: [
+            (loading || verifying) && /* @__PURE__ */ jsx(Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
+            "Reset Password"
+          ] }),
+          /* @__PURE__ */ jsx("div", { className: "text-center", children: /* @__PURE__ */ jsx(Button, { variant: "outline", onClick: () => navigate("/"), className: "w-full", disabled: loading, children: "Back to Login" }) })
         ] }),
-        /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
-          /* @__PURE__ */ jsx(Label, { htmlFor: "password", children: "New Password" }),
-          /* @__PURE__ */ jsxs("div", { className: "relative", children: [
-            /* @__PURE__ */ jsx(
-              Input,
-              {
-                id: "password",
-                type: showPassword ? "text" : "password",
-                value: password,
-                onChange: (e) => setPassword(e.target.value),
-                required: true,
-                minLength: 12,
-                className: "pr-10",
-                placeholder: "Enter your new password",
-                disabled: formDisabled
-              }
-            ),
-            /* @__PURE__ */ jsx(
-              Button,
-              {
-                type: "button",
-                variant: "ghost",
-                size: "sm",
-                className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
-                onClick: () => setShowPassword((s) => !s),
-                disabled: formDisabled,
-                children: showPassword ? /* @__PURE__ */ jsx(EyeOff, { className: "h-4 w-4 text-muted-foreground" }) : /* @__PURE__ */ jsx(Eye, { className: "h-4 w-4 text-muted-foreground" })
-              }
-            )
-          ] })
-        ] }),
-        /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
-          /* @__PURE__ */ jsx(Label, { htmlFor: "confirmPassword", children: "Confirm New Password" }),
-          /* @__PURE__ */ jsxs("div", { className: "relative", children: [
-            /* @__PURE__ */ jsx(
-              Input,
-              {
-                id: "confirmPassword",
-                type: showConfirmPassword ? "text" : "password",
-                value: confirmPassword,
-                onChange: (e) => setConfirmPassword(e.target.value),
-                required: true,
-                minLength: 12,
-                className: "pr-10",
-                placeholder: "Confirm your new password",
-                disabled: formDisabled
-              }
-            ),
-            /* @__PURE__ */ jsx(
-              Button,
-              {
-                type: "button",
-                variant: "ghost",
-                size: "sm",
-                className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
-                onClick: () => setShowConfirmPassword((s) => !s),
-                disabled: formDisabled,
-                children: showConfirmPassword ? /* @__PURE__ */ jsx(EyeOff, { className: "h-4 w-4 text-muted-foreground" }) : /* @__PURE__ */ jsx(Eye, { className: "h-4 w-4 text-muted-foreground" })
-              }
-            )
-          ] })
-        ] }),
-        /* @__PURE__ */ jsxs(Button, { type: "submit", className: "w-full", disabled: formDisabled, children: [
-          (loading || verifying) && /* @__PURE__ */ jsx(Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
-          "Reset Password"
-        ] }),
-        /* @__PURE__ */ jsx("div", { className: "text-center", children: /* @__PURE__ */ jsx(Button, { variant: "outline", onClick: () => navigate("/"), className: "w-full", disabled: loading, children: "Back to Login" }) })
-      ] }) })
+        error && isExpiredLink && /* @__PURE__ */ jsxs("div", { className: "space-y-4 pt-4 border-t", children: [
+          /* @__PURE__ */ jsx("div", { className: "text-sm text-muted-foreground", children: newLinkRequested ? "Check your email for the new password reset link." : "Enter your email address and click the button below to request a new password reset link." }),
+          /* @__PURE__ */ jsx(
+            Button,
+            {
+              type: "button",
+              variant: "outline",
+              onClick: handleRequestNewLink,
+              disabled: requestingNewLink || !email || loading,
+              className: "w-full",
+              children: requestingNewLink ? /* @__PURE__ */ jsxs(Fragment, { children: [
+                /* @__PURE__ */ jsx(Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
+                "Sending..."
+              ] }) : "Request New Password Reset Link"
+            }
+          )
+        ] })
+      ] })
     ] })
   ] }) });
 };
