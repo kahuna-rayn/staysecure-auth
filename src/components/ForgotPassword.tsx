@@ -21,6 +21,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ displayName }) => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [isError, setIsError] = useState(false);
+  const [resetLinkSent, setResetLinkSent] = useState(false);
   const { resetPassword } = useAuth();
   
   // Use displayName from props (passed by consuming app)
@@ -31,6 +32,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ displayName }) => {
     if (location.state?.authError) {
       setMessage(location.state.authError);
       setIsError(true);
+      setResetLinkSent(false); // Reset so user can try again
     }
   }, [location.state]);
 
@@ -48,6 +50,11 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ displayName }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Prevent submission if reset link already sent
+    if (resetLinkSent) {
+      return;
+    }
+
     if (!email) {
       setIsError(true);
       setMessage('Please enter your email address');
@@ -62,9 +69,11 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ displayName }) => {
       await resetPassword(email);
       setIsError(false);
       setMessage('Password reset email sent! Please check your inbox and follow the instructions.');
+      setResetLinkSent(true);
     } catch (error: any) {
       setIsError(true);
       setMessage(error.message || 'Failed to send reset email. Please try again.');
+      setResetLinkSent(false);
     } finally {
       setLoading(false);
     }
@@ -90,7 +99,9 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ displayName }) => {
                 </Alert>
               )} 
             <CardDescription>
-              Enter your email address and we'll send you a link to reset your password
+              {resetLinkSent 
+                ? 'Check your email for the password reset link. If you don\'t see it, check your spam folder.'
+                : 'Enter your email address and we\'ll send you a link to reset your password'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -105,13 +116,30 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ displayName }) => {
                   value={email}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                   required
+                  disabled={resetLinkSent}
+                  className={resetLinkSent ? "bg-gray-50" : ""}
                 />
               </div>
 
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button type="submit" className="w-full" disabled={loading || resetLinkSent}>
                 {loading && <div className="mr-2 h-4 w-4 animate-spin border-2 border-current border-t-transparent rounded-full" />}
-                Send Reset Link
+                {resetLinkSent ? 'Reset Link Sent' : 'Send Reset Link'}
               </Button>
+              
+              {resetLinkSent && (
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="w-full" 
+                  onClick={() => {
+                    setResetLinkSent(false);
+                    setMessage('');
+                    setEmail('');
+                  }}
+                >
+                  Request Another Link
+                </Button>
+              )}
             </form>
 
             <div className="mt-4 text-center">

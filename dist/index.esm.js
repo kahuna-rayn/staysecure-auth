@@ -272,6 +272,13 @@ const AuthBranding = ({ size = "large", className = "" }) => {
     /* @__PURE__ */ jsx("p", { className: `text-muted-foreground ${textSize}`, children: "Get Secure, Stay Secure!" })
   ] });
 };
+const isStrongPassword$1 = (pwd) => {
+  const hasLowercase = /[a-z]/.test(pwd);
+  const hasUppercase = /[A-Z]/.test(pwd);
+  const hasDigit = /\d/.test(pwd);
+  const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"|,.<>?`~]/.test(pwd);
+  return pwd.length >= 12 && hasLowercase && hasUppercase && hasDigit && hasSpecial;
+};
 const ActivateAccount = ({ displayName }) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -322,6 +329,21 @@ const ActivateAccount = ({ displayName }) => {
       }
     }
   }, [location.state]);
+  useEffect(() => {
+    if (!error) return;
+    if (error.includes("Password must be at least 12 characters")) {
+      if (password && isStrongPassword$1(password)) {
+        setError("");
+        return;
+      }
+    }
+    if (error === "Passwords do not match" || error.includes("Passwords do not match")) {
+      if (password && confirmPassword && password === confirmPassword) {
+        setError("");
+        return;
+      }
+    }
+  }, [password, confirmPassword, error]);
   useEffect(() => {
     const run = async () => {
       var _a, _b;
@@ -465,12 +487,8 @@ const ActivateAccount = ({ displayName }) => {
       setLoading(false);
       return;
     }
-    const hasLowercase = /[a-z]/.test(password);
-    const hasUppercase = /[A-Z]/.test(password);
-    const hasDigit = /\d/.test(password);
-    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"|,.<>?`~]/.test(password);
-    if (password.length < 12 || !hasLowercase || !hasUppercase || !hasDigit || !hasSpecial) {
-      setError("Password must be at least 12 characters long and contain at least one lowercase letter, one uppercase letter, one digit, and one special character");
+    if (!isStrongPassword$1(password)) {
+      setError("Password must be at least 12 characters long and contain at least one lowercase letter, one uppercase letter, one digit, and one special character. Note spaces do not count toward the “symbols”");
       setLoading(false);
       return;
     }
@@ -527,90 +545,92 @@ const ActivateAccount = ({ displayName }) => {
               }
             )
           ] }),
-          /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
-            /* @__PURE__ */ jsx(Label, { htmlFor: "password", children: "Password" }),
-            /* @__PURE__ */ jsxs("div", { className: "relative", children: [
-              /* @__PURE__ */ jsx(
-                Input,
-                {
-                  id: "password",
-                  type: showPassword ? "text" : "password",
-                  value: password,
-                  onChange: (e) => setPassword(e.target.value),
-                  required: true,
-                  minLength: 6,
-                  className: "pr-10",
-                  placeholder: "Enter your password"
-                }
-              ),
-              /* @__PURE__ */ jsx(
-                Button,
-                {
-                  type: "button",
-                  variant: "ghost",
-                  size: "sm",
-                  className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
-                  onClick: () => setShowPassword(!showPassword),
-                  children: showPassword ? /* @__PURE__ */ jsx(EyeOff, { className: "h-4 w-4 text-muted-foreground" }) : /* @__PURE__ */ jsx(Eye, { className: "h-4 w-4 text-muted-foreground" })
-                }
-              )
-            ] })
-          ] }),
-          /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
-            /* @__PURE__ */ jsx(Label, { htmlFor: "confirmPassword", children: "Confirm Password" }),
-            /* @__PURE__ */ jsxs("div", { className: "relative", children: [
-              /* @__PURE__ */ jsx(
-                Input,
-                {
-                  id: "confirmPassword",
-                  type: showConfirmPassword ? "text" : "password",
-                  value: confirmPassword,
-                  onChange: (e) => setConfirmPassword(e.target.value),
-                  required: true,
-                  minLength: 6,
-                  className: "pr-10",
-                  placeholder: "Confirm your password"
-                }
-              ),
-              /* @__PURE__ */ jsx(
-                Button,
-                {
-                  type: "button",
-                  variant: "ghost",
-                  size: "sm",
-                  className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
-                  onClick: () => setShowConfirmPassword(!showConfirmPassword),
-                  children: showConfirmPassword ? /* @__PURE__ */ jsx(EyeOff, { className: "h-4 w-4 text-muted-foreground" }) : /* @__PURE__ */ jsx(Eye, { className: "h-4 w-4 text-muted-foreground" })
-                }
-              )
-            ] })
-          ] }),
-          /* @__PURE__ */ jsxs(
-            Button,
-            {
-              type: "submit",
-              className: "w-full",
-              disabled: loading || authLoading,
-              children: [
-                (loading || authLoading) && /* @__PURE__ */ jsx(Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
-                "Activate Account"
-              ]
-            }
-          ),
-          /* @__PURE__ */ jsx("div", { className: "text-center", children: /* @__PURE__ */ jsx(
-            Button,
-            {
-              variant: "outline",
-              onClick: () => {
-                const clientPath = clientPathRef.current || "";
-                navigate(clientPath || "/");
-              },
-              className: "w-full",
-              children: "Back to Login"
-            }
-          ) })
+          !isExpiredLink && /* @__PURE__ */ jsxs(Fragment, { children: [
+            /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
+              /* @__PURE__ */ jsx(Label, { htmlFor: "password", children: "Password" }),
+              /* @__PURE__ */ jsxs("div", { className: "relative", children: [
+                /* @__PURE__ */ jsx(
+                  Input,
+                  {
+                    id: "password",
+                    type: showPassword ? "text" : "password",
+                    value: password,
+                    onChange: (e) => setPassword(e.target.value),
+                    required: true,
+                    minLength: 12,
+                    className: "pr-10",
+                    placeholder: "Enter your password"
+                  }
+                ),
+                /* @__PURE__ */ jsx(
+                  Button,
+                  {
+                    type: "button",
+                    variant: "ghost",
+                    size: "sm",
+                    className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
+                    onClick: () => setShowPassword(!showPassword),
+                    children: showPassword ? /* @__PURE__ */ jsx(EyeOff, { className: "h-4 w-4 text-muted-foreground" }) : /* @__PURE__ */ jsx(Eye, { className: "h-4 w-4 text-muted-foreground" })
+                  }
+                )
+              ] })
+            ] }),
+            /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
+              /* @__PURE__ */ jsx(Label, { htmlFor: "confirmPassword", children: "Confirm Password" }),
+              /* @__PURE__ */ jsxs("div", { className: "relative", children: [
+                /* @__PURE__ */ jsx(
+                  Input,
+                  {
+                    id: "confirmPassword",
+                    type: showConfirmPassword ? "text" : "password",
+                    value: confirmPassword,
+                    onChange: (e) => setConfirmPassword(e.target.value),
+                    required: true,
+                    minLength: 12,
+                    className: "pr-10",
+                    placeholder: "Confirm your password"
+                  }
+                ),
+                /* @__PURE__ */ jsx(
+                  Button,
+                  {
+                    type: "button",
+                    variant: "ghost",
+                    size: "sm",
+                    className: "absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent",
+                    onClick: () => setShowConfirmPassword(!showConfirmPassword),
+                    children: showConfirmPassword ? /* @__PURE__ */ jsx(EyeOff, { className: "h-4 w-4 text-muted-foreground" }) : /* @__PURE__ */ jsx(Eye, { className: "h-4 w-4 text-muted-foreground" })
+                  }
+                )
+              ] })
+            ] }),
+            /* @__PURE__ */ jsxs(
+              Button,
+              {
+                type: "submit",
+                className: "w-full",
+                disabled: loading || authLoading,
+                children: [
+                  (loading || authLoading) && /* @__PURE__ */ jsx(Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
+                  "Activate Account"
+                ]
+              }
+            ),
+            /* @__PURE__ */ jsx("div", { className: "text-center", children: /* @__PURE__ */ jsx(
+              Button,
+              {
+                variant: "outline",
+                onClick: () => {
+                  const clientPath = clientPathRef.current || "";
+                  navigate(clientPath || "/");
+                },
+                className: "w-full",
+                children: "Back to Login"
+              }
+            ) })
+          ] })
         ] }),
-        error && isExpiredLink && /* @__PURE__ */ jsxs("div", { className: "space-y-4 pt-4 border-t", children: [
+        isExpiredLink && /* @__PURE__ */ jsxs("div", { className: "space-y-4 pt-4 border-t", children: [
           /* @__PURE__ */ jsx("div", { className: "text-sm text-muted-foreground", children: newLinkRequested ? "Check your email for the new activation link." : "Enter your email address and click the button below to request a new activation link." }),
           /* @__PURE__ */ jsx(
             Button,
@@ -651,6 +671,7 @@ const ForgotPassword = ({ displayName }) => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
+  const [resetLinkSent, setResetLinkSent] = useState(false);
   const { resetPassword } = useAuth();
   const badgeText = displayName || null;
   useEffect(() => {
@@ -658,6 +679,7 @@ const ForgotPassword = ({ displayName }) => {
     if ((_a = location.state) == null ? void 0 : _a.authError) {
       setMessage(location.state.authError);
       setIsError(true);
+      setResetLinkSent(false);
     }
   }, [location.state]);
   useEffect(() => {
@@ -668,6 +690,9 @@ const ForgotPassword = ({ displayName }) => {
   }, [location.hash, location.search]);
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (resetLinkSent) {
+      return;
+    }
     if (!email) {
       setIsError(true);
       setMessage("Please enter your email address");
@@ -680,9 +705,11 @@ const ForgotPassword = ({ displayName }) => {
       await resetPassword(email);
       setIsError(false);
       setMessage("Password reset email sent! Please check your inbox and follow the instructions.");
+      setResetLinkSent(true);
     } catch (error) {
       setIsError(true);
       setMessage(error.message || "Failed to send reset email. Please try again.");
+      setResetLinkSent(false);
     } finally {
       setLoading(false);
     }
@@ -696,7 +723,7 @@ const ForgotPassword = ({ displayName }) => {
           badgeText && /* @__PURE__ */ jsx(Badge, { variant: "outline", className: "text-xs", children: badgeText })
         ] }),
         message && /* @__PURE__ */ jsx(Alert, { variant: isError ? "destructive" : "default", children: /* @__PURE__ */ jsx(AlertDescription, { children: message }) }),
-        /* @__PURE__ */ jsx(CardDescription, { children: "Enter your email address and we'll send you a link to reset your password" })
+        /* @__PURE__ */ jsx(CardDescription, { children: resetLinkSent ? "Check your email for the password reset link. If you don't see it, check your spam folder." : "Enter your email address and we'll send you a link to reset your password" })
       ] }),
       /* @__PURE__ */ jsxs(CardContent, { children: [
         /* @__PURE__ */ jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
@@ -710,14 +737,30 @@ const ForgotPassword = ({ displayName }) => {
                 placeholder: "Enter your email",
                 value: email,
                 onChange: (e) => setEmail(e.target.value),
-                required: true
+                required: true,
+                disabled: resetLinkSent,
+                className: resetLinkSent ? "bg-gray-50" : ""
               }
             )
           ] }),
-          /* @__PURE__ */ jsxs(Button, { type: "submit", className: "w-full", disabled: loading, children: [
+          /* @__PURE__ */ jsxs(Button, { type: "submit", className: "w-full", disabled: loading || resetLinkSent, children: [
             loading && /* @__PURE__ */ jsx("div", { className: "mr-2 h-4 w-4 animate-spin border-2 border-current border-t-transparent rounded-full" }),
-            "Send Reset Link"
-          ] })
+            resetLinkSent ? "Reset Link Sent" : "Send Reset Link"
+          ] }),
+          resetLinkSent && /* @__PURE__ */ jsx(
+            Button,
+            {
+              type: "button",
+              variant: "outline",
+              className: "w-full",
+              onClick: () => {
+                setResetLinkSent(false);
+                setMessage("");
+                setEmail("");
+              },
+              children: "Request Another Link"
+            }
+          )
         ] }),
         /* @__PURE__ */ jsx("div", { className: "mt-4 text-center", children: /* @__PURE__ */ jsx(
           Button,
@@ -998,6 +1041,21 @@ const ResetPassword = ({ displayName }) => {
     void run();
     return () => sub.subscription.unsubscribe();
   }, [location.hash, location.search, supabaseClient]);
+  useEffect(() => {
+    if (!error) return;
+    if (error.includes("Password must be at least 12 characters")) {
+      if (password && isStrongPassword(password)) {
+        setError("");
+        return;
+      }
+    }
+    if (error === "Passwords do not match" || error.includes("Passwords do not match")) {
+      if (password && confirmPassword && password === confirmPassword) {
+        setError("");
+        return;
+      }
+    }
+  }, [password, confirmPassword, error]);
   const handleSubmit = async (e) => {
     var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l;
     e.preventDefault();

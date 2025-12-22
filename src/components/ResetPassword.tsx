@@ -216,6 +216,27 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
     return () => sub.subscription.unsubscribe()
   }, [location.hash, location.search, supabaseClient])
 
+  // Clear password-related errors when the condition is rectified
+  useEffect(() => {
+    if (!error) return;
+    
+    // Clear password policy error when password becomes valid
+    if (error.includes('Password must be at least 12 characters')) {
+      if (password && isStrongPassword(password)) {
+        setError('');
+        return;
+      }
+    }
+    
+    // Clear password mismatch error when passwords match
+    if (error === 'Passwords do not match' || error.includes('Passwords do not match')) {
+      if (password && confirmPassword && password === confirmPassword) {
+        setError('');
+        return;
+      }
+    }
+  }, [password, confirmPassword, error]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)

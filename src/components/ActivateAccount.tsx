@@ -15,6 +15,14 @@ interface ActivateAccountProps {
   displayName?: string | null;
 }
 
+const isStrongPassword = (pwd: string) => {
+  const hasLowercase = /[a-z]/.test(pwd);
+  const hasUppercase = /[A-Z]/.test(pwd);
+  const hasDigit = /\d/.test(pwd);
+  const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"|,.<>?`~]/.test(pwd);
+  return pwd.length >= 12 && hasLowercase && hasUppercase && hasDigit && hasSpecial;
+};
+
 const ActivateAccount: React.FC<ActivateAccountProps> = ({ displayName }) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -78,6 +86,26 @@ const ActivateAccount: React.FC<ActivateAccountProps> = ({ displayName }) => {
     }
   }, [location.state]);
 
+  // Clear password-related errors when the condition is rectified
+  useEffect(() => {
+    if (!error) return;
+    
+    // Clear password policy error when password becomes valid
+    if (error.includes('Password must be at least 12 characters')) {
+      if (password && isStrongPassword(password)) {
+        setError('');
+        return;
+      }
+    }
+    
+    // Clear password mismatch error when passwords match
+    if (error === 'Passwords do not match' || error.includes('Passwords do not match')) {
+      if (password && confirmPassword && password === confirmPassword) {
+        setError('');
+        return;
+      }
+    }
+  }, [password, confirmPassword, error]);
 
   useEffect(() => {
     const run = async () => {
@@ -296,17 +324,11 @@ const ActivateAccount: React.FC<ActivateAccountProps> = ({ displayName }) => {
       return;
     }
 
-// Check password requirements: lowercase, uppercase, digit, special character
-const hasLowercase = /[a-z]/.test(password);
-const hasUppercase = /[A-Z]/.test(password);
-const hasDigit = /\d/.test(password);
-const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"|,.<>?`~]/.test(password);
-
-if (password.length < 12 || !hasLowercase || !hasUppercase || !hasDigit || !hasSpecial) {
-  setError('Password must be at least 12 characters long and contain at least one lowercase letter, one uppercase letter, one digit, and one special character');
-  setLoading(false);
-  return;
-}
+    if (!isStrongPassword(password)) {
+      setError('Password must be at least 12 characters long and contain at least one lowercase letter, one uppercase letter, one digit, and one special character. Note spaces do not count toward the “symbols”');
+      setLoading(false);
+      return;
+    }
 
     try {
       // Get client path for redirect (preserve from URL)
@@ -390,88 +412,92 @@ if (password.length < 12 || !hasLowercase || !hasUppercase || !hasDigit || !hasS
                 />
               </div>
               
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-                    required
-                    minLength={6}
-                    className="pr-10"
-                    placeholder="Enter your password"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowPassword(!showPassword)}
+              {!isExpiredLink && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                        required
+                        minLength={12}
+                        className="pr-10"
+                        placeholder="Enter your password"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword">Confirm Password</Label>
+                    <div className="relative">
+                      <Input
+                        id="confirmPassword"
+                        type={showConfirmPassword ? "text" : "password"}
+                        value={confirmPassword}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
+                        required
+                        minLength={12}
+                        className="pr-10"
+                        placeholder="Confirm your password"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    disabled={loading || authLoading}
                   >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-muted-foreground" />
-                    )}
+                    {(loading || authLoading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Activate Account
                   </Button>
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <div className="relative">
-                  <Input
-                    id="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
-                    value={confirmPassword}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
-                    required
-                    minLength={6}
-                    className="pr-10"
-                    placeholder="Confirm your password"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-              
-              <Button 
-                type="submit" 
-                className="w-full" 
-                disabled={loading || authLoading}
-              >
-                {(loading || authLoading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Activate Account
-              </Button>
-              
-              <div className="text-center">
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    const clientPath = clientPathRef.current || '';
-                    navigate(clientPath || '/');
-                  }}
-                  className="w-full"
-                >
-                  Back to Login
-                </Button>
-              </div>
+                  
+                  <div className="text-center">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        const clientPath = clientPathRef.current || '';
+                        navigate(clientPath || '/');
+                      }}
+                      className="w-full"
+                    >
+                      Back to Login
+                    </Button>
+                  </div>
+                </>
+              )}
             </form>
-            {/* Request New Activation Link Section */}
-            {(error && isExpiredLink) && (
+            {/* Request New Activation Link Section - Show when link is expired */}
+            {isExpiredLink && (
               <div className="space-y-4 pt-4 border-t">
                 <div className="text-sm text-muted-foreground">
                   {newLinkRequested 
