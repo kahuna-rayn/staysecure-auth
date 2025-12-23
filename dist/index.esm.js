@@ -346,7 +346,7 @@ const ActivateAccount = ({ displayName }) => {
   }, [password, confirmPassword, error]);
   useEffect(() => {
     const run = async () => {
-      var _a, _b, _c;
+      var _a, _b;
       console.log("ActivateAccount: URL hash:", window.location.hash);
       console.log("ActivateAccount: URL search:", window.location.search);
       console.log("ActivateAccount: Full URL:", window.location.href);
@@ -369,17 +369,8 @@ const ActivateAccount = ({ displayName }) => {
       console.log("ActivateAccount: Full hash string:", hash);
       if (errorCode === "otp_expired" || error2 === "access_denied" && hash.includes("error_code=otp_expired")) {
         console.log("ActivateAccount: OTP expired");
-        setError("This activation link has expired. Please request a new activation link using the button below.");
+        setError("This activation link has expired. Please enter your email address below to request a new activation link.");
         setIsExpiredLink(true);
-        try {
-          const { data: { session: expiredSession } } = await supabaseClient.auth.getSession();
-          if ((_a = expiredSession == null ? void 0 : expiredSession.user) == null ? void 0 : _a.email) {
-            console.log("ActivateAccount: Found email from expired link session:", expiredSession.user.email);
-            setEmail(expiredSession.user.email);
-          }
-        } catch (err) {
-          console.log("ActivateAccount: Could not get email from expired session:", err);
-        }
         return;
       }
       console.log("ActivateAccount: Parsed URL params:", {
@@ -423,7 +414,7 @@ const ActivateAccount = ({ displayName }) => {
           const shouldCheckSession = !simulateSlowConnection || attempt > 0;
           if (shouldCheckSession) {
             const { data: { session: currentSession } } = await supabaseClient.auth.getSession();
-            if ((_b = currentSession == null ? void 0 : currentSession.user) == null ? void 0 : _b.email) {
+            if ((_a = currentSession == null ? void 0 : currentSession.user) == null ? void 0 : _a.email) {
               session = currentSession;
               console.log(`ActivateAccount: Session found on attempt ${attempt + 1}`);
               break;
@@ -437,7 +428,7 @@ const ActivateAccount = ({ displayName }) => {
             await new Promise((resolve) => setTimeout(resolve, waitTime));
           }
         }
-        if ((_c = session == null ? void 0 : session.user) == null ? void 0 : _c.email) {
+        if ((_b = session == null ? void 0 : session.user) == null ? void 0 : _b.email) {
           console.log("ActivateAccount: Found email from session (created from activation token):", session.user.email);
           setEmail(session.user.email);
           console.log("ActivateAccount: Keeping session for activation flow");
@@ -548,7 +539,7 @@ const ActivateAccount = ({ displayName }) => {
                 value: email,
                 onChange: (e) => setEmail(e.target.value),
                 required: true,
-                disabled: isExpiredLink ? true : !!email,
+                disabled: isExpiredLink ? false : !!email,
                 className: "bg-gray-50",
                 placeholder: "Enter your email address"
               }
@@ -640,7 +631,7 @@ const ActivateAccount = ({ displayName }) => {
           ] })
         ] }),
         isExpiredLink && /* @__PURE__ */ jsxs("div", { className: "space-y-4 pt-4 border-t", children: [
-          /* @__PURE__ */ jsx("div", { className: "text-sm text-muted-foreground", children: newLinkRequested ? "Check your email for the new activation link." : "Enter your email address and click the button below to request a new activation link." }),
+          /* @__PURE__ */ jsx("div", { className: "text-sm text-muted-foreground", children: newLinkRequested ? "Check your email for the new activation link." : "Enter your email address above and click the button below to request a new activation link." }),
           /* @__PURE__ */ jsx(
             Button,
             {

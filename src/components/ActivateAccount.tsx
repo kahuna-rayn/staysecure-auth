@@ -142,20 +142,8 @@ const ActivateAccount: React.FC<ActivateAccountProps> = ({ displayName }) => {
       // Check for expired link: either error_code=otp_expired OR error=access_denied with error_code in hash
       if (errorCode === 'otp_expired' || (error === 'access_denied' && hash.includes('error_code=otp_expired'))) {
         console.log('ActivateAccount: OTP expired');
-        setError('This activation link has expired. Please request a new activation link using the button below.');
+        setError('This activation link has expired. Please enter your email address below to request a new activation link.');
         setIsExpiredLink(true);
-        
-        // Try to get email from session even if link is expired (Supabase might have attempted to create a session)
-        try {
-          const { data: { session: expiredSession } } = await supabaseClient.auth.getSession();
-          if (expiredSession?.user?.email) {
-            console.log('ActivateAccount: Found email from expired link session:', expiredSession.user.email);
-            setEmail(expiredSession.user.email);
-          }
-        } catch (err) {
-          console.log('ActivateAccount: Could not get email from expired session:', err);
-        }
-        
         return;
       }
 
@@ -418,7 +406,7 @@ const ActivateAccount: React.FC<ActivateAccountProps> = ({ displayName }) => {
                   value={email}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                   required
-                  disabled={isExpiredLink ? true : !!email} // Always disabled when expired link, disabled when email exists otherwise
+                  disabled={isExpiredLink ? false : !!email} // Enabled when expired link (user can enter email), disabled when email exists otherwise
                   className="bg-gray-50"
                   placeholder="Enter your email address"
                 />
@@ -514,7 +502,7 @@ const ActivateAccount: React.FC<ActivateAccountProps> = ({ displayName }) => {
                 <div className="text-sm text-muted-foreground">
                   {newLinkRequested 
                     ? 'Check your email for the new activation link.'
-                    : 'Enter your email address and click the button below to request a new activation link.'}
+                    : 'Enter your email address above and click the button below to request a new activation link.'}
                 </div>
                 <Button
                   type="button"
