@@ -480,7 +480,7 @@
         return;
       }
       if (!isStrongPassword$1(password)) {
-        setError("Password must be at least 12 characters long and contain at least one lowercase letter, one uppercase letter, one digit, and one special character. Note spaces do not count toward the “symbols”");
+        setError("Password must be at least 12 characters long and contain at least one lowercase letter, one uppercase letter, one digit, and one special character. Note spaces do not count toward the special characters");
         setLoading(false);
         return;
       }
@@ -1049,7 +1049,7 @@
         return;
       }
       if (!isStrongPassword(password)) {
-        setError("Password must be at least 12 characters long and contain at least one lowercase letter, one uppercase letter, one digit, and one special character. Note spaces do not count toward the “symbols”");
+        setError("Password must be at least 12 characters long and contain at least one lowercase letter, one uppercase letter, one digit, and one special character. Note spaces do not count toward the special characters");
         setLoading(false);
         return;
       }
@@ -1160,7 +1160,7 @@
             return;
           }
           if (msg.includes("weak") || msg.includes("password") && msg.includes("strong")) {
-            setError("Password must be at least 12 characters long and contain at least one lowercase letter, one uppercase letter, one digit, and one special character. Note spaces do not count toward the “symbols”");
+            setError("Password must be at least 12 characters long and contain at least one lowercase letter, one uppercase letter, one digit, and one special character. Note spaces do not count toward the special characters");
             setLoading(false);
             return;
           }
