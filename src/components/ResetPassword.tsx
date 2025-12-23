@@ -253,7 +253,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
       return
     }
     if (!isStrongPassword(password)) {
-      setError('Password must be at least 12 characters long and contain at least one lowercase letter, one uppercase letter, one digit, and one special character')
+      setError('Password must be at least 12 characters long and contain at least one lowercase letter, one uppercase letter, one digit, and one special character. Note spaces do not count toward the “symbols”');
       setLoading(false)
       return
     }
@@ -399,7 +399,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
         
         // Handle weak password errors
         if (msg.includes('weak') || (msg.includes('password') && msg.includes('strong'))) {
-          setError('Password is too weak. Please use a stronger password with at least 12 characters, including uppercase, lowercase, numbers, and special characters.')
+          setError('Password must be at least 12 characters long and contain at least one lowercase letter, one uppercase letter, one digit, and one special character. Note spaces do not count toward the “symbols”');
           setLoading(false)
           return // Exit early - do not proceed to success
         }

@@ -125,21 +125,6 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ displayName }) => {
                 {loading && <div className="mr-2 h-4 w-4 animate-spin border-2 border-current border-t-transparent rounded-full" />}
                 {resetLinkSent ? 'Reset Link Sent' : 'Send Reset Link'}
               </Button>
-              
-              {resetLinkSent && (
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  className="w-full" 
-                  onClick={() => {
-                    setResetLinkSent(false);
-                    setMessage('');
-                    setEmail('');
-                  }}
-                >
-                  Request Another Link
-                </Button>
-              )}
             </form>
 
             <div className="mt-4 text-center">

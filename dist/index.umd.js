@@ -738,21 +738,7 @@
             /* @__PURE__ */ jsxRuntime.jsxs(button.Button, { type: "submit", className: "w-full", disabled: loading || resetLinkSent, children: [
               loading && /* @__PURE__ */ jsxRuntime.jsx("div", { className: "mr-2 h-4 w-4 animate-spin border-2 border-current border-t-transparent rounded-full" }),
               resetLinkSent ? "Reset Link Sent" : "Send Reset Link"
-            ] }),
-            resetLinkSent && /* @__PURE__ */ jsxRuntime.jsx(
-              button.Button,
-              {
-                type: "button",
-                variant: "outline",
-                className: "w-full",
-                onClick: () => {
-                  setResetLinkSent(false);
-                  setMessage("");
-                  setEmail("");
-                },
-                children: "Request Another Link"
-              }
-            )
+            ] })
           ] }),
           /* @__PURE__ */ jsxRuntime.jsx("div", { className: "mt-4 text-center", children: /* @__PURE__ */ jsxRuntime.jsx(
             button.Button,
@@ -1063,7 +1049,7 @@
         return;
       }
       if (!isStrongPassword(password)) {
-        setError("Password must be at least 12 characters long and contain at least one lowercase letter, one uppercase letter, one digit, and one special character");
+        setError("Password must be at least 12 characters long and contain at least one lowercase letter, one uppercase letter, one digit, and one special character. Note spaces do not count toward the “symbols”");
         setLoading(false);
         return;
       }
@@ -1174,7 +1160,7 @@
             return;
           }
           if (msg.includes("weak") || msg.includes("password") && msg.includes("strong")) {
-            setError("Password is too weak. Please use a stronger password with at least 12 characters, including uppercase, lowercase, numbers, and special characters.");
+            setError("Password must be at least 12 characters long and contain at least one lowercase letter, one uppercase letter, one digit, and one special character. Note spaces do not count toward the “symbols”");
             setLoading(false);
             return;
           }
