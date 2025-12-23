@@ -144,6 +144,18 @@ const ActivateAccount: React.FC<ActivateAccountProps> = ({ displayName }) => {
         console.log('ActivateAccount: OTP expired');
         setError('This activation link has expired. Please request a new activation link using the button below.');
         setIsExpiredLink(true);
+        
+        // Try to get email from session even if link is expired (Supabase might have attempted to create a session)
+        try {
+          const { data: { session: expiredSession } } = await supabaseClient.auth.getSession();
+          if (expiredSession?.user?.email) {
+            console.log('ActivateAccount: Found email from expired link session:', expiredSession.user.email);
+            setEmail(expiredSession.user.email);
+          }
+        } catch (err) {
+          console.log('ActivateAccount: Could not get email from expired session:', err);
+        }
+        
         return;
       }
 
@@ -406,7 +418,7 @@ const ActivateAccount: React.FC<ActivateAccountProps> = ({ displayName }) => {
                   value={email}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                   required
-                  disabled={!!email && !isExpiredLink} // Disable if email is set and not expired link
+                  disabled={isExpiredLink ? true : !!email} // Always disabled when expired link, disabled when email exists otherwise
                   className="bg-gray-50"
                   placeholder="Enter your email address"
                 />
