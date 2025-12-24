@@ -235,13 +235,14 @@ export const AuthProvider: React.FC<{
         console.log('✅ [AuthProvider.tsx] Activation email sent successfully via Supabase:', data);
       } else {
         // User doesn't exist in profiles table
-        console.log('User not found in profiles table');
-        setError('This email address is not registered in our system. Please contact your administrator to request access.');
-        return;
+        console.log('[AuthProvider.tsx] User not found in profiles table');
+        throw new Error (
+          'This email address is not registered in our system. Please contact your administrator to request access.');
       }
     } catch (error: any) {
       console.error('Activation email error:', error);
       setError(error.message);
+      throw error;
     } finally {
       setLoading(false);
     }
