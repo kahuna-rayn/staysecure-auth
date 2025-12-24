@@ -171,13 +171,15 @@ const AuthProvider = ({ config, children }) => {
         }
         console.log("✅ [AuthProvider.tsx] Activation email sent successfully via Supabase:", data);
       } else {
-        console.log("User not found in profiles table");
-        setError("This email address is not registered in our system. Please contact your administrator to request access.");
-        return;
+        console.log("[AuthProvider.tsx] User not found in profiles table");
+        throw new Error(
+          "This email address is not registered in our system. Please contact your administrator to request access."
+        );
       }
     } catch (error2) {
       console.error("Activation email error:", error2);
       setError(error2.message);
+      throw error2;
     } finally {
       setLoading(false);
     }
