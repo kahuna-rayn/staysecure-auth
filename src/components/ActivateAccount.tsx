@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/AuthProvider';
+import { debugLog } from '../utils/debugLog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -51,25 +52,17 @@ const ActivateAccount: React.FC<ActivateAccountProps> = ({ displayName }) => {
     if (typeof window !== 'undefined') {
       const pathParts = window.location.pathname.split('/').filter(Boolean);
       const clientId = pathParts[0];
-      console.log('[ActivateAccount] Extracting client path:', {
-        pathname: window.location.pathname,
-        pathParts,
-        clientId,
-        validClientId: clientId && !['admin', 'activate-account', 'reset-password', 'forgot-password', 'email-notifications'].includes(clientId)
-      });
       // Exclude common routes that aren't client IDs
       const validClientId = clientId && 
         !['admin', 'activate-account', 'reset-password', 'forgot-password', 'email-notifications'].includes(clientId);
       
       if (validClientId) {
         clientPathRef.current = `/${clientId}`;
-        console.log('[ActivateAccount] Set clientPathRef to:', clientPathRef.current);
       } else {
         // Fallback: try sessionStorage
         const storedClientId = sessionStorage.getItem('currentClientId');
         if (storedClientId) {
           clientPathRef.current = `/${storedClientId}`;
-          console.log('[ActivateAccount] Using stored client ID from sessionStorage:', clientPathRef.current);
         }
       }
     }
@@ -109,16 +102,9 @@ const ActivateAccount: React.FC<ActivateAccountProps> = ({ displayName }) => {
 
   useEffect(() => {
     const run = async () => {
-      // Debug logging
-      console.log('ActivateAccount: URL hash:', window.location.hash);
-      console.log('ActivateAccount: URL search:', window.location.search);
-      console.log('ActivateAccount: Full URL:', window.location.href);
-      console.log('ActivateAccount: Location hash:', location.hash);
-      
       // Check for backup hash in sessionStorage (in case hash was cleared before Supabase processed it)
       const backupHash = typeof window !== 'undefined' ? sessionStorage.getItem('activation_hash_backup') : null;
       if (backupHash && !location.hash && !window.location.hash) {
-        console.log('ActivateAccount: Hash was cleared, restoring from sessionStorage backup');
         window.location.hash = backupHash;
         // Wait a moment for hash to be restored, then continue
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -135,23 +121,14 @@ const ActivateAccount: React.FC<ActivateAccountProps> = ({ displayName }) => {
 
       const errorCode = hashParams.get('error_code');
       const error = hashParams.get('error');
-      console.log('ActivateAccount: Parsed errorCode from hashParams:', errorCode);
-      console.log('ActivateAccount: Parsed error from hashParams:', error);
-      console.log('ActivateAccount: Full hash string:', hash);
 
       // Check for expired link: either error_code=otp_expired OR error=access_denied with error_code in hash
       if (errorCode === 'otp_expired' || (error === 'access_denied' && hash.includes('error_code=otp_expired'))) {
-        console.log('ActivateAccount: OTP expired');
+        debugLog('[ActivateAccount] OTP expired');
         setError('This activation link has expired. Please enter your email address below to request a new activation link.');
         setIsExpiredLink(true);
         return;
       }
-
-      console.log('ActivateAccount: Parsed URL params:', { 
-        type, 
-        hasAccessToken: !!access, 
-        hasRefreshToken: !!refresh
-      });
 
       // Handle activation flow with recovery tokens (from Supabase generateLink)
       // When Supabase processes the activation link, it auto-creates a session from the access_token
@@ -160,18 +137,12 @@ const ActivateAccount: React.FC<ActivateAccountProps> = ({ displayName }) => {
       const isRecoveryType = type === 'recovery' || hash.includes('type=recovery');
       
       if (hasAccessToken && isRecoveryType) {
-        console.log('ActivateAccount: Found recovery activation tokens in hash - this is an activation flow');
-        console.log('ActivateAccount: Type:', type, 'Has access_token:', !!access);
+        debugLog('[ActivateAccount] processing activation tokens');
         
         // Store hash in sessionStorage as backup (in case hash gets cleared before Supabase processes it)
         if (hash && typeof window !== 'undefined') {
           sessionStorage.setItem('activation_hash_backup', hash);
-          console.log('ActivateAccount: Stored hash in sessionStorage as backup');
         }
-        
-        // Wait for Supabase to finish processing the hash and creating the session
-        // This fixes the race condition where components check before Supabase finishes
-        console.log('ActivateAccount: Waiting for Supabase to process hash and create session...');
         
         // Simulate slow connection in dev/staging environments for testing
         // Detect dev/staging from URL parsing (hostname or path-based clientId)
@@ -231,18 +202,13 @@ const ActivateAccount: React.FC<ActivateAccountProps> = ({ displayName }) => {
             
             if (currentSession?.user?.email) {
               session = currentSession;
-              console.log(`ActivateAccount: Session found on attempt ${attempt + 1}`);
               break;
             }
-          } else {
-            // First attempt in test mode - simulate Supabase not ready yet
-            console.log(`ActivateAccount: [TEST MODE] Simulating slow connection - Supabase not ready yet (attempt ${attempt + 1})`);
           }
           
           if (attempt < maxRetries - 1) {
             // In test mode on first attempt, wait longer to simulate slow processing
             const waitTime = (simulateSlowConnection && attempt === 0) ? testDelay : retryDelay;
-            console.log(`ActivateAccount: No session yet (attempt ${attempt + 1}/${maxRetries}), waiting ${waitTime}ms...`);
             await new Promise(resolve => setTimeout(resolve, waitTime));
           }
         }
@@ -250,22 +216,19 @@ const ActivateAccount: React.FC<ActivateAccountProps> = ({ displayName }) => {
         // Get email from session (Supabase auto-created this session from the activation token)
         // DO NOT sign out - we need this session for activation!
         if (session?.user?.email) {
-          console.log('ActivateAccount: Found email from session (created from activation token):', session.user.email);
+          debugLog('[ActivateAccount] ✅ session found', session.user.email);
           setEmail(session.user.email);
-          console.log('ActivateAccount: Keeping session for activation flow');
           
           // Clear backup hash now that we've successfully processed it
           if (typeof window !== 'undefined') {
             sessionStorage.removeItem('activation_hash_backup');
           }
         } else {
-          console.log('ActivateAccount: No session found after waiting - Supabase may not have processed the hash yet');
-          console.log('ActivateAccount: This could be a race condition - hash may have been cleared too early');
+          debugLog('[ActivateAccount] no session found');
           
           // Try to restore hash from backup if it was cleared
           const backupHash = typeof window !== 'undefined' ? sessionStorage.getItem('activation_hash_backup') : null;
           if (backupHash && !hash) {
-            console.log('ActivateAccount: Hash was cleared, restoring from backup...');
             // Restore hash to URL (this will trigger Supabase to process it again)
             window.location.hash = backupHash;
             // Retry after a short delay
@@ -281,7 +244,6 @@ const ActivateAccount: React.FC<ActivateAccountProps> = ({ displayName }) => {
       }
 
       // No activation tokens found - this shouldn't happen for new user activation
-      console.log('ActivateAccount: No activation tokens found in hash');
       setError('Invalid or expired activation link. Please contact your administrator.');
     };
 
@@ -311,9 +273,7 @@ const ActivateAccount: React.FC<ActivateAccountProps> = ({ displayName }) => {
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('🚀 [ActivateAccount] Form submitted');
-    console.log('📧 Email:', email);
-    console.log('🔑 Password length:', password.length);
+    debugLog('[ActivateAccount] form submitted', email);
     setLoading(true);
     setError('');
     setSuccess('');
@@ -335,15 +295,8 @@ const ActivateAccount: React.FC<ActivateAccountProps> = ({ displayName }) => {
       const clientPath = clientPathRef.current || '';
       const loginPath = clientPath || '/';
       
-      console.log('[ActivateAccount] Preparing redirect:', {
-        clientPathRef: clientPathRef.current,
-        clientPath,
-        loginPath,
-        currentPathname: window.location.pathname
-      });
       
       // Activate user account
-      console.log('📞 [ActivateAccount] Calling activateUser');
       await activateUser(email, password, confirmPassword);
       setSuccess('Account activated successfully! Redirecting to login...');
       
@@ -352,7 +305,7 @@ const ActivateAccount: React.FC<ActivateAccountProps> = ({ displayName }) => {
       
       // Redirect to login after 2 seconds
       setTimeout(() => {
-        console.log('[ActivateAccount] Redirecting to:', loginPath);
+        debugLog('[ActivateAccount] ✅ activated, redirecting');
         navigate(loginPath, { replace: true });
       }, 2000);
 

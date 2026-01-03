@@ -1,3 +1,5 @@
+import { debugLog } from './debugLog';
+
 /**
  * Gets the displayName (site badge text) from the URL and client configuration.
  * 
@@ -40,13 +42,10 @@ export const getDisplayName = (): string | null => {
     }
     // If no clientId in path and not dev/staging, use 'default'
     
-    console.log('[getDisplayName] URL:', window.location.href);
-    console.log('[getDisplayName] hostname:', hostname, 'pathname:', window.location.pathname, '→ clientId:', clientId);
     
     // Get CLIENT_CONFIGS from window global (set by consuming app)
     const clientConfigs = (window as any).__CLIENT_CONFIGS__;
     if (!clientConfigs) {
-      console.log('[getDisplayName] window.__CLIENT_CONFIGS__ not found');
       return null;
     }
     
@@ -54,7 +53,7 @@ export const getDisplayName = (): string | null => {
     const clientConfig = clientConfigs[clientId] || clientConfigs['default'];
     const displayName = clientConfig?.displayName || null;
     
-    console.log('[getDisplayName] Resolved displayName:', displayName, 'for clientId:', clientId);
+    debugLog('[getDisplayName]', clientId, '→', displayName);
     return displayName;
   } catch (e) {
     console.error('[getDisplayName] Error:', e);

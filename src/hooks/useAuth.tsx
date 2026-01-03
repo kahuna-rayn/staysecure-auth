@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { debugLog } from '../utils/debugLog';
 import type { User, AuthError } from '@supabase/supabase-js';
 
 interface AuthContextType {
@@ -117,8 +118,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Use Supabase's built-in password reset with proper tokens
       const redirectUrl = `${window.location.origin}/reset-password`;
       
-      console.log('Sending password reset to:', email);
-      console.log('Redirect URL:', redirectUrl);
+      debugLog('[useAuth] resetPassword', email);
       
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: redirectUrl
@@ -126,7 +126,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (resetError) throw resetError;
       
-      console.log('Password reset email sent successfully');
+      debugLog('[useAuth] ✅ password reset sent');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -164,8 +164,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error(data.error);
       }
       
-      console.log('✅ Edge Function response:', data);
-      
       // Now try to sign in with the new password
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email,
@@ -178,7 +176,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Update user status to Active in profiles table (fallback if Edge Function didn't do it)
       if (signInData.user) {
-        console.log('🔍 Checking if profile status needs to be updated...');
         const { error: profileError } = await supabase
           .from('profiles')
           .update({ status: 'Active' })
@@ -187,12 +184,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (profileError) {
           console.error('❌ Profile update error:', profileError);
           // Don't throw - activation was successful
-        } else {
-          console.log('✅ Profile status updated to Active for user:', signInData.user.email);
         }
       }
       
-      console.log('✅ User activated and signed in successfully:', signInData.user?.email);
+      debugLog('[useAuth] ✅ user activated', signInData.user?.email);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {

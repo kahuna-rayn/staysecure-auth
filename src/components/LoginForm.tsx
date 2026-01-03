@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
+import { debugLog } from '../utils/debugLog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -37,7 +38,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ displayName }) => {
     try {
       await signIn(email, password);
     } catch (error: any) {
-      console.log('Login error caught:', error);
+      debugLog('[LoginForm] login failed', error.message);
     } finally {
       setLoading(false);
     }

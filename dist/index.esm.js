@@ -10,6 +10,11 @@ import { Badge } from "@/components/ui/badge";
 import { EyeOff, Eye, Loader2 } from "lucide-react";
 import raynLogo from "@/assets/rayn-logo.png";
 import { supabase } from "@/integrations/supabase/client";
+const debugLog = (...args) => {
+  if (typeof window !== "undefined" && window.__DEBUG__) {
+    console.log("[AUTH]", ...args);
+  }
+};
 const AuthContext = createContext(null);
 const defaultAuthContext = {
   user: null,
@@ -117,24 +122,19 @@ const AuthProvider = ({ config, children }) => {
     setError(null);
     try {
       const redirectUrl = `${window.location.origin}/reset-password`;
-      console.log("🚨🚨🚨 NUCLEAR DEBUG - resetPassword called 🚨🚨🚨");
-      console.log("🔐 [AuthProvider.tsx] resetPassword called");
-      console.log("📧 Sending password reset to:", email);
-      console.log("🔗 Redirect URL:", redirectUrl);
-      console.log("🔗 About to call send-password-reset Edge Function");
+      debugLog("[AuthProvider] resetPassword", email);
       const { data, error: resetError } = await supabaseClient.functions.invoke("send-password-reset", {
         body: {
           email,
           redirectTo: redirectUrl
         }
       });
-      console.log("📧 Edge Function response:", { data, error: resetError });
       if (resetError) throw resetError;
       if (data == null ? void 0 : data.error) {
         console.error("Edge Function returned error:", data.error);
         throw new Error(data.error);
       }
-      console.log("✅ [AuthProvider.tsx] Password reset email sent successfully via Edge Function");
+      debugLog("[AuthProvider] ✅ password reset email sent");
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -147,31 +147,24 @@ const AuthProvider = ({ config, children }) => {
       setError(null);
       const baseUrl = window.location.origin;
       const redirectUrl = `${baseUrl}/activate-account`;
-      console.log("🎯 [AuthProvider.tsx] sendActivationEmail called");
-      console.log("📧 Sending activation email to:", email);
-      console.log("🔗 Redirect URL:", redirectUrl);
+      debugLog("[AuthProvider] sendActivationEmail", email);
       const { data: profile, error: profileError } = await supabaseClient.from("profiles").select("id, username, full_name").eq("username", email).maybeSingle();
-      console.log("Profile check:", { profile, profileError });
-      console.log("Profile error details:", profileError);
       if (profileError && profileError.code !== "PGRST116") {
         console.error("Profile query failed:", profileError);
         throw profileError;
       }
       if (profile) {
-        console.log("User found in profiles table, proceeding with activation");
         const baseUrl2 = window.location.origin;
         const redirectUrl2 = `${baseUrl2}/activate-account`;
-        console.log("Using deployment-friendly client-side approach");
-        console.log("Redirect URL:", redirectUrl2);
         const { data, error: error2 } = await supabaseClient.auth.resetPasswordForEmail(email, {
           redirectTo: redirectUrl2
         });
         if (error2) {
           throw error2;
         }
-        console.log("✅ [AuthProvider.tsx] Activation email sent successfully via Supabase:", data);
+        debugLog("[AuthProvider] ✅ activation email sent");
       } else {
-        console.log("[AuthProvider.tsx] User not found in profiles table");
+        debugLog("[AuthProvider] user not found in profiles");
         throw new Error(
           "This email address is not registered in our system. Please contact your administrator to request access."
         );
@@ -193,9 +186,7 @@ const AuthProvider = ({ config, children }) => {
     setLoading(true);
     setError(null);
     try {
-      console.log("🎯 [AuthProvider.tsx] activateUser called");
-      console.log("📧 Email:", email);
-      console.log("🆔 User ID:", userId);
+      debugLog("[AuthProvider] activateUser", email);
       const { data, error: updateError } = await supabaseClient.functions.invoke("update-user-password", {
         body: {
           email,
@@ -211,7 +202,6 @@ const AuthProvider = ({ config, children }) => {
         console.error("Edge Function returned error:", data.error);
         throw new Error(data.error);
       }
-      console.log("✅ Edge Function response:", data);
       const { data: signInData, error: signInError } = await supabaseClient.auth.signInWithPassword({
         email,
         password
@@ -220,15 +210,12 @@ const AuthProvider = ({ config, children }) => {
         throw signInError;
       }
       if (signInData.user) {
-        console.log("🔍 Checking if profile status needs to be updated...");
         const { error: profileError } = await supabaseClient.from("profiles").update({ status: "Active" }).eq("id", signInData.user.id);
         if (profileError) {
           console.error("❌ Profile update error:", profileError);
-        } else {
-          console.log("✅ Profile status updated to Active for user:", signInData.user.email);
         }
       }
-      console.log("✅ User activated and signed in successfully:", (_a = signInData.user) == null ? void 0 : _a.email);
+      debugLog("[AuthProvider] ✅ user activated", (_a = signInData.user) == null ? void 0 : _a.email);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -303,21 +290,13 @@ const ActivateAccount = ({ displayName }) => {
     if (typeof window !== "undefined") {
       const pathParts = window.location.pathname.split("/").filter(Boolean);
       const clientId = pathParts[0];
-      console.log("[ActivateAccount] Extracting client path:", {
-        pathname: window.location.pathname,
-        pathParts,
-        clientId,
-        validClientId: clientId && !["admin", "activate-account", "reset-password", "forgot-password", "email-notifications"].includes(clientId)
-      });
       const validClientId = clientId && !["admin", "activate-account", "reset-password", "forgot-password", "email-notifications"].includes(clientId);
       if (validClientId) {
         clientPathRef.current = `/${clientId}`;
-        console.log("[ActivateAccount] Set clientPathRef to:", clientPathRef.current);
       } else {
         const storedClientId = sessionStorage.getItem("currentClientId");
         if (storedClientId) {
           clientPathRef.current = `/${storedClientId}`;
-          console.log("[ActivateAccount] Using stored client ID from sessionStorage:", clientPathRef.current);
         }
       }
     }
@@ -349,13 +328,8 @@ const ActivateAccount = ({ displayName }) => {
   useEffect(() => {
     const run = async () => {
       var _a, _b;
-      console.log("ActivateAccount: URL hash:", window.location.hash);
-      console.log("ActivateAccount: URL search:", window.location.search);
-      console.log("ActivateAccount: Full URL:", window.location.href);
-      console.log("ActivateAccount: Location hash:", location.hash);
       const backupHash = typeof window !== "undefined" ? sessionStorage.getItem("activation_hash_backup") : null;
       if (backupHash && !location.hash && !window.location.hash) {
-        console.log("ActivateAccount: Hash was cleared, restoring from sessionStorage backup");
         window.location.hash = backupHash;
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
@@ -363,33 +337,22 @@ const ActivateAccount = ({ displayName }) => {
       const hashParams = new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash);
       const type = hashParams.get("type") || searchParams.get("type");
       const access = hashParams.get("access_token");
-      const refresh = hashParams.get("refresh_token");
+      hashParams.get("refresh_token");
       const errorCode = hashParams.get("error_code");
       const error2 = hashParams.get("error");
-      console.log("ActivateAccount: Parsed errorCode from hashParams:", errorCode);
-      console.log("ActivateAccount: Parsed error from hashParams:", error2);
-      console.log("ActivateAccount: Full hash string:", hash);
       if (errorCode === "otp_expired" || error2 === "access_denied" && hash.includes("error_code=otp_expired")) {
-        console.log("ActivateAccount: OTP expired");
+        debugLog("[ActivateAccount] OTP expired");
         setError("This activation link has expired. Please enter your email address below to request a new activation link.");
         setIsExpiredLink(true);
         return;
       }
-      console.log("ActivateAccount: Parsed URL params:", {
-        type,
-        hasAccessToken: !!access,
-        hasRefreshToken: !!refresh
-      });
       const hasAccessToken = !!access || hash.includes("access_token");
       const isRecoveryType = type === "recovery" || hash.includes("type=recovery");
       if (hasAccessToken && isRecoveryType) {
-        console.log("ActivateAccount: Found recovery activation tokens in hash - this is an activation flow");
-        console.log("ActivateAccount: Type:", type, "Has access_token:", !!access);
+        debugLog("[ActivateAccount] processing activation tokens");
         if (hash && typeof window !== "undefined") {
           sessionStorage.setItem("activation_hash_backup", hash);
-          console.log("ActivateAccount: Stored hash in sessionStorage as backup");
         }
-        console.log("ActivateAccount: Waiting for Supabase to process hash and create session...");
         let isDevOrStaging = false;
         if (typeof window !== "undefined") {
           const hostname = window.location.hostname;
@@ -418,31 +381,24 @@ const ActivateAccount = ({ displayName }) => {
             const { data: { session: currentSession } } = await supabaseClient.auth.getSession();
             if ((_a = currentSession == null ? void 0 : currentSession.user) == null ? void 0 : _a.email) {
               session = currentSession;
-              console.log(`ActivateAccount: Session found on attempt ${attempt + 1}`);
               break;
             }
-          } else {
-            console.log(`ActivateAccount: [TEST MODE] Simulating slow connection - Supabase not ready yet (attempt ${attempt + 1})`);
           }
           if (attempt < maxRetries - 1) {
             const waitTime = simulateSlowConnection && attempt === 0 ? testDelay : retryDelay;
-            console.log(`ActivateAccount: No session yet (attempt ${attempt + 1}/${maxRetries}), waiting ${waitTime}ms...`);
             await new Promise((resolve) => setTimeout(resolve, waitTime));
           }
         }
         if ((_b = session == null ? void 0 : session.user) == null ? void 0 : _b.email) {
-          console.log("ActivateAccount: Found email from session (created from activation token):", session.user.email);
+          debugLog("[ActivateAccount] ✅ session found", session.user.email);
           setEmail(session.user.email);
-          console.log("ActivateAccount: Keeping session for activation flow");
           if (typeof window !== "undefined") {
             sessionStorage.removeItem("activation_hash_backup");
           }
         } else {
-          console.log("ActivateAccount: No session found after waiting - Supabase may not have processed the hash yet");
-          console.log("ActivateAccount: This could be a race condition - hash may have been cleared too early");
+          debugLog("[ActivateAccount] no session found");
           const backupHash2 = typeof window !== "undefined" ? sessionStorage.getItem("activation_hash_backup") : null;
           if (backupHash2 && !hash) {
-            console.log("ActivateAccount: Hash was cleared, restoring from backup...");
             window.location.hash = backupHash2;
             setTimeout(() => {
               window.location.reload();
@@ -453,7 +409,6 @@ const ActivateAccount = ({ displayName }) => {
         }
         return;
       }
-      console.log("ActivateAccount: No activation tokens found in hash");
       setError("Invalid or expired activation link. Please contact your administrator.");
     };
     void run();
@@ -478,9 +433,7 @@ const ActivateAccount = ({ displayName }) => {
   };
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("🚀 [ActivateAccount] Form submitted");
-    console.log("📧 Email:", email);
-    console.log("🔑 Password length:", password.length);
+    debugLog("[ActivateAccount] form submitted", email);
     setLoading(true);
     setError("");
     setSuccess("");
@@ -497,18 +450,11 @@ const ActivateAccount = ({ displayName }) => {
     try {
       const clientPath = clientPathRef.current || "";
       const loginPath = clientPath || "/";
-      console.log("[ActivateAccount] Preparing redirect:", {
-        clientPathRef: clientPathRef.current,
-        clientPath,
-        loginPath,
-        currentPathname: window.location.pathname
-      });
-      console.log("📞 [ActivateAccount] Calling activateUser");
       await activateUser(email, password, confirmPassword);
       setSuccess("Account activated successfully! Redirecting to login...");
       await signOut();
       setTimeout(() => {
-        console.log("[ActivateAccount] Redirecting to:", loginPath);
+        debugLog("[ActivateAccount] ✅ activated, redirecting");
         navigate(loginPath, { replace: true });
       }, 2e3);
     } catch (error2) {
@@ -780,7 +726,7 @@ const LoginForm = ({ displayName }) => {
     try {
       await signIn(email, password);
     } catch (error2) {
-      console.log("Login error caught:", error2);
+      debugLog("[LoginForm] login failed", error2.message);
     } finally {
       setLoading(false);
     }
@@ -900,29 +846,17 @@ const ResetPassword = ({ displayName }) => {
   useEffect(() => {
     if (initializedRef.current) return;
     initializedRef.current = true;
-    console.log("[ResetPassword] Setting up auth state change listener...");
     const { data: sub } = supabaseClient.auth.onAuthStateChange((event, session) => {
-      var _a, _b;
-      console.log("[ResetPassword] Auth state change:", {
-        event,
-        hasSession: !!session,
-        userEmail: (_a = session == null ? void 0 : session.user) == null ? void 0 : _a.email
-      });
-      if (event === "SIGNED_IN" && ((_b = session == null ? void 0 : session.user) == null ? void 0 : _b.email)) {
-        console.log("[ResetPassword] ✅ Session signed in, setting email:", session.user.email);
+      var _a;
+      if (event === "SIGNED_IN" && ((_a = session == null ? void 0 : session.user) == null ? void 0 : _a.email)) {
+        debugLog("[ResetPassword] session signed in", session.user.email);
         setEmail(session.user.email);
         clearRecoveryParams();
         setVerifying(false);
       }
     });
     const run = async () => {
-      var _a, _b, _c, _d, _e, _f;
-      console.log("[ResetPassword] useEffect run() starting");
-      console.log("[ResetPassword] Location:", {
-        pathname: location.pathname,
-        hashLength: (location.hash || "").length,
-        searchLength: (location.search || "").length
-      });
+      var _a, _b, _c, _d, _e;
       try {
         const hash = location.hash || window.location.hash || "";
         const hashParams = new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash);
@@ -930,12 +864,6 @@ const ResetPassword = ({ displayName }) => {
         const type = hashParams.get("type") || searchParams.get("type");
         const tokenHash = searchParams.get("token_hash");
         const hasAccessToken = hashParams.has("access_token") || hash.includes("access_token");
-        console.log("[ResetPassword] Parsed URL params:", {
-          type,
-          hasTokenHash: !!tokenHash,
-          hasAccessToken,
-          hashLength: hash.length
-        });
         if (type === "recovery" && !tokenHash && !hasAccessToken) {
           setError("This password reset link may have been opened already by an email scanner. Please request a new link and open it only once.");
           setVerifying(false);
@@ -943,7 +871,7 @@ const ResetPassword = ({ displayName }) => {
         }
         const errorCode = hashParams.get("error_code");
         if (errorCode === "otp_expired" || hash.includes("error_code=otp_expired")) {
-          console.log("[ResetPassword] OTP expired - redirecting to forgot-password");
+          debugLog("[ResetPassword] OTP expired, redirecting");
           navigate("/forgot-password", {
             replace: true,
             state: {
@@ -953,7 +881,6 @@ const ResetPassword = ({ displayName }) => {
           return;
         }
         if (tokenHash && type === "recovery") {
-          console.log("[ResetPassword] Processing token_hash flow...");
           const { data, error: verifyError } = await supabaseClient.auth.verifyOtp({
             token_hash: tokenHash,
             type: "recovery"
@@ -961,7 +888,6 @@ const ResetPassword = ({ displayName }) => {
           if (verifyError) {
             console.error("[ResetPassword] ❌ verifyOtp error:", verifyError.message);
             if (((_a = verifyError.message) == null ? void 0 : _a.includes("expired")) || ((_b = verifyError.message) == null ? void 0 : _b.includes("otp_expired"))) {
-              console.log("[ResetPassword] Expired link detected - redirecting to forgot-password");
               navigate("/forgot-password", {
                 replace: true,
                 state: {
@@ -975,7 +901,7 @@ const ResetPassword = ({ displayName }) => {
             return;
           }
           if ((_c = data.user) == null ? void 0 : _c.email) {
-            console.log("[ResetPassword] ✅ verifyOtp success, email:", data.user.email);
+            debugLog("[ResetPassword] ✅ token verified", data.user.email);
             setEmail(data.user.email);
             clearRecoveryParams();
             setVerifying(false);
@@ -983,20 +909,16 @@ const ResetPassword = ({ displayName }) => {
           }
         }
         if (hasAccessToken && type === "recovery") {
-          console.log("[ResetPassword] Processing access_token flow, waiting for session...");
           const maxAttempts = 10;
           const delay = 300;
           for (let i = 0; i < maxAttempts; i++) {
             const { data: { session } } = await supabaseClient.auth.getSession();
             if ((_d = session == null ? void 0 : session.user) == null ? void 0 : _d.email) {
-              console.log(`[ResetPassword] ✅ Session found on attempt ${i + 1}, email:`, session.user.email);
+              debugLog("[ResetPassword] ✅ session found", session.user.email);
               setEmail(session.user.email);
               clearRecoveryParams();
               setVerifying(false);
               return;
-            }
-            if (i < maxAttempts - 1) {
-              console.log(`[ResetPassword] No session yet (attempt ${i + 1}/${maxAttempts}), waiting...`);
             }
             await new Promise((r) => setTimeout(r, delay));
           }
@@ -1005,16 +927,9 @@ const ResetPassword = ({ displayName }) => {
           setVerifying(false);
           return;
         }
-        console.log("[ResetPassword] Checking for existing session...");
         const { data: { session: existing }, error: existingErr } = await supabaseClient.auth.getSession();
-        console.log("[ResetPassword] Existing session check:", {
-          hasSession: !!existing,
-          hasError: !!existingErr,
-          userEmail: (_e = existing == null ? void 0 : existing.user) == null ? void 0 : _e.email,
-          expiresAt: existing == null ? void 0 : existing.expires_at
-        });
-        if ((_f = existing == null ? void 0 : existing.user) == null ? void 0 : _f.email) {
-          console.log("[ResetPassword] ✅ Using existing session, email:", existing.user.email);
+        if ((_e = existing == null ? void 0 : existing.user) == null ? void 0 : _e.email) {
+          debugLog("[ResetPassword] ✅ existing session", existing.user.email);
           setEmail(existing.user.email);
         } else {
           console.warn("[ResetPassword] ⚠️ No session found and no valid recovery params");
@@ -1045,14 +960,12 @@ const ResetPassword = ({ displayName }) => {
     }
   }, [password, confirmPassword, error]);
   const handleSubmit = async (e) => {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l;
+    var _a, _b, _c, _d, _e, _f, _g;
     e.preventDefault();
     setLoading(true);
     setError("");
     setSuccess("");
-    console.log("[ResetPassword] handleSubmit called");
-    console.log("[ResetPassword] Email:", email);
-    console.log("[ResetPassword] Password length:", password.length);
+    debugLog("[ResetPassword] handleSubmit", email);
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       setLoading(false);
@@ -1064,36 +977,16 @@ const ResetPassword = ({ displayName }) => {
       return;
     }
     try {
-      console.log("[ResetPassword] Step 1: Checking session before updateUser...");
       let { data: { session }, error: sessionErr } = await supabaseClient.auth.getSession();
-      console.log("[ResetPassword] Initial session check:", {
-        hasSession: !!session,
-        hasError: !!sessionErr,
-        sessionError: sessionErr == null ? void 0 : sessionErr.message,
-        userEmail: (_a = session == null ? void 0 : session.user) == null ? void 0 : _a.email,
-        sessionExpiresAt: session == null ? void 0 : session.expires_at
-      });
       if (sessionErr || !session) {
-        console.log("[ResetPassword] No session initially, retrying after 300ms...");
         await new Promise((r) => setTimeout(r, 300));
         const res = await supabaseClient.auth.getSession();
         session = res.data.session;
-        console.log("[ResetPassword] Retry session check:", {
-          hasSession: !!session,
-          userEmail: (_b = session == null ? void 0 : session.user) == null ? void 0 : _b.email,
-          sessionExpiresAt: session == null ? void 0 : session.expires_at
-        });
       }
-      if (!((_c = session == null ? void 0 : session.user) == null ? void 0 : _c.email)) {
+      if (!((_a = session == null ? void 0 : session.user) == null ? void 0 : _a.email)) {
         console.error("[ResetPassword] ❌ No valid session found - cannot proceed");
         throw new Error("Your password reset session has expired. Please request a new reset link.");
       }
-      console.log("[ResetPassword] ✅ Session valid, proceeding with updateUser...");
-      console.log("[ResetPassword] Session details:", {
-        email: session.user.email,
-        expiresAt: session.expires_at,
-        accessTokenLength: ((_d = session.access_token) == null ? void 0 : _d.length) || 0
-      });
       const { data, error: updateError } = await supabaseClient.functions.invoke("update-user-password", {
         body: {
           email: session.user.email,
@@ -1101,48 +994,19 @@ const ResetPassword = ({ displayName }) => {
           user_id: session.user.id
         }
       });
-      console.log("[ResetPassword] update-user-password Edge Function call completed", {
-        hasData: !!data,
-        hasError: !!updateError,
-        dataKeys: data ? Object.keys(data) : [],
-        errorMessage: updateError == null ? void 0 : updateError.message
-      });
       if (updateError) {
-        console.error("[ResetPassword] ❌ Edge Function error:", {
-          message: updateError.message,
-          error: updateError
-        });
-        const { data: { session: sessionAfterError }, error: sessionCheckErr } = await supabaseClient.auth.getSession();
-        console.log("[ResetPassword] Session check after error:", {
-          hasSession: !!sessionAfterError,
-          hasError: !!sessionCheckErr,
-          userEmail: (_e = sessionAfterError == null ? void 0 : sessionAfterError.user) == null ? void 0 : _e.email,
-          sessionStillValid: !!((_f = sessionAfterError == null ? void 0 : sessionAfterError.user) == null ? void 0 : _f.email)
-        });
+        console.error("[ResetPassword] ❌ Edge Function error:", updateError.message);
+        const { data: { session: sessionAfterError } } = await supabaseClient.auth.getSession();
         const errorAny = updateError;
-        const status = (errorAny == null ? void 0 : errorAny.status) || ((_g = errorAny == null ? void 0 : errorAny.context) == null ? void 0 : _g.status) || ((_h = errorAny == null ? void 0 : errorAny.context) == null ? void 0 : _h.statusCode) || (errorAny == null ? void 0 : errorAny.statusCode) || ((_i = errorAny == null ? void 0 : errorAny.response) == null ? void 0 : _i.status);
+        const status = (errorAny == null ? void 0 : errorAny.status) || ((_b = errorAny == null ? void 0 : errorAny.context) == null ? void 0 : _b.status) || ((_c = errorAny == null ? void 0 : errorAny.context) == null ? void 0 : _c.statusCode) || (errorAny == null ? void 0 : errorAny.statusCode) || ((_d = errorAny == null ? void 0 : errorAny.response) == null ? void 0 : _d.status);
         const msg = (updateError.message || "").toLowerCase();
         const statusFromMessage = msg.match(/\b422\b/) ? 422 : void 0;
         const finalStatus = status || statusFromMessage;
         const dataErrorMsg = (data == null ? void 0 : data.error) ? String(data.error).toLowerCase() : "";
         const hasSamePasswordError = msg.includes("same") || msg.includes("cannot be the same") || dataErrorMsg.includes("same") || dataErrorMsg.includes("cannot be the same") || finalStatus === 422;
-        console.log("[ResetPassword] Extracted error details:", {
-          status: finalStatus,
-          statusFromMessage,
-          message: msg,
-          dataError: data == null ? void 0 : data.error,
-          dataErrorMsg,
-          hasSamePasswordError,
-          errorKeys: Object.keys(errorAny || {})
-        });
         if (finalStatus === 422 || hasSamePasswordError) {
-          const sessionStillValid2 = !!((_j = sessionAfterError == null ? void 0 : sessionAfterError.user) == null ? void 0 : _j.email);
-          console.log("[ResetPassword] Same password error detected - preventing success flow:", {
-            status,
-            message: msg,
-            sessionStillValid: sessionStillValid2,
-            canRetry: sessionStillValid2
-          });
+          const sessionStillValid2 = !!((_e = sessionAfterError == null ? void 0 : sessionAfterError.user) == null ? void 0 : _e.email);
+          debugLog("[ResetPassword] same password error");
           if (sessionStillValid2) {
             setError("New password cannot be the same as your current password. Please choose a different password.");
             setLoading(false);
@@ -1174,7 +1038,7 @@ const ResetPassword = ({ displayName }) => {
           setLoading(false);
           return;
         }
-        const sessionStillValid = !!((_k = sessionAfterError == null ? void 0 : sessionAfterError.user) == null ? void 0 : _k.email);
+        const sessionStillValid = !!((_f = sessionAfterError == null ? void 0 : sessionAfterError.user) == null ? void 0 : _f.email);
         if (!sessionStillValid) {
           navigate("/forgot-password", {
             replace: true,
@@ -1193,8 +1057,7 @@ const ResetPassword = ({ displayName }) => {
         const { data: { session: sessionAfterDataError } } = await supabaseClient.auth.getSession();
         const msg = (data.error || "").toLowerCase();
         if (msg.includes("same")) {
-          const sessionStillValid = !!((_l = sessionAfterDataError == null ? void 0 : sessionAfterDataError.user) == null ? void 0 : _l.email);
-          console.log("[ResetPassword] Same password error in data response - preventing success flow");
+          const sessionStillValid = !!((_g = sessionAfterDataError == null ? void 0 : sessionAfterDataError.user) == null ? void 0 : _g.email);
           if (!sessionStillValid) {
             navigate("/forgot-password", {
               replace: true,
@@ -1218,7 +1081,7 @@ const ResetPassword = ({ displayName }) => {
         setLoading(false);
         return;
       }
-      console.log("[ResetPassword] ✅ Password updated successfully and account activated!");
+      debugLog("[ResetPassword] ✅ password reset complete");
       setSuccess("Password reset successfully! Your account has been activated. Redirecting to login...");
       await supabaseClient.auth.signOut();
       setTimeout(() => navigate("/", { replace: true }), 1500);
@@ -1230,7 +1093,6 @@ const ResetPassword = ({ displayName }) => {
       setError((err == null ? void 0 : err.message) || "Failed to reset password. Please try again or request a new reset link.");
     } finally {
       setLoading(false);
-      console.log("[ResetPassword] handleSubmit completed (loading set to false)");
     }
   };
   const formDisabled = verifying || !email || loading;

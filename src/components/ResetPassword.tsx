@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../components/AuthProvider'
+import { debugLog } from '../utils/debugLog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -69,15 +70,9 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
     initializedRef.current = true
 
      // Session listener for access_token flow
-     console.log('[ResetPassword] Setting up auth state change listener...')
      const { data: sub } = supabaseClient.auth.onAuthStateChange((event: string, session: any) => {
-       console.log('[ResetPassword] Auth state change:', {
-         event,
-         hasSession: !!session,
-         userEmail: session?.user?.email
-       })
        if (event === 'SIGNED_IN' && session?.user?.email) {
-         console.log('[ResetPassword] ✅ Session signed in, setting email:', session.user.email)
+         debugLog('[ResetPassword] session signed in', session.user.email)
          setEmail(session.user.email)
          clearRecoveryParams()
          setVerifying(false)
@@ -85,13 +80,6 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
      })
 
      const run = async () => {
-       console.log('[ResetPassword] useEffect run() starting')
-       console.log('[ResetPassword] Location:', {
-         pathname: location.pathname,
-         hashLength: (location.hash || '').length,
-         searchLength: (location.search || '').length
-       })
-
        try {
          // Parse params
          const hash = location.hash || window.location.hash || ''
@@ -100,13 +88,6 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
          const type = hashParams.get('type') || searchParams.get('type')
          const tokenHash = searchParams.get('token_hash')
          const hasAccessToken = hashParams.has('access_token') || hash.includes('access_token')
-
-         console.log('[ResetPassword] Parsed URL params:', {
-           type,
-           hasTokenHash: !!tokenHash,
-           hasAccessToken,
-           hashLength: hash.length
-         })
 
         // If "recovery" but no token present, likely email scanner burned the link
         if (type === 'recovery' && !tokenHash && !hasAccessToken) {
@@ -118,7 +99,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
         // Check for expired link error in hash - redirect to forgot-password
         const errorCode = hashParams.get('error_code')
         if (errorCode === 'otp_expired' || hash.includes('error_code=otp_expired')) {
-          console.log('[ResetPassword] OTP expired - redirecting to forgot-password')
+          debugLog('[ResetPassword] OTP expired, redirecting')
           navigate('/forgot-password', {
             replace: true,
             state: {
@@ -130,7 +111,6 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
 
         // token_hash flow
         if (tokenHash && type === 'recovery') {
-          console.log('[ResetPassword] Processing token_hash flow...')
           const { data, error: verifyError } = await supabaseClient.auth.verifyOtp({
             token_hash: tokenHash,
             type: 'recovery',
@@ -139,7 +119,6 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
             console.error('[ResetPassword] ❌ verifyOtp error:', verifyError.message)
             // Check if it's an expired link - redirect to forgot-password
             if (verifyError.message?.includes('expired') || verifyError.message?.includes('otp_expired')) {
-              console.log('[ResetPassword] Expired link detected - redirecting to forgot-password')
               navigate('/forgot-password', {
                 replace: true,
                 state: {
@@ -153,7 +132,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
             return
           }
            if (data.user?.email) {
-             console.log('[ResetPassword] ✅ verifyOtp success, email:', data.user.email)
+             debugLog('[ResetPassword] ✅ token verified', data.user.email)
              setEmail(data.user.email)
              clearRecoveryParams()
              setVerifying(false)
@@ -163,21 +142,17 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
 
          // access_token flow (session should be created by the client automatically)
          if (hasAccessToken && type === 'recovery') {
-           console.log('[ResetPassword] Processing access_token flow, waiting for session...')
            // Short fallback polling (most handled by onAuthStateChange)
            const maxAttempts = 10
            const delay = 300
            for (let i = 0; i < maxAttempts; i++) {
              const { data: { session } } = await supabaseClient.auth.getSession()
              if (session?.user?.email) {
-               console.log(`[ResetPassword] ✅ Session found on attempt ${i + 1}, email:`, session.user.email)
+               debugLog('[ResetPassword] ✅ session found', session.user.email)
                setEmail(session.user.email)
                clearRecoveryParams()
                setVerifying(false)
                return
-             }
-             if (i < maxAttempts - 1) {
-               console.log(`[ResetPassword] No session yet (attempt ${i + 1}/${maxAttempts}), waiting...`)
              }
              await new Promise((r) => setTimeout(r, delay))
            }
@@ -189,16 +164,9 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
          }
 
          // Existing session (e.g., page refresh)
-         console.log('[ResetPassword] Checking for existing session...')
          const { data: { session: existing }, error: existingErr } = await supabaseClient.auth.getSession()
-         console.log('[ResetPassword] Existing session check:', {
-           hasSession: !!existing,
-           hasError: !!existingErr,
-           userEmail: existing?.user?.email,
-           expiresAt: existing?.expires_at
-         })
          if (existing?.user?.email) {
-           console.log('[ResetPassword] ✅ Using existing session, email:', existing.user.email)
+           debugLog('[ResetPassword] ✅ existing session', existing.user.email)
            setEmail(existing.user.email)
          } else {
            // No session and no valid params — user can still enter password after manual verify, but we keep form disabled until email available
@@ -243,9 +211,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
     setError('')
     setSuccess('')
 
-    console.log('[ResetPassword] handleSubmit called')
-    console.log('[ResetPassword] Email:', email)
-    console.log('[ResetPassword] Password length:', password.length)
+    debugLog('[ResetPassword] handleSubmit', email)
 
     if (password !== confirmPassword) {
       setError('Passwords do not match')
@@ -259,40 +225,19 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
     }
 
     try {
-      console.log('[ResetPassword] Step 1: Checking session before updateUser...')
       let { data: { session }, error: sessionErr } = await supabaseClient.auth.getSession()
-      console.log('[ResetPassword] Initial session check:', {
-        hasSession: !!session,
-        hasError: !!sessionErr,
-        sessionError: sessionErr?.message,
-        userEmail: session?.user?.email,
-        sessionExpiresAt: session?.expires_at
-      })
 
       if (sessionErr || !session) {
-        console.log('[ResetPassword] No session initially, retrying after 300ms...')
         // quick retry
         await new Promise((r) => setTimeout(r, 300))
         const res = await supabaseClient.auth.getSession()
         session = res.data.session
-        console.log('[ResetPassword] Retry session check:', {
-          hasSession: !!session,
-          userEmail: session?.user?.email,
-          sessionExpiresAt: session?.expires_at
-        })
       }
 
       if (!session?.user?.email) {
         console.error('[ResetPassword] ❌ No valid session found - cannot proceed')
         throw new Error('Your password reset session has expired. Please request a new reset link.')
       }
-
-      console.log('[ResetPassword] ✅ Session valid, proceeding with updateUser...')
-      console.log('[ResetPassword] Session details:', {
-        email: session.user.email,
-        expiresAt: session.expires_at,
-        accessTokenLength: session.access_token?.length || 0
-      })
 
       // Use the update-user-password Edge Function to also activate account and update status
       const { data, error: updateError } = await supabaseClient.functions.invoke('update-user-password', {
@@ -302,29 +247,14 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
           user_id: session.user.id
         }
       });
-      console.log('[ResetPassword] update-user-password Edge Function call completed', {
-        hasData: !!data,
-        hasError: !!updateError,
-        dataKeys: data ? Object.keys(data) : [],
-        errorMessage: updateError?.message
-      })
 
       // Check for Edge Function invocation error first
       if (updateError) {
-        console.error('[ResetPassword] ❌ Edge Function error:', {
-          message: updateError.message,
-          error: updateError
-        })
+        console.error('[ResetPassword] ❌ Edge Function error:', updateError.message)
         
         // Check session after error to determine if we can retry
-        const { data: { session: sessionAfterError }, error: sessionCheckErr } = await supabaseClient.auth.getSession()
-        console.log('[ResetPassword] Session check after error:', {
-          hasSession: !!sessionAfterError,
-          hasError: !!sessionCheckErr,
-          userEmail: sessionAfterError?.user?.email,
-          sessionStillValid: !!sessionAfterError?.user?.email
-        })
-
+        const { data: { session: sessionAfterError } } = await supabaseClient.auth.getSession()
+        
         // Handle common error statuses and messages
         // Try multiple ways to extract status code from Supabase functions.invoke error
         const errorAny = updateError as any
@@ -344,26 +274,11 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
           dataErrorMsg.includes('cannot be the same') ||
           finalStatus === 422  // 422 status typically means "same password" from our Edge Function
         
-        console.log('[ResetPassword] Extracted error details:', {
-          status: finalStatus,
-          statusFromMessage,
-          message: msg,
-          dataError: data?.error,
-          dataErrorMsg,
-          hasSamePasswordError,
-          errorKeys: Object.keys(errorAny || {})
-        })
-
         // Handle "same password" error - CRITICAL: Do not proceed to success, do not redirect
         // Check for 422 status OR "same password" in error message OR in data.error
         if (finalStatus === 422 || hasSamePasswordError) {
           const sessionStillValid = !!sessionAfterError?.user?.email
-          console.log('[ResetPassword] Same password error detected - preventing success flow:', {
-            status,
-            message: msg,
-            sessionStillValid,
-            canRetry: sessionStillValid
-          })
+          debugLog('[ResetPassword] same password error')
           
           // If session is still valid, just show error (allows user to retry)
           // CRITICAL: Return early to prevent any success/redirect logic
@@ -432,7 +347,6 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
         // Handle "same password" error in data response - CRITICAL: Do not proceed to success
         if (msg.includes('same')) {
           const sessionStillValid = !!sessionAfterDataError?.user?.email
-          console.log('[ResetPassword] Same password error in data response - preventing success flow')
           if (!sessionStillValid) {
             navigate('/forgot-password', {
               replace: true,
@@ -461,7 +375,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
       }
 
       // Success - password updated and account activated
-      console.log('[ResetPassword] ✅ Password updated successfully and account activated!')
+      debugLog('[ResetPassword] ✅ password reset complete')
       setSuccess('Password reset successfully! Your account has been activated. Redirecting to login...')
       await supabaseClient.auth.signOut()
       setTimeout(() => navigate('/', { replace: true }), 1500)
@@ -473,7 +387,6 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
       setError(err?.message || 'Failed to reset password. Please try again or request a new reset link.')
     } finally {
       setLoading(false)
-      console.log('[ResetPassword] handleSubmit completed (loading set to false)')
     }
   }
 

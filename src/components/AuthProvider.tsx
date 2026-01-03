@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { debugLog } from '../utils/debugLog';
 
 interface AuthConfig {
   supabaseClient: any;
@@ -149,13 +150,7 @@ export const AuthProvider: React.FC<{
       // Use Supabase's built-in password reset with proper tokens
       const redirectUrl = `${window.location.origin}/reset-password`;
       
-      console.log('🚨🚨🚨 NUCLEAR DEBUG - resetPassword called 🚨🚨🚨');
-      console.log('🔐 [AuthProvider.tsx] resetPassword called');
-      console.log('📧 Sending password reset to:', email);
-      console.log('🔗 Redirect URL:', redirectUrl);
-      
-      // Use Edge Function for password reset (same approach as activation)
-      console.log('🔗 About to call send-password-reset Edge Function');
+      debugLog('[AuthProvider] resetPassword', email);
       
       const { data, error: resetError } = await supabaseClient.functions.invoke('send-password-reset', {
         body: {
@@ -163,8 +158,6 @@ export const AuthProvider: React.FC<{
           redirectTo: redirectUrl
         }
       });
-      
-      console.log('📧 Edge Function response:', { data, error: resetError });
       
       if (resetError) throw resetError;
       
@@ -174,7 +167,7 @@ export const AuthProvider: React.FC<{
         throw new Error(data.error);
       }
       
-      console.log('✅ [AuthProvider.tsx] Password reset email sent successfully via Edge Function');
+      debugLog('[AuthProvider] ✅ password reset email sent');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -192,9 +185,7 @@ export const AuthProvider: React.FC<{
       const baseUrl = window.location.origin;
       const redirectUrl = `${baseUrl}/activate-account`;
       
-      console.log('🎯 [AuthProvider.tsx] sendActivationEmail called');
-      console.log('📧 Sending activation email to:', email);
-      console.log('🔗 Redirect URL:', redirectUrl);
+      debugLog('[AuthProvider] sendActivationEmail', email);
       
       // First, check if user exists in profiles table
       const { data: profile, error: profileError } = await supabaseClient
@@ -202,9 +193,6 @@ export const AuthProvider: React.FC<{
         .select('id, username, full_name')
         .eq('username', email)
         .maybeSingle();
-
-      console.log('Profile check:', { profile, profileError });
-      console.log('Profile error details:', profileError);
 
       if (profileError && profileError.code !== 'PGRST116') {
         // PGRST116 is "not found" error, which is expected for new users
@@ -214,14 +202,9 @@ export const AuthProvider: React.FC<{
 
       if (profile) {
         // User exists in profiles table - proceed with activation
-        console.log('User found in profiles table, proceeding with activation');
-        
         // Use Supabase client-side approach for deployment compatibility
         const baseUrl = window.location.origin;
         const redirectUrl = `${baseUrl}/activate-account`;
-        
-        console.log('Using deployment-friendly client-side approach');
-        console.log('Redirect URL:', redirectUrl);
         
         // Use resetPasswordForEmail which works client-side and sends proper activation email
         const { data, error } = await supabaseClient.auth.resetPasswordForEmail(email, {
@@ -232,10 +215,10 @@ export const AuthProvider: React.FC<{
           throw error;
         }
 
-        console.log('✅ [AuthProvider.tsx] Activation email sent successfully via Supabase:', data);
+        debugLog('[AuthProvider] ✅ activation email sent');
       } else {
         // User doesn't exist in profiles table
-        console.log('[AuthProvider.tsx] User not found in profiles table');
+        debugLog('[AuthProvider] user not found in profiles');
         throw new Error (
           'This email address is not registered in our system. Please contact your administrator to request access.');
       }
@@ -258,9 +241,7 @@ export const AuthProvider: React.FC<{
     setError(null);
     
     try {
-      console.log('🎯 [AuthProvider.tsx] activateUser called');
-      console.log('📧 Email:', email);
-      console.log('🆔 User ID:', userId);
+      debugLog('[AuthProvider] activateUser', email);
       
       // Use the update-user-password edge function to set the password
       const { data, error: updateError } = await supabaseClient.functions.invoke('update-user-password', {
@@ -282,8 +263,6 @@ export const AuthProvider: React.FC<{
         throw new Error(data.error);
       }
       
-      console.log('✅ Edge Function response:', data);
-      
       // Now try to sign in with the new password
       const { data: signInData, error: signInError } = await supabaseClient.auth.signInWithPassword({
         email,
@@ -296,7 +275,6 @@ export const AuthProvider: React.FC<{
       
       // Update user status to Active in profiles table (fallback if Edge Function didn't do it)
       if (signInData.user) {
-        console.log('🔍 Checking if profile status needs to be updated...');
         const { error: profileError } = await supabaseClient
           .from('profiles')
           .update({ status: 'Active' })
@@ -305,12 +283,10 @@ export const AuthProvider: React.FC<{
         if (profileError) {
           console.error('❌ Profile update error:', profileError);
           // Don't throw - activation was successful
-        } else {
-          console.log('✅ Profile status updated to Active for user:', signInData.user.email);
         }
       }
       
-      console.log('✅ User activated and signed in successfully:', signInData.user?.email);
+      debugLog('[AuthProvider] ✅ user activated', signInData.user?.email);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
