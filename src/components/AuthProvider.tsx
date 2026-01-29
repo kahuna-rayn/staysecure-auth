@@ -18,6 +18,7 @@ interface AuthContextValue {
   resetPassword: (email: string) => Promise<void>;
   sendActivationEmail: (email: string) => Promise<void>;
   activateUser: (email: string, password: string, confirmPassword: string, userId?: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -34,6 +35,7 @@ const defaultAuthContext: AuthContextValue = {
   resetPassword: async () => {},
   sendActivationEmail: async () => {},
   activateUser: async () => {},
+  changePassword: async () => ({ success: false, error: 'Not configured' }),
 };
 
 export const AuthProvider: React.FC<{
@@ -129,14 +131,17 @@ export const AuthProvider: React.FC<{
     try {
       setLoading(true);
       setError(null);
-      
+
       const { error } = await supabaseClient.auth.signOut();
 
       if (error) {
         throw error;
       }
     } catch (error: any) {
-      setError(error.message);
+      // Session may already be invalid (e.g. after password change). Clear local state
+      // so the user is logged out in the app; otherwise they stay "stuck" logged in.
+      setUser(null);
+      setError(null);
     } finally {
       setLoading(false);
     }
@@ -294,6 +299,32 @@ export const AuthProvider: React.FC<{
     }
   };
 
+  const changePassword = async (currentPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> => {
+    if (!user?.id) {
+      return { success: false, error: 'You must be signed in to change your password.' };
+    }
+    try {
+      const { data, error: fnError } = await supabaseClient.functions.invoke('change-password', {
+        body: {
+          currentPassword,
+          newPassword,
+          userId: user.id,
+          timezone: typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined,
+        },
+      });
+      if (fnError) {
+        return { success: false, error: fnError.message || 'Failed to update password.' };
+      }
+      if (data?.success === false && data?.error) {
+        return { success: false, error: data.error };
+      }
+      return { success: true };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update password.';
+      return { success: false, error: message };
+    }
+  };
+
   const value: AuthContextValue = {
     user,
     loading,
@@ -305,6 +336,7 @@ export const AuthProvider: React.FC<{
     resetPassword,
     sendActivationEmail,
     activateUser,
+    changePassword,
   };
 
   return (

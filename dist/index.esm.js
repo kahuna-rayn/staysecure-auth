@@ -32,7 +32,8 @@ const defaultAuthContext = {
   sendActivationEmail: async () => {
   },
   activateUser: async () => {
-  }
+  },
+  changePassword: async () => ({ success: false, error: "Not configured" })
 };
 const AuthProvider = ({ config, children }) => {
   const { supabaseClient } = config;
@@ -112,7 +113,8 @@ const AuthProvider = ({ config, children }) => {
         throw error2;
       }
     } catch (error2) {
-      setError(error2.message);
+      setUser(null);
+      setError(null);
     } finally {
       setLoading(false);
     }
@@ -222,6 +224,31 @@ const AuthProvider = ({ config, children }) => {
       setLoading(false);
     }
   };
+  const changePassword = async (currentPassword, newPassword) => {
+    if (!(user == null ? void 0 : user.id)) {
+      return { success: false, error: "You must be signed in to change your password." };
+    }
+    try {
+      const { data, error: fnError } = await supabaseClient.functions.invoke("change-password", {
+        body: {
+          currentPassword,
+          newPassword,
+          userId: user.id,
+          timezone: typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : void 0
+        }
+      });
+      if (fnError) {
+        return { success: false, error: fnError.message || "Failed to update password." };
+      }
+      if ((data == null ? void 0 : data.success) === false && (data == null ? void 0 : data.error)) {
+        return { success: false, error: data.error };
+      }
+      return { success: true };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to update password.";
+      return { success: false, error: message };
+    }
+  };
   const value = {
     user,
     loading,
@@ -232,7 +259,8 @@ const AuthProvider = ({ config, children }) => {
     signOut,
     resetPassword,
     sendActivationEmail,
-    activateUser
+    activateUser,
+    changePassword
   };
   return /* @__PURE__ */ jsx(AuthContext.Provider, { value, children });
 };
