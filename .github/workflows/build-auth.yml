@@ -2,9 +2,12 @@ name: Build
 
 on:
   push:
-    branches: [main]
+    branches: [main, auth-tests] # adding auth-tests here temporarily to test the workflow
   pull_request:
     branches: [main]
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -30,3 +33,16 @@ jobs:
       - name: Run build
         run: npm run build
         
+      - name: Check for dist changes
+        id: changes
+        run: |
+          git diff --quiet dist/ && echo "changed=false" >> $GITHUB_OUTPUT || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Commit and push dist
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add dist/
+          git commit -m "chore: update dist [skip ci]"
+          git push
