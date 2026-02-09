@@ -1,14 +1,11 @@
-import type { Config } from "jest";
-
-const config: Config = {
+/** @type {import('jest').Config} */
+export default {
   preset: "ts-jest",
   testEnvironment: "jsdom",
   testEnvironmentOptions: {
-    url: "https://app.test.com/"
+    url: "https://app.test.com/",
   },
   testMatch: ["<rootDir>/(src|tests)/**/*.test.ts?(x)"],
   clearMocks: true,
-  passWithNoTests: true
+  passWithNoTests: true,
 };
-
-export default config;
