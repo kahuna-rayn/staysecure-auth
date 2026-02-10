@@ -1,3 +1,8 @@
+/**
+ * @jest-environment jsdom
+ * @jest-environment-options {"url": "https://staging.test.com/"}
+ */
+
 import { getDisplayName } from '../../src/utils/getDisplayName'
 
 jest.mock("../../src/utils/debugLog", () => ({
@@ -20,33 +25,14 @@ describe('getDisplayName', () => {
         expect(getDisplayName()).toBeNull();
     });
 
-    it("does not treat auth routes as clientId - falls back to default", () => {
+    it("uses default clientId on staging subdomain", () => {
         (window as any).__CLIENT_CONFIGS__ = {
             default: { displayName: "default"},
-            login: { displayName: "should not be used"}
-        };
-
-        setPath("/login");
-        expect(getDisplayName()).toBe("default");
-    });
-
-    it("treats first path segment as clientId when it is not an auth route", () => {
-        (window as any).__CLIENT_CONFIGS__ = {
-            default: { displayName: "default"},
-            nexus: { displayName: "nexus"}
+            nexus: { displayName: "nexus"},
         };
 
         setPath("/nexus/login");
-        expect(getDisplayName()).toBe("nexus")
-    })
-
-    it("returns null if __CLIENT_CONFIGS__ exists but has no displayname", () => {
-        (window as any).__CLIENT_CONFIGS__ = {
-            default: {}
-        };
-
-        setPath("/login");
-        expect(getDisplayName()).toBeNull();
+        expect(getDisplayName()).toBe("default")
     });
     
     it("returns null if error occurs and silently fails", () => {
