@@ -13,7 +13,7 @@ const setPath = (pathname: string) => {
     window.history.pushState({}, "", pathname);
 }
 
-describe('getDisplayName', () => {
+describe('getDisplayName dev', () => {
     beforeEach(() => {
         // Reset global config before each test
         delete (window as any).__CLIENT_CONFIGS__;
