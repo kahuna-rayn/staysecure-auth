@@ -8,13 +8,4 @@ export default {
   testMatch: ["<rootDir>/(src|tests)/**/*.test.ts?(x)"],
   clearMocks: true,
   passWithNoTests: true,  
-  /**
-  coverageThreshold: { // initial baseline threshold
-    global: {
-      statements: 70,
-      branches: 60,
-      functions: 70,
-      lines: 70
-    }
-  } */
 };

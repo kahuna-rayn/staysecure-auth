@@ -13,5 +13,3 @@ export { createUseAuth } from './hooks/useAuth';
 
 // Types
 export * from './types';
-
-// changing dist output here to test build workflow
