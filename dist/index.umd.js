@@ -139,30 +139,17 @@
       try {
         setLoading(true);
         setError(null);
-        const baseUrl = window.location.origin;
-        const redirectUrl = `${baseUrl}/activate-account`;
         debugLog("[AuthProvider] sendActivationEmail", email);
-        const { data: profile, error: profileError } = await supabaseClient.from("profiles").select("id, username, full_name").eq("username", email).maybeSingle();
-        if (profileError && profileError.code !== "PGRST116") {
-          console.error("Profile query failed:", profileError);
-          throw profileError;
+        const { data, error: error2 } = await supabaseClient.functions.invoke("request-activation-link", {
+          body: { email }
+        });
+        if (error2) {
+          throw error2;
         }
-        if (profile) {
-          const baseUrl2 = window.location.origin;
-          const redirectUrl2 = `${baseUrl2}/activate-account`;
-          const { data, error: error2 } = await supabaseClient.auth.resetPasswordForEmail(email, {
-            redirectTo: redirectUrl2
-          });
-          if (error2) {
-            throw error2;
-          }
-          debugLog("[AuthProvider] ✅ activation email sent");
-        } else {
-          debugLog("[AuthProvider] user not found in profiles");
-          throw new Error(
-            "This email address is not registered in our system. Please contact your administrator to request access."
-          );
+        if (data == null ? void 0 : data.error) {
+          throw new Error(data.error);
         }
+        debugLog("[AuthProvider] ✅ activation email sent");
       } catch (error2) {
         console.error("Activation email error:", error2);
         setError(error2.message);

@@ -185,48 +185,24 @@ export const AuthProvider: React.FC<{
     try {
       setLoading(true);
       setError(null);
-      
-      // Get the current app's base URL and redirect to activation page
-      const baseUrl = window.location.origin;
-      const redirectUrl = `${baseUrl}/activate-account`;
-      
+
       debugLog('[AuthProvider] sendActivationEmail', email);
-      
-      // First, check if user exists in profiles table
-      const { data: profile, error: profileError } = await supabaseClient
-        .from('profiles')
-        .select('id, username, full_name')
-        .eq('username', email)
-        .maybeSingle();
 
-      if (profileError && profileError.code !== 'PGRST116') {
-        // PGRST116 is "not found" error, which is expected for new users
-        console.error('Profile query failed:', profileError);
-        throw profileError;
+      // Use Edge Function (service role) to check profiles and send activation email.
+      // Client-side profiles query fails due to RLS - anon cannot read profiles.
+      const { data, error } = await supabaseClient.functions.invoke('request-activation-link', {
+        body: { email },
+      });
+
+      if (error) {
+        throw error;
       }
 
-      if (profile) {
-        // User exists in profiles table - proceed with activation
-        // Use Supabase client-side approach for deployment compatibility
-        const baseUrl = window.location.origin;
-        const redirectUrl = `${baseUrl}/activate-account`;
-        
-        // Use resetPasswordForEmail which works client-side and sends proper activation email
-        const { data, error } = await supabaseClient.auth.resetPasswordForEmail(email, {
-          redirectTo: redirectUrl,
-        });
-
-        if (error) {
-          throw error;
-        }
-
-        debugLog('[AuthProvider] ✅ activation email sent');
-      } else {
-        // User doesn't exist in profiles table
-        debugLog('[AuthProvider] user not found in profiles');
-        throw new Error (
-          'This email address is not registered in our system. Please contact your administrator to request access.');
+      if (data?.error) {
+        throw new Error(data.error);
       }
+
+      debugLog('[AuthProvider] ✅ activation email sent');
     } catch (error: any) {
       console.error('Activation email error:', error);
       setError(error.message);
