@@ -7,6 +7,9 @@ yarn-error.log*
 # Build outputs  
 build/
 
+# Coverage reports
+coverage/
+
 # Environment variables
 .env
 .env.local
