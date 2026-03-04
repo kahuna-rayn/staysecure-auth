@@ -140,8 +140,12 @@
         setLoading(true);
         setError(null);
         debugLog("[AuthProvider] sendActivationEmail", email);
+        const pathParts = typeof window !== "undefined" ? window.location.pathname.split("/").filter(Boolean) : [];
+        const reserved = ["admin", "activate-account", "reset-password", "forgot-password", "email-notifications"];
+        const clientSegment = pathParts[0] && !reserved.includes(pathParts[0]) ? pathParts[0] : "";
+        const redirectUrl = typeof window !== "undefined" ? clientSegment ? `${window.location.origin}/${clientSegment}/activate-account` : `${window.location.origin}/activate-account` : void 0;
         const { data, error: error2 } = await supabaseClient.functions.invoke("request-activation-link", {
-          body: { email }
+          body: { email, redirectUrl }
         });
         if (error2) {
           throw error2;

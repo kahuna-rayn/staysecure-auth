@@ -188,10 +188,21 @@ export const AuthProvider: React.FC<{
 
       debugLog('[AuthProvider] sendActivationEmail', email);
 
+      // Build redirect URL the same way as resetPassword: origin + client path + /activate-account.
+      // Derive client path from current pathname so the activation link lands on the correct client route.
+      const pathParts = typeof window !== 'undefined' ? window.location.pathname.split('/').filter(Boolean) : [];
+      const reserved = ['admin', 'activate-account', 'reset-password', 'forgot-password', 'email-notifications'];
+      const clientSegment = pathParts[0] && !reserved.includes(pathParts[0]) ? pathParts[0] : '';
+      const redirectUrl =
+        typeof window !== 'undefined'
+          ? clientSegment
+            ? `${window.location.origin}/${clientSegment}/activate-account`
+            : `${window.location.origin}/activate-account`
+          : undefined;
+
       // Use Edge Function (service role) to check profiles and send activation email.
-      // Client-side profiles query fails due to RLS - anon cannot read profiles.
       const { data, error } = await supabaseClient.functions.invoke('request-activation-link', {
-        body: { email },
+        body: { email, redirectUrl },
       });
 
       if (error) {
