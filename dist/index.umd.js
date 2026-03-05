@@ -136,6 +136,7 @@
       }
     };
     const sendActivationEmail = async (email) => {
+      var _a;
       try {
         setLoading(true);
         setError(null);
@@ -156,8 +157,16 @@
         debugLog("[AuthProvider] ✅ activation email sent");
       } catch (error2) {
         console.error("Activation email error:", error2);
-        setError(error2.message);
-        throw error2;
+        let message = (error2 == null ? void 0 : error2.message) ?? "An error occurred";
+        if ((error2 == null ? void 0 : error2.context) && typeof ((_a = error2.context) == null ? void 0 : _a.json) === "function") {
+          try {
+            const body = await error2.context.json();
+            if ((body == null ? void 0 : body.error) && typeof body.error === "string") message = body.error;
+          } catch {
+          }
+        }
+        setError(message);
+        throw new Error(message);
       } finally {
         setLoading(false);
       }

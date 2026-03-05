@@ -216,8 +216,18 @@ export const AuthProvider: React.FC<{
       debugLog('[AuthProvider] ✅ activation email sent');
     } catch (error: any) {
       console.error('Activation email error:', error);
-      setError(error.message);
-      throw error;
+      // When Edge Function returns 404/500, invoke() throws and response body is in error.context
+      let message = error?.message ?? 'An error occurred';
+      if (error?.context && typeof error.context?.json === 'function') {
+        try {
+          const body = await error.context.json();
+          if (body?.error && typeof body.error === 'string') message = body.error;
+        } catch {
+          // ignore parse failure
+        }
+      }
+      setError(message);
+      throw new Error(message);
     } finally {
       setLoading(false);
     }
