@@ -152,15 +152,23 @@ export const AuthProvider: React.FC<{
     setError(null);
     
     try {
-      // Use Supabase's built-in password reset with proper tokens
-      const redirectUrl = `${window.location.origin}/reset-password`;
+      // Build redirect URL with client segment (e.g. /nexus/reset-password)
+      // mirrors sendActivationEmail pattern
+      const pathParts = typeof window !== 'undefined' ? window.location.pathname.split('/').filter(Boolean) : [];
+      const reserved = ['admin', 'activate-account', 'reset-password', 'forgot-password', 'email-notifications'];
+      const clientSegment = pathParts[0] && !reserved.includes(pathParts[0]) ? pathParts[0] : '';
+      const redirectUrl = typeof window !== 'undefined'
+        ? clientSegment
+          ? `${window.location.origin}/${clientSegment}/reset-password`
+          : `${window.location.origin}/reset-password`
+        : undefined;
       
       debugLog('[AuthProvider] resetPassword', email);
       
       const { data, error: resetError } = await supabaseClient.functions.invoke('send-password-reset', {
         body: {
           email,
-          redirectTo: redirectUrl
+          redirectUrl,
         }
       });
       
