@@ -3,8 +3,11 @@ export { default as ActivateAccount } from './components/ActivateAccount';
 export { default as AuthBranding } from './components/AuthBranding';
 export { default as AuthEventRedirect } from './components/AuthEventRedirect';
 export { AuthProvider, useAuth } from './components/AuthProvider';
+export type { AuthConfig, AuthContextValue, MFAConfig, MFAState } from './components/AuthProvider';
 export { default as ForgotPassword } from './components/ForgotPassword';
 export { default as LoginForm } from './components/LoginForm';
+export { default as MFAChallenge } from './components/MFAChallenge';
+export { default as MFAEnrollment } from './components/MFAEnrollment';
 export { default as ResetPassword } from './components/ResetPassword';
 export { default as SignUpForm } from './components/SignUpForm';
 

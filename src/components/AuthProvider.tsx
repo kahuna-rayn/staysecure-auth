@@ -2,16 +2,37 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { debugLog } from '../utils/debugLog';
 
-interface AuthConfig {
-  supabaseClient: any;
-  redirectTo?: string;
+/** What the app knows about the current user's role — passed in so the auth
+ *  module stays decoupled from app-specific role logic. */
+export interface MFAConfig {
+  /**
+   * Return true if this user must enroll MFA before entering the app.
+   * Receives the Supabase auth user and the supabase client so it can query
+   * profiles (e.g. check access_level) if needed. May be async.
+   */
+  requireEnrollment?: (user: any, supabaseClient: any) => boolean | Promise<boolean>;
 }
 
-interface AuthContextValue {
+export interface AuthConfig {
+  supabaseClient: any;
+  redirectTo?: string;
+  mfa?: MFAConfig;
+}
+
+/** Possible MFA states surfaced to consuming components. */
+export type MFAState =
+  | 'none'      // No MFA action needed — proceed normally
+  | 'challenge' // User has a factor enrolled; must verify before entering app
+  | 'enroll'    // User must enroll (mandatory per requireEnrollment rule)
+  | 'prompt';   // User has no factor but enrollment is optional — show nudge
+
+export interface AuthContextValue {
   user: any | null;
   loading: boolean;
   error: string | null;
   supabaseClient: any;
+  mfaState: MFAState;
+  clearMfaState: () => void;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, fullName?: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -29,6 +50,8 @@ const defaultAuthContext: AuthContextValue = {
   loading: true,
   error: null,
   supabaseClient: null,
+  mfaState: 'none',
+  clearMfaState: () => {},
   signIn: async () => {},
   signUp: async () => {},
   signOut: async () => {},
@@ -42,10 +65,11 @@ export const AuthProvider: React.FC<{
   config: AuthConfig;
   children: React.ReactNode;
 }> = ({ config, children }) => {
-  const { supabaseClient } = config;
+  const { supabaseClient, mfa: mfaConfig } = config;
   const [user, setUser] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mfaState, setMfaState] = useState<MFAState>('none');
 
   // Service role client removed - using Supabase's built-in validation instead
 
@@ -84,21 +108,46 @@ export const AuthProvider: React.FC<{
     try {
       setLoading(true);
       setError(null);
-      
+      setMfaState('none');
+
       const { data, error } = await supabaseClient.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) {
-        throw error;
+      if (error) throw error;
+
+      // ── MFA check ────────────────────────────────────────────────────────
+      const { data: aalData } = await supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel();
+      const { currentLevel, nextLevel } = aalData ?? {};
+
+      if (currentLevel === 'aal1' && nextLevel === 'aal2') {
+        // User has an enrolled factor but hasn't verified this session yet
+        setMfaState('challenge');
+        return;
       }
+
+      if (nextLevel === 'aal1') {
+        // No factors enrolled — check if enrollment should be forced
+        const shouldForce = mfaConfig?.requireEnrollment
+          ? await mfaConfig.requireEnrollment(data.user, supabaseClient)
+          : false;
+        if (shouldForce) {
+          setMfaState('enroll');
+          return;
+        }
+        // Optional: nudge the user but don't block
+        setMfaState('prompt');
+      }
+      // ── end MFA check ─────────────────────────────────────────────────────
     } catch (error: any) {
       setError(error.message);
     } finally {
       setLoading(false);
     }
   };
+
+  const clearMfaState = () => setMfaState('none');
 
   const signUp = async (email: string, password: string, fullName?: string) => {
     try {
@@ -335,6 +384,8 @@ export const AuthProvider: React.FC<{
     loading,
     error,
     supabaseClient,
+    mfaState,
+    clearMfaState,
     signIn,
     signUp,
     signOut,
