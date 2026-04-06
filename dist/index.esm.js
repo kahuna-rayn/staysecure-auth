@@ -996,6 +996,15 @@ const MFAEnrollment = ({
         code
       });
       if (verifyError) throw verifyError;
+      const { data: { user } } = await supabaseClient.auth.getUser();
+      if (user == null ? void 0 : user.id) {
+        const { error: profileError } = await supabaseClient.from("profiles").update({ two_factor_enabled: true }).eq("id", user.id);
+        if (profileError) {
+          debugLog("[MFAEnrollment] warning: could not set two_factor_enabled on profile", profileError.message);
+        } else {
+          debugLog("[MFAEnrollment] profiles.two_factor_enabled set to true");
+        }
+      }
       debugLog("[MFAEnrollment] enrollment verified → calling onSuccess");
       onSuccess();
     } catch (err) {
