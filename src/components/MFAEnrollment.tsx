@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, ShieldCheck, Copy, Check } from 'lucide-react';
 import AuthBranding from './AuthBranding';
+import { debugLog } from '../utils/debugLog';
 
 interface MFAEnrollmentProps {
   supabaseClient: any;
@@ -37,22 +38,26 @@ const MFAEnrollment: React.FC<MFAEnrollmentProps> = ({
 
   // Enroll a new TOTP factor on mount
   useEffect(() => {
+    debugLog('[MFAEnrollment] mounted', { required });
     let cancelled = false;
     const enroll = async () => {
       setLoading(true);
       setError(null);
+      debugLog('[MFAEnrollment] calling mfa.enroll...');
       try {
         const { data, error: enrollError } = await supabaseClient.auth.mfa.enroll({
           factorType: 'totp',
           friendlyName: 'Authenticator App',
         });
         if (enrollError) throw enrollError;
+        debugLog('[MFAEnrollment] enroll success, factorId:', data.id);
         if (!cancelled) {
           setFactorId(data.id);
           setQrCode(data.totp.qr_code);
           setSecret(data.totp.secret);
         }
       } catch (err: any) {
+        debugLog('[MFAEnrollment] enroll error', err?.message);
         if (!cancelled) setError(err?.message ?? 'Could not start enrollment. Please try again.');
       } finally {
         if (!cancelled) setLoading(false);
@@ -81,12 +86,14 @@ const MFAEnrollment: React.FC<MFAEnrollmentProps> = ({
 
     setLoading(true);
     setError(null);
+    debugLog('[MFAEnrollment] verifying enrollment code for factorId', factorId);
 
     try {
       const { data: challengeData, error: challengeError } = await supabaseClient.auth.mfa.challenge({
         factorId,
       });
       if (challengeError) throw challengeError;
+      debugLog('[MFAEnrollment] challenge created', challengeData.id);
 
       const { error: verifyError } = await supabaseClient.auth.mfa.verify({
         factorId,
@@ -95,9 +102,11 @@ const MFAEnrollment: React.FC<MFAEnrollmentProps> = ({
       });
       if (verifyError) throw verifyError;
 
+      debugLog('[MFAEnrollment] enrollment verified → calling onSuccess');
       onSuccess();
     } catch (err: any) {
       const msg = err?.message ?? 'Verification failed.';
+      debugLog('[MFAEnrollment] verify error', msg);
       setError(
         msg.toLowerCase().includes('invalid') || msg.toLowerCase().includes('token')
           ? 'Incorrect code. Make sure your device clock is accurate and try again.'

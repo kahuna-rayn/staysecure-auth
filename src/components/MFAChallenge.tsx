@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, ShieldCheck } from 'lucide-react';
 import AuthBranding from './AuthBranding';
+import { debugLog } from '../utils/debugLog';
 
 interface MFAChallengeProps {
   supabaseClient: any;
@@ -20,6 +21,7 @@ const MFAChallenge: React.FC<MFAChallengeProps> = ({ supabaseClient, onSuccess, 
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    debugLog('[MFAChallenge] mounted');
     inputRef.current?.focus();
   }, []);
 
@@ -32,22 +34,23 @@ const MFAChallenge: React.FC<MFAChallengeProps> = ({ supabaseClient, onSuccess, 
 
     setLoading(true);
     setError(null);
+    debugLog('[MFAChallenge] verifying code...');
 
     try {
-      // Get the list of enrolled factors
       const { data: factorsData, error: factorsError } = await supabaseClient.auth.mfa.listFactors();
       if (factorsError) throw factorsError;
+      debugLog('[MFAChallenge] factors', factorsData);
 
       const totpFactor = factorsData?.totp?.[0];
       if (!totpFactor) throw new Error('No TOTP factor found.');
+      debugLog('[MFAChallenge] using factor', totpFactor.id);
 
-      // Create a challenge for this factor
       const { data: challengeData, error: challengeError } = await supabaseClient.auth.mfa.challenge({
         factorId: totpFactor.id,
       });
       if (challengeError) throw challengeError;
+      debugLog('[MFAChallenge] challenge created', challengeData.id);
 
-      // Verify the challenge with the user's code
       const { error: verifyError } = await supabaseClient.auth.mfa.verify({
         factorId: totpFactor.id,
         challengeId: challengeData.id,
@@ -55,10 +58,11 @@ const MFAChallenge: React.FC<MFAChallengeProps> = ({ supabaseClient, onSuccess, 
       });
       if (verifyError) throw verifyError;
 
+      debugLog('[MFAChallenge] verify success → calling onSuccess');
       onSuccess();
     } catch (err: any) {
       const msg = err?.message ?? 'Verification failed.';
-      // Surface a friendlier message for wrong codes
+      debugLog('[MFAChallenge] verify error', msg);
       setError(
         msg.toLowerCase().includes('invalid') || msg.toLowerCase().includes('token')
           ? 'Incorrect code. Check your authenticator app and try again.'

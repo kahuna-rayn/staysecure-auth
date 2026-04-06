@@ -96,8 +96,15 @@ export const AuthProvider: React.FC<{
     // Listen for auth changes
     const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(
       async (event: string, session: any) => {
+        debugLog('[AuthProvider] onAuthStateChange', event, session?.user?.email ?? 'no user');
         setUser(session?.user || null);
         setLoading(false);
+        // Clear MFA intercept state on sign-out so LoginForm reverts to
+        // the email/password form rather than showing a stale MFA screen.
+        if (event === 'SIGNED_OUT') {
+          debugLog('[AuthProvider] SIGNED_OUT → clearing mfaState');
+          setMfaState('none');
+        }
       }
     );
 
@@ -117,30 +124,44 @@ export const AuthProvider: React.FC<{
 
       if (error) throw error;
 
+      debugLog('[AuthProvider] signIn success', data.user?.email);
+
       // ── MFA check ────────────────────────────────────────────────────────
-      const { data: aalData } = await supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel();
+      const { data: aalData, error: aalError } = await supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aalError) {
+        debugLog('[AuthProvider] AAL check error', aalError.message);
+      }
       const { currentLevel, nextLevel } = aalData ?? {};
+      debugLog('[AuthProvider] AAL levels', { currentLevel, nextLevel });
 
       if (currentLevel === 'aal1' && nextLevel === 'aal2') {
         // User has an enrolled factor but hasn't verified this session yet
+        debugLog('[AuthProvider] → mfaState: challenge (factor enrolled, not yet verified)');
         setMfaState('challenge');
         return;
       }
 
       if (nextLevel === 'aal1') {
         // No factors enrolled — check if enrollment should be forced
+        debugLog('[AuthProvider] No factor enrolled; checking requireEnrollment...');
         const shouldForce = mfaConfig?.requireEnrollment
           ? await mfaConfig.requireEnrollment(data.user, supabaseClient)
           : false;
+        debugLog('[AuthProvider] requireEnrollment →', shouldForce);
         if (shouldForce) {
+          debugLog('[AuthProvider] → mfaState: enroll (mandatory)');
           setMfaState('enroll');
           return;
         }
         // Optional: nudge the user but don't block
+        debugLog('[AuthProvider] → mfaState: prompt (optional nudge)');
         setMfaState('prompt');
       }
+
+      debugLog('[AuthProvider] → mfaState: none (no MFA action needed)');
       // ── end MFA check ─────────────────────────────────────────────────────
     } catch (error: any) {
+      debugLog('[AuthProvider] signIn error', error.message);
       setError(error.message);
     } finally {
       setLoading(false);

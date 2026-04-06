@@ -53,13 +53,20 @@
       getInitialSession();
       const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(
         async (event, session) => {
+          var _a;
+          debugLog("[AuthProvider] onAuthStateChange", event, ((_a = session == null ? void 0 : session.user) == null ? void 0 : _a.email) ?? "no user");
           setUser((session == null ? void 0 : session.user) || null);
           setLoading(false);
+          if (event === "SIGNED_OUT") {
+            debugLog("[AuthProvider] SIGNED_OUT → clearing mfaState");
+            setMfaState("none");
+          }
         }
       );
       return () => subscription.unsubscribe();
     }, [supabaseClient]);
     const signIn = async (email, password) => {
+      var _a;
       try {
         setLoading(true);
         setError(null);
@@ -69,21 +76,33 @@
           password
         });
         if (error2) throw error2;
-        const { data: aalData } = await supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel();
+        debugLog("[AuthProvider] signIn success", (_a = data.user) == null ? void 0 : _a.email);
+        const { data: aalData, error: aalError } = await supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel();
+        if (aalError) {
+          debugLog("[AuthProvider] AAL check error", aalError.message);
+        }
         const { currentLevel, nextLevel } = aalData ?? {};
+        debugLog("[AuthProvider] AAL levels", { currentLevel, nextLevel });
         if (currentLevel === "aal1" && nextLevel === "aal2") {
+          debugLog("[AuthProvider] → mfaState: challenge (factor enrolled, not yet verified)");
           setMfaState("challenge");
           return;
         }
         if (nextLevel === "aal1") {
+          debugLog("[AuthProvider] No factor enrolled; checking requireEnrollment...");
           const shouldForce = (mfaConfig == null ? void 0 : mfaConfig.requireEnrollment) ? await mfaConfig.requireEnrollment(data.user, supabaseClient) : false;
+          debugLog("[AuthProvider] requireEnrollment →", shouldForce);
           if (shouldForce) {
+            debugLog("[AuthProvider] → mfaState: enroll (mandatory)");
             setMfaState("enroll");
             return;
           }
+          debugLog("[AuthProvider] → mfaState: prompt (optional nudge)");
           setMfaState("prompt");
         }
+        debugLog("[AuthProvider] → mfaState: none (no MFA action needed)");
       } catch (error2) {
+        debugLog("[AuthProvider] signIn error", error2.message);
         setError(error2.message);
       } finally {
         setLoading(false);
@@ -759,6 +778,7 @@
     const inputRef = react.useRef(null);
     react.useEffect(() => {
       var _a;
+      debugLog("[MFAChallenge] mounted");
       (_a = inputRef.current) == null ? void 0 : _a.focus();
     }, []);
     const handleVerify = async (e) => {
@@ -770,24 +790,30 @@
       }
       setLoading(true);
       setError(null);
+      debugLog("[MFAChallenge] verifying code...");
       try {
         const { data: factorsData, error: factorsError } = await supabaseClient.auth.mfa.listFactors();
         if (factorsError) throw factorsError;
+        debugLog("[MFAChallenge] factors", factorsData);
         const totpFactor = (_a = factorsData == null ? void 0 : factorsData.totp) == null ? void 0 : _a[0];
         if (!totpFactor) throw new Error("No TOTP factor found.");
+        debugLog("[MFAChallenge] using factor", totpFactor.id);
         const { data: challengeData, error: challengeError } = await supabaseClient.auth.mfa.challenge({
           factorId: totpFactor.id
         });
         if (challengeError) throw challengeError;
+        debugLog("[MFAChallenge] challenge created", challengeData.id);
         const { error: verifyError } = await supabaseClient.auth.mfa.verify({
           factorId: totpFactor.id,
           challengeId: challengeData.id,
           code
         });
         if (verifyError) throw verifyError;
+        debugLog("[MFAChallenge] verify success → calling onSuccess");
         onSuccess();
       } catch (err) {
         const msg = (err == null ? void 0 : err.message) ?? "Verification failed.";
+        debugLog("[MFAChallenge] verify error", msg);
         setError(
           msg.toLowerCase().includes("invalid") || msg.toLowerCase().includes("token") ? "Incorrect code. Check your authenticator app and try again." : msg
         );
@@ -854,22 +880,26 @@
     const [copied, setCopied] = react.useState(false);
     const inputRef = react.useRef(null);
     react.useEffect(() => {
+      debugLog("[MFAEnrollment] mounted", { required });
       let cancelled = false;
       const enroll = async () => {
         setLoading(true);
         setError(null);
+        debugLog("[MFAEnrollment] calling mfa.enroll...");
         try {
           const { data, error: enrollError } = await supabaseClient.auth.mfa.enroll({
             factorType: "totp",
             friendlyName: "Authenticator App"
           });
           if (enrollError) throw enrollError;
+          debugLog("[MFAEnrollment] enroll success, factorId:", data.id);
           if (!cancelled) {
             setFactorId(data.id);
             setQrCode(data.totp.qr_code);
             setSecret(data.totp.secret);
           }
         } catch (err) {
+          debugLog("[MFAEnrollment] enroll error", err == null ? void 0 : err.message);
           if (!cancelled) setError((err == null ? void 0 : err.message) ?? "Could not start enrollment. Please try again.");
         } finally {
           if (!cancelled) setLoading(false);
@@ -898,20 +928,24 @@
       }
       setLoading(true);
       setError(null);
+      debugLog("[MFAEnrollment] verifying enrollment code for factorId", factorId);
       try {
         const { data: challengeData, error: challengeError } = await supabaseClient.auth.mfa.challenge({
           factorId
         });
         if (challengeError) throw challengeError;
+        debugLog("[MFAEnrollment] challenge created", challengeData.id);
         const { error: verifyError } = await supabaseClient.auth.mfa.verify({
           factorId,
           challengeId: challengeData.id,
           code
         });
         if (verifyError) throw verifyError;
+        debugLog("[MFAEnrollment] enrollment verified → calling onSuccess");
         onSuccess();
       } catch (err) {
         const msg = (err == null ? void 0 : err.message) ?? "Verification failed.";
+        debugLog("[MFAEnrollment] verify error", msg);
         setError(
           msg.toLowerCase().includes("invalid") || msg.toLowerCase().includes("token") ? "Incorrect code. Make sure your device clock is accurate and try again." : msg
         );
