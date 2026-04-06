@@ -70,9 +70,11 @@ export const AuthProvider: React.FC<{
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mfaState, setMfaState] = useState<MFAState>('none');
-  // True while signIn is running its MFA check — prevents onAuthStateChange
-  // from setting user prematurely and navigating away from LoginForm.
-  const mfaCheckInProgress = React.useRef(false);
+  // True while either the initial session restore OR a signIn is running its
+  // MFA check — prevents onAuthStateChange from setting user prematurely.
+  // Initialized to true so that SIGNED_IN / INITIAL_SESSION events fired
+  // before getInitialSession completes are suppressed.
+  const mfaCheckInProgress = React.useRef(true);
 
   // Service role client removed - using Supabase's built-in validation instead
 
@@ -110,6 +112,9 @@ export const AuthProvider: React.FC<{
         debugLog('[AuthProvider] getInitialSession error', error.message);
         setError(error.message);
       } finally {
+        // Release the gate so subsequent onAuthStateChange events (e.g.
+        // TOKEN_REFRESHED after mfa.verify(), or sign-out) are handled normally.
+        mfaCheckInProgress.current = false;
         setLoading(false);
       }
     };
@@ -121,12 +126,13 @@ export const AuthProvider: React.FC<{
       async (event: string, session: any) => {
         debugLog('[AuthProvider] onAuthStateChange', event, session?.user?.email ?? 'no user');
 
-        if (event === 'SIGNED_IN' && mfaCheckInProgress.current) {
-          // signIn is still running its async MFA check. Don't set user yet —
-          // doing so would navigate away from LoginForm before we know whether
-          // MFA enrollment or challenge is required. signIn will set user itself
-          // once the check completes (or TOKEN_REFRESHED will fire after MFA verify).
-          debugLog('[AuthProvider] SIGNED_IN suppressed — MFA check in progress');
+        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && mfaCheckInProgress.current) {
+          // Either getInitialSession or signIn is running its async MFA/AAL check.
+          // Suppress setting user until that check completes — otherwise the app
+          // navigates to the dashboard before MFA is verified.
+          // TOKEN_REFRESHED (fired after mfa.verify()) is intentionally NOT
+          // suppressed here so successful MFA verification sets the user normally.
+          debugLog('[AuthProvider]', event, 'suppressed — MFA/session check in progress');
           setLoading(false);
           return;
         }

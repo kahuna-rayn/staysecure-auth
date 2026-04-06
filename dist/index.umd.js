@@ -36,7 +36,7 @@
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState(null);
     const [mfaState, setMfaState] = React.useState("none");
-    const mfaCheckInProgress = React.useRef(false);
+    const mfaCheckInProgress = React.useRef(true);
     React.useEffect(() => {
       const getInitialSession = async () => {
         var _a;
@@ -61,6 +61,7 @@
           debugLog("[AuthProvider] getInitialSession error", error2.message);
           setError(error2.message);
         } finally {
+          mfaCheckInProgress.current = false;
           setLoading(false);
         }
       };
@@ -69,8 +70,8 @@
         async (event, session) => {
           var _a;
           debugLog("[AuthProvider] onAuthStateChange", event, ((_a = session == null ? void 0 : session.user) == null ? void 0 : _a.email) ?? "no user");
-          if (event === "SIGNED_IN" && mfaCheckInProgress.current) {
-            debugLog("[AuthProvider] SIGNED_IN suppressed — MFA check in progress");
+          if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && mfaCheckInProgress.current) {
+            debugLog("[AuthProvider]", event, "suppressed — MFA/session check in progress");
             setLoading(false);
             return;
           }
