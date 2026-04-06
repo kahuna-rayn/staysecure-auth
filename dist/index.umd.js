@@ -818,27 +818,43 @@
         const { data: factorsData, error: factorsError } = await supabaseClient.auth.mfa.listFactors();
         if (factorsError) throw factorsError;
         debugLog("[MFAChallenge] factors", factorsData);
-        const totpFactor = (_a = factorsData == null ? void 0 : factorsData.totp) == null ? void 0 : _a[0];
-        if (!totpFactor) throw new Error("No TOTP factor found.");
-        debugLog("[MFAChallenge] using factor", totpFactor.id);
+        ((factorsData == null ? void 0 : factorsData.totp) ?? []).forEach((f, i) => {
+          debugLog(`[MFAChallenge] totp[${i}]`, { id: f.id, status: f.status, friendlyName: f.friendly_name, createdAt: f.created_at });
+        });
+        const totpFactor = (_a = factorsData == null ? void 0 : factorsData.totp) == null ? void 0 : _a.find((f) => f.status === "verified");
+        if (!totpFactor) {
+          debugLog("[MFAChallenge] no verified factor found — cannot challenge");
+          throw new Error("NO_VERIFIED_FACTOR");
+        }
+        debugLog("[MFAChallenge] using factor", { id: totpFactor.id, status: totpFactor.status });
         const { data: challengeData, error: challengeError } = await supabaseClient.auth.mfa.challenge({
           factorId: totpFactor.id
         });
-        if (challengeError) throw challengeError;
+        if (challengeError) {
+          debugLog("[MFAChallenge] challenge error", { message: challengeError.message, status: challengeError.status, code: challengeError.code });
+          throw challengeError;
+        }
         debugLog("[MFAChallenge] challenge created", challengeData.id);
         const { error: verifyError } = await supabaseClient.auth.mfa.verify({
           factorId: totpFactor.id,
           challengeId: challengeData.id,
           code
         });
-        if (verifyError) throw verifyError;
+        if (verifyError) {
+          debugLog("[MFAChallenge] verify error (raw)", { message: verifyError.message, status: verifyError.status, code: verifyError.code, details: verifyError });
+          throw verifyError;
+        }
         debugLog("[MFAChallenge] verify success → calling onSuccess");
         onSuccess();
       } catch (err) {
         const msg = (err == null ? void 0 : err.message) ?? "Verification failed.";
-        debugLog("[MFAChallenge] verify error", msg);
+        debugLog("[MFAChallenge] caught error", { message: msg, status: err == null ? void 0 : err.status, code: err == null ? void 0 : err.code });
+        if (msg === "NO_VERIFIED_FACTOR") {
+          setError("Your two-factor setup is incomplete. Please sign out and log in again to re-enroll.");
+          return;
+        }
         setError(
-          msg.toLowerCase().includes("invalid") || msg.toLowerCase().includes("token") ? "Incorrect code. Check your authenticator app and try again." : msg
+          msg.toLowerCase().includes("invalid") || msg.toLowerCase().includes("token") || msg.toLowerCase().includes("totp") ? "Incorrect code. Check your authenticator app and try again." : msg
         );
         setCode("");
         (_b = inputRef.current) == null ? void 0 : _b.focus();

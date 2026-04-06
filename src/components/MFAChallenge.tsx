@@ -41,14 +41,28 @@ const MFAChallenge: React.FC<MFAChallengeProps> = ({ supabaseClient, onSuccess, 
       if (factorsError) throw factorsError;
       debugLog('[MFAChallenge] factors', factorsData);
 
-      const totpFactor = factorsData?.totp?.[0];
-      if (!totpFactor) throw new Error('No TOTP factor found.');
-      debugLog('[MFAChallenge] using factor', totpFactor.id);
+      // Log all TOTP factors with status so we can spot unverified / stale entries
+      (factorsData?.totp ?? []).forEach((f: any, i: number) => {
+        debugLog(`[MFAChallenge] totp[${i}]`, { id: f.id, status: f.status, friendlyName: f.friendly_name, createdAt: f.created_at });
+      });
+
+      // Only use a verified factor — an unverified factor cannot be challenged
+      const totpFactor = factorsData?.totp?.find((f: any) => f.status === 'verified');
+      if (!totpFactor) {
+        // No verified factor: enrollment didn't fully complete. Surface via onCancel
+        // so the caller can decide to redirect back to enrollment or login.
+        debugLog('[MFAChallenge] no verified factor found — cannot challenge');
+        throw new Error('NO_VERIFIED_FACTOR');
+      }
+      debugLog('[MFAChallenge] using factor', { id: totpFactor.id, status: totpFactor.status });
 
       const { data: challengeData, error: challengeError } = await supabaseClient.auth.mfa.challenge({
         factorId: totpFactor.id,
       });
-      if (challengeError) throw challengeError;
+      if (challengeError) {
+        debugLog('[MFAChallenge] challenge error', { message: challengeError.message, status: challengeError.status, code: (challengeError as any).code });
+        throw challengeError;
+      }
       debugLog('[MFAChallenge] challenge created', challengeData.id);
 
       const { error: verifyError } = await supabaseClient.auth.mfa.verify({
@@ -56,15 +70,24 @@ const MFAChallenge: React.FC<MFAChallengeProps> = ({ supabaseClient, onSuccess, 
         challengeId: challengeData.id,
         code,
       });
-      if (verifyError) throw verifyError;
+      if (verifyError) {
+        debugLog('[MFAChallenge] verify error (raw)', { message: verifyError.message, status: verifyError.status, code: (verifyError as any).code, details: (verifyError as any) });
+        throw verifyError;
+      }
 
       debugLog('[MFAChallenge] verify success → calling onSuccess');
       onSuccess();
     } catch (err: any) {
       const msg = err?.message ?? 'Verification failed.';
-      debugLog('[MFAChallenge] verify error', msg);
+      debugLog('[MFAChallenge] caught error', { message: msg, status: err?.status, code: err?.code });
+
+      if (msg === 'NO_VERIFIED_FACTOR') {
+        // Enrollment incomplete — sign out and let user start fresh
+        setError('Your two-factor setup is incomplete. Please sign out and log in again to re-enroll.');
+        return;
+      }
       setError(
-        msg.toLowerCase().includes('invalid') || msg.toLowerCase().includes('token')
+        msg.toLowerCase().includes('invalid') || msg.toLowerCase().includes('token') || msg.toLowerCase().includes('totp')
           ? 'Incorrect code. Check your authenticator app and try again.'
           : msg
       );
