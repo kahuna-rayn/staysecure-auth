@@ -36,15 +36,28 @@ const MFAEnrollment: React.FC<MFAEnrollmentProps> = ({
   const [copied, setCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Enroll a new TOTP factor on mount
+  // Enroll a new TOTP factor on mount — reuse any existing unverified factor
+  // rather than calling enroll() again (Supabase rejects a second pending factor).
   useEffect(() => {
     debugLog('[MFAEnrollment] mounted', { required });
     let cancelled = false;
     const enroll = async () => {
       setLoading(true);
       setError(null);
-      debugLog('[MFAEnrollment] calling mfa.enroll...');
       try {
+        // Check for an existing unverified (pending) TOTP factor first.
+        const { data: factorsData } = await supabaseClient.auth.mfa.listFactors();
+        debugLog('[MFAEnrollment] existing factors', factorsData);
+        const pending = factorsData?.totp?.find((f: any) => f.status === 'unverified');
+
+        if (pending) {
+          // Reuse the pending factor — but we can't retrieve the QR code again
+          // from Supabase after initial enroll(), so unenroll and re-enroll.
+          debugLog('[MFAEnrollment] unverified factor found, unenrolling to get fresh QR', pending.id);
+          await supabaseClient.auth.mfa.unenroll({ factorId: pending.id });
+        }
+
+        debugLog('[MFAEnrollment] calling mfa.enroll...');
         const { data, error: enrollError } = await supabaseClient.auth.mfa.enroll({
           factorType: 'totp',
           friendlyName: 'Authenticator App',
@@ -101,6 +114,20 @@ const MFAEnrollment: React.FC<MFAEnrollmentProps> = ({
         code,
       });
       if (verifyError) throw verifyError;
+
+      // Sync the legacy profiles flag so the UI can reflect MFA status.
+      const { data: { user } } = await supabaseClient.auth.getUser();
+      if (user?.id) {
+        const { error: profileError } = await supabaseClient
+          .from('profiles')
+          .update({ two_factor_enabled: true })
+          .eq('id', user.id);
+        if (profileError) {
+          debugLog('[MFAEnrollment] warning: could not set two_factor_enabled on profile', profileError.message);
+        } else {
+          debugLog('[MFAEnrollment] profiles.two_factor_enabled set to true');
+        }
+      }
 
       debugLog('[MFAEnrollment] enrollment verified → calling onSuccess');
       onSuccess();
