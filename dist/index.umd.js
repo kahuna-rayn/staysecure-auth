@@ -1,13 +1,13 @@
 (function(global, factory) {
   typeof exports === "object" && typeof module !== "undefined" ? factory(exports, require("react/jsx-runtime"), require("react"), require("react-router-dom"), require("@/components/ui/button"), require("@/components/ui/input"), require("@/components/ui/label"), require("@/components/ui/card"), require("@/components/ui/alert"), require("@/components/ui/badge"), require("lucide-react"), require("@/assets/rayn-logo.png"), require("@/integrations/supabase/client")) : typeof define === "function" && define.amd ? define(["exports", "react/jsx-runtime", "react", "react-router-dom", "@/components/ui/button", "@/components/ui/input", "@/components/ui/label", "@/components/ui/card", "@/components/ui/alert", "@/components/ui/badge", "lucide-react", "@/assets/rayn-logo.png", "@/integrations/supabase/client"], factory) : (global = typeof globalThis !== "undefined" ? globalThis : global || self, factory(global.StaySecureAuth = {}, global["react/jsx-runtime"], global.React, global.reactRouterDom, global.button, global.input, global.label, global.card, global.alert, global.badge, global.lucideReact, global.raynLogo, global.client));
-})(this, function(exports2, jsxRuntime, react, reactRouterDom, button, input, label, card, alert, badge, lucideReact, raynLogo, client) {
+})(this, function(exports2, jsxRuntime, React, reactRouterDom, button, input, label, card, alert, badge, lucideReact, raynLogo, client) {
   "use strict";
   const debugLog = (...args) => {
     if (typeof window !== "undefined" && window.__DEBUG__) {
       console.log("[AUTH]", ...args);
     }
   };
-  const AuthContext = react.createContext(null);
+  const AuthContext = React.createContext(null);
   const defaultAuthContext = {
     user: null,
     loading: true,
@@ -32,11 +32,12 @@
   };
   const AuthProvider = ({ config, children }) => {
     const { supabaseClient, mfa: mfaConfig } = config;
-    const [user, setUser] = react.useState(null);
-    const [loading, setLoading] = react.useState(true);
-    const [error, setError] = react.useState(null);
-    const [mfaState, setMfaState] = react.useState("none");
-    react.useEffect(() => {
+    const [user, setUser] = React.useState(null);
+    const [loading, setLoading] = React.useState(true);
+    const [error, setError] = React.useState(null);
+    const [mfaState, setMfaState] = React.useState("none");
+    const mfaCheckInProgress = React.useRef(false);
+    React.useEffect(() => {
       const getInitialSession = async () => {
         try {
           const { data: { session }, error: error2 } = await supabaseClient.auth.getSession();
@@ -55,6 +56,11 @@
         async (event, session) => {
           var _a;
           debugLog("[AuthProvider] onAuthStateChange", event, ((_a = session == null ? void 0 : session.user) == null ? void 0 : _a.email) ?? "no user");
+          if (event === "SIGNED_IN" && mfaCheckInProgress.current) {
+            debugLog("[AuthProvider] SIGNED_IN suppressed — MFA check in progress");
+            setLoading(false);
+            return;
+          }
           setUser((session == null ? void 0 : session.user) || null);
           setLoading(false);
           if (event === "SIGNED_OUT") {
@@ -71,6 +77,7 @@
         setLoading(true);
         setError(null);
         setMfaState("none");
+        mfaCheckInProgress.current = true;
         const { data, error: error2 } = await supabaseClient.auth.signInWithPassword({
           email,
           password
@@ -100,11 +107,13 @@
           debugLog("[AuthProvider] → mfaState: prompt (optional nudge)");
           setMfaState("prompt");
         }
-        debugLog("[AuthProvider] → mfaState: none (no MFA action needed)");
+        debugLog("[AuthProvider] → no MFA gate; setting user now");
+        setUser(data.user);
       } catch (error2) {
         debugLog("[AuthProvider] signIn error", error2.message);
         setError(error2.message);
       } finally {
+        mfaCheckInProgress.current = false;
         setLoading(false);
       }
     };
@@ -299,7 +308,7 @@
     return /* @__PURE__ */ jsxRuntime.jsx(AuthContext.Provider, { value, children });
   };
   const useAuth = () => {
-    const context = react.useContext(AuthContext);
+    const context = React.useContext(AuthContext);
     if (!context) {
       console.warn("useAuth called outside AuthProvider, using default context");
       return defaultAuthContext;
@@ -334,21 +343,21 @@
     const location = reactRouterDom.useLocation();
     const navigate = reactRouterDom.useNavigate();
     const { activateUser, error: authError, loading: authLoading, signOut, supabaseClient, sendActivationEmail } = useAuth();
-    const [email, setEmail] = react.useState("");
-    const [password, setPassword] = react.useState("");
-    const [confirmPassword, setConfirmPassword] = react.useState("");
-    const [loading, setLoading] = react.useState(false);
-    const [error, setError] = react.useState("");
-    const [success, setSuccess] = react.useState("");
-    const [showPassword, setShowPassword] = react.useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = react.useState(false);
-    const clientPathRef = react.useRef("");
-    const [requestingNewLink, setRequestingNewLink] = react.useState(false);
-    const [newLinkRequested, setNewLinkRequested] = react.useState(false);
-    const [isExpiredLink, setIsExpiredLink] = react.useState(false);
+    const [email, setEmail] = React.useState("");
+    const [password, setPassword] = React.useState("");
+    const [confirmPassword, setConfirmPassword] = React.useState("");
+    const [loading, setLoading] = React.useState(false);
+    const [error, setError] = React.useState("");
+    const [success, setSuccess] = React.useState("");
+    const [showPassword, setShowPassword] = React.useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
+    const clientPathRef = React.useRef("");
+    const [requestingNewLink, setRequestingNewLink] = React.useState(false);
+    const [newLinkRequested, setNewLinkRequested] = React.useState(false);
+    const [isExpiredLink, setIsExpiredLink] = React.useState(false);
     const searchParams = new URLSearchParams(location.search);
     const badgeText = displayName || null;
-    react.useEffect(() => {
+    React.useEffect(() => {
       if (typeof window !== "undefined") {
         const pathParts = window.location.pathname.split("/").filter(Boolean);
         const clientId = pathParts[0];
@@ -363,7 +372,7 @@
         }
       }
     }, []);
-    react.useEffect(() => {
+    React.useEffect(() => {
       var _a;
       if ((_a = location.state) == null ? void 0 : _a.authError) {
         setError(location.state.authError);
@@ -372,7 +381,7 @@
         }
       }
     }, [location.state]);
-    react.useEffect(() => {
+    React.useEffect(() => {
       if (!error) return;
       if (error.includes("Password must be at least 12 characters")) {
         if (password && isStrongPassword$1(password)) {
@@ -387,7 +396,7 @@
         }
       }
     }, [password, confirmPassword, error]);
-    react.useEffect(() => {
+    React.useEffect(() => {
       const run = async () => {
         var _a, _b;
         const backupHash = typeof window !== "undefined" ? sessionStorage.getItem("activation_hash_backup") : null;
@@ -663,7 +672,7 @@
   };
   const AuthEventRedirect = () => {
     const navigate = reactRouterDom.useNavigate();
-    react.useEffect(() => {
+    React.useEffect(() => {
       const { data: { subscription } } = client.supabase.auth.onAuthStateChange((event) => {
         if (event === "PASSWORD_RECOVERY") {
           const hash = window.location.hash || "";
@@ -677,14 +686,14 @@
   const ForgotPassword = ({ displayName }) => {
     const location = reactRouterDom.useLocation();
     const navigate = reactRouterDom.useNavigate();
-    const [email, setEmail] = react.useState("");
-    const [loading, setLoading] = react.useState(false);
-    const [message, setMessage] = react.useState("");
-    const [isError, setIsError] = react.useState(false);
-    const [resetLinkSent, setResetLinkSent] = react.useState(false);
+    const [email, setEmail] = React.useState("");
+    const [loading, setLoading] = React.useState(false);
+    const [message, setMessage] = React.useState("");
+    const [isError, setIsError] = React.useState(false);
+    const [resetLinkSent, setResetLinkSent] = React.useState(false);
     const { resetPassword } = useAuth();
     const badgeText = displayName || null;
-    react.useEffect(() => {
+    React.useEffect(() => {
       var _a;
       if ((_a = location.state) == null ? void 0 : _a.authError) {
         setMessage(location.state.authError);
@@ -692,7 +701,7 @@
         setResetLinkSent(false);
       }
     }, [location.state]);
-    react.useEffect(() => {
+    React.useEffect(() => {
       if (location.hash && (location.hash.includes("access_token") || location.hash.includes("refresh_token"))) {
         const newUrl = window.location.pathname + (location.search || "");
         window.history.replaceState({}, "", newUrl);
@@ -772,11 +781,11 @@
     ] }) });
   };
   const MFAChallenge = ({ supabaseClient, onSuccess, onCancel }) => {
-    const [code, setCode] = react.useState("");
-    const [loading, setLoading] = react.useState(false);
-    const [error, setError] = react.useState(null);
-    const inputRef = react.useRef(null);
-    react.useEffect(() => {
+    const [code, setCode] = React.useState("");
+    const [loading, setLoading] = React.useState(false);
+    const [error, setError] = React.useState(null);
+    const inputRef = React.useRef(null);
+    React.useEffect(() => {
       var _a;
       debugLog("[MFAChallenge] mounted");
       (_a = inputRef.current) == null ? void 0 : _a.focus();
@@ -870,16 +879,16 @@
     onSkip,
     required = false
   }) => {
-    const [step, setStep] = react.useState("qr");
-    const [factorId, setFactorId] = react.useState("");
-    const [qrCode, setQrCode] = react.useState("");
-    const [secret, setSecret] = react.useState("");
-    const [code, setCode] = react.useState("");
-    const [loading, setLoading] = react.useState(false);
-    const [error, setError] = react.useState(null);
-    const [copied, setCopied] = react.useState(false);
-    const inputRef = react.useRef(null);
-    react.useEffect(() => {
+    const [step, setStep] = React.useState("qr");
+    const [factorId, setFactorId] = React.useState("");
+    const [qrCode, setQrCode] = React.useState("");
+    const [secret, setSecret] = React.useState("");
+    const [code, setCode] = React.useState("");
+    const [loading, setLoading] = React.useState(false);
+    const [error, setError] = React.useState(null);
+    const [copied, setCopied] = React.useState(false);
+    const inputRef = React.useRef(null);
+    React.useEffect(() => {
       debugLog("[MFAEnrollment] mounted", { required });
       let cancelled = false;
       const enroll = async () => {
@@ -910,7 +919,7 @@
         cancelled = true;
       };
     }, [supabaseClient]);
-    react.useEffect(() => {
+    React.useEffect(() => {
       var _a;
       if (step === "verify") (_a = inputRef.current) == null ? void 0 : _a.focus();
     }, [step]);
@@ -1059,11 +1068,11 @@
   const LoginForm = ({ displayName }) => {
     const navigate = reactRouterDom.useNavigate();
     reactRouterDom.useLocation();
-    const [email, setEmail] = react.useState("");
-    const [password, setPassword] = react.useState("");
-    const [loading, setLoading] = react.useState(false);
-    const [showPassword, setShowPassword] = react.useState(false);
-    const [success, setSuccess] = react.useState("");
+    const [email, setEmail] = React.useState("");
+    const [password, setPassword] = React.useState("");
+    const [loading, setLoading] = React.useState(false);
+    const [showPassword, setShowPassword] = React.useState(false);
+    const [success, setSuccess] = React.useState("");
     const { signIn, error, loading: authLoading, mfaState, clearMfaState, supabaseClient } = useAuth();
     const badgeText = displayName || null;
     const handleSubmit = async (e) => {
@@ -1201,17 +1210,17 @@
     const navigate = reactRouterDom.useNavigate();
     const { supabaseClient, resetPassword } = useAuth();
     const badgeText = displayName || null;
-    const [email, setEmail] = react.useState("");
-    const [password, setPassword] = react.useState("");
-    const [confirmPassword, setConfirmPassword] = react.useState("");
-    const [loading, setLoading] = react.useState(false);
-    const [verifying, setVerifying] = react.useState(true);
-    const [error, setError] = react.useState("");
-    const [success, setSuccess] = react.useState("");
-    const [showPassword, setShowPassword] = react.useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = react.useState(false);
-    const initializedRef = react.useRef(false);
-    react.useEffect(() => {
+    const [email, setEmail] = React.useState("");
+    const [password, setPassword] = React.useState("");
+    const [confirmPassword, setConfirmPassword] = React.useState("");
+    const [loading, setLoading] = React.useState(false);
+    const [verifying, setVerifying] = React.useState(true);
+    const [error, setError] = React.useState("");
+    const [success, setSuccess] = React.useState("");
+    const [showPassword, setShowPassword] = React.useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
+    const initializedRef = React.useRef(false);
+    React.useEffect(() => {
       var _a, _b;
       if (((_a = location.state) == null ? void 0 : _a.authError) && ((_b = location.state) == null ? void 0 : _b.expiredLink)) {
         navigate("/forgot-password", {
@@ -1229,7 +1238,7 @@
       url.searchParams.delete("token_hash");
       window.history.replaceState({}, document.title, url.toString());
     };
-    react.useEffect(() => {
+    React.useEffect(() => {
       if (initializedRef.current) return;
       initializedRef.current = true;
       const { data: sub } = supabaseClient.auth.onAuthStateChange((event, session) => {
@@ -1330,7 +1339,7 @@
       void run();
       return () => sub.subscription.unsubscribe();
     }, [location.hash, location.search, supabaseClient]);
-    react.useEffect(() => {
+    React.useEffect(() => {
       if (!error) return;
       if (error.includes("Password must be at least 12 characters")) {
         if (password && isStrongPassword(password)) {
@@ -1569,12 +1578,12 @@
     ] }) });
   };
   const SignUpForm = ({ onSwitchToLogin }) => {
-    const [email, setEmail] = react.useState("");
-    const [password, setPassword] = react.useState("");
-    const [fullName, setFullName] = react.useState("");
-    const [loading, setLoading] = react.useState(false);
-    const [error, setError] = react.useState("");
-    const [success, setSuccess] = react.useState("");
+    const [email, setEmail] = React.useState("");
+    const [password, setPassword] = React.useState("");
+    const [fullName, setFullName] = React.useState("");
+    const [loading, setLoading] = React.useState(false);
+    const [error, setError] = React.useState("");
+    const [success, setSuccess] = React.useState("");
     const { signUp } = useAuth();
     const handleSubmit = async (e) => {
       e.preventDefault();
@@ -1650,12 +1659,12 @@
   const createUseAuth = (dependencies) => {
     return () => {
       const { supabaseClient } = dependencies;
-      const [authState, setAuthState] = react.useState({
+      const [authState, setAuthState] = React.useState({
         user: null,
         loading: true,
         error: null
       });
-      const signIn = react.useCallback(async (email, password) => {
+      const signIn = React.useCallback(async (email, password) => {
         try {
           setAuthState((prev) => ({ ...prev, loading: true, error: null }));
           const { data, error } = await supabaseClient.auth.signInWithPassword({
@@ -1674,7 +1683,7 @@
           }));
         }
       }, [supabaseClient]);
-      const signUp = react.useCallback(async (email, password, fullName) => {
+      const signUp = React.useCallback(async (email, password, fullName) => {
         try {
           setAuthState((prev) => ({ ...prev, loading: true, error: null }));
           const { data, error } = await supabaseClient.auth.signUp({
@@ -1698,7 +1707,7 @@
           }));
         }
       }, [supabaseClient]);
-      const signOut = react.useCallback(async () => {
+      const signOut = React.useCallback(async () => {
         try {
           setAuthState((prev) => ({ ...prev, loading: true, error: null }));
           const { error } = await supabaseClient.auth.signOut();
@@ -1714,7 +1723,7 @@
           }));
         }
       }, [supabaseClient]);
-      const resetPassword = react.useCallback(async (email) => {
+      const resetPassword = React.useCallback(async (email) => {
         try {
           setAuthState((prev) => ({ ...prev, loading: true, error: null }));
           const { error } = await supabaseClient.auth.resetPasswordForEmail(email);
@@ -1730,7 +1739,7 @@
           }));
         }
       }, [supabaseClient]);
-      const activateUser = react.useCallback(async (password) => {
+      const activateUser = React.useCallback(async (password) => {
         try {
           setAuthState((prev) => ({ ...prev, loading: true, error: null }));
           const { error } = await supabaseClient.auth.updateUser({
@@ -1748,7 +1757,7 @@
           }));
         }
       }, [supabaseClient]);
-      react.useEffect(() => {
+      React.useEffect(() => {
         const getInitialSession = async () => {
           try {
             const { data: { session }, error } = await supabaseClient.auth.getSession();

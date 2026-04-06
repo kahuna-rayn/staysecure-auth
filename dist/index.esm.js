@@ -1,5 +1,5 @@
 import { jsx, jsxs, Fragment } from "react/jsx-runtime";
-import { createContext, useState, useEffect, useContext, useRef, useCallback } from "react";
+import React, { createContext, useState, useEffect, useContext, useRef, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +44,7 @@ const AuthProvider = ({ config, children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [mfaState, setMfaState] = useState("none");
+  const mfaCheckInProgress = React.useRef(false);
   useEffect(() => {
     const getInitialSession = async () => {
       try {
@@ -63,6 +64,11 @@ const AuthProvider = ({ config, children }) => {
       async (event, session) => {
         var _a;
         debugLog("[AuthProvider] onAuthStateChange", event, ((_a = session == null ? void 0 : session.user) == null ? void 0 : _a.email) ?? "no user");
+        if (event === "SIGNED_IN" && mfaCheckInProgress.current) {
+          debugLog("[AuthProvider] SIGNED_IN suppressed — MFA check in progress");
+          setLoading(false);
+          return;
+        }
         setUser((session == null ? void 0 : session.user) || null);
         setLoading(false);
         if (event === "SIGNED_OUT") {
@@ -79,6 +85,7 @@ const AuthProvider = ({ config, children }) => {
       setLoading(true);
       setError(null);
       setMfaState("none");
+      mfaCheckInProgress.current = true;
       const { data, error: error2 } = await supabaseClient.auth.signInWithPassword({
         email,
         password
@@ -108,11 +115,13 @@ const AuthProvider = ({ config, children }) => {
         debugLog("[AuthProvider] → mfaState: prompt (optional nudge)");
         setMfaState("prompt");
       }
-      debugLog("[AuthProvider] → mfaState: none (no MFA action needed)");
+      debugLog("[AuthProvider] → no MFA gate; setting user now");
+      setUser(data.user);
     } catch (error2) {
       debugLog("[AuthProvider] signIn error", error2.message);
       setError(error2.message);
     } finally {
+      mfaCheckInProgress.current = false;
       setLoading(false);
     }
   };
