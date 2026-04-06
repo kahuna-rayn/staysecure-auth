@@ -77,17 +77,37 @@ export const AuthProvider: React.FC<{
   // Service role client removed - using Supabase's built-in validation instead
 
   useEffect(() => {
-    // Get initial session
+    // Get initial session — also checks AAL so that a persisted aal1 session
+    // for a user with an enrolled factor can't bypass MFA via page refresh.
     const getInitialSession = async () => {
       try {
         const { data: { session }, error } = await supabaseClient.auth.getSession();
-        
-        if (error) {
-          throw error;
+        if (error) throw error;
+
+        if (!session) {
+          debugLog('[AuthProvider] getInitialSession: no session');
+          setUser(null);
+          return;
         }
 
-        setUser(session?.user || null);
+        // Check assurance level of the restored session.
+        const { data: aalData } = await supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel();
+        const { currentLevel, nextLevel } = aalData ?? {};
+        debugLog('[AuthProvider] getInitialSession AAL', { currentLevel, nextLevel, email: session.user?.email });
+
+        if (currentLevel === 'aal1' && nextLevel === 'aal2') {
+          // User has an enrolled factor but this restored session hasn't been
+          // verified yet (e.g. page refresh after failed or incomplete MFA).
+          // Hold back user — keep LoginForm visible so the challenge can be shown.
+          debugLog('[AuthProvider] getInitialSession: aal1 session with enrolled factor → mfaState: challenge');
+          setMfaState('challenge');
+          return;
+        }
+
+        // Session is either already aal2, or user has no factor — set user normally.
+        setUser(session.user);
       } catch (error: any) {
+        debugLog('[AuthProvider] getInitialSession error', error.message);
         setError(error.message);
       } finally {
         setLoading(false);

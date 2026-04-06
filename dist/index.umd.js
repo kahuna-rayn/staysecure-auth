@@ -39,13 +39,26 @@
     const mfaCheckInProgress = React.useRef(false);
     React.useEffect(() => {
       const getInitialSession = async () => {
+        var _a;
         try {
           const { data: { session }, error: error2 } = await supabaseClient.auth.getSession();
-          if (error2) {
-            throw error2;
+          if (error2) throw error2;
+          if (!session) {
+            debugLog("[AuthProvider] getInitialSession: no session");
+            setUser(null);
+            return;
           }
-          setUser((session == null ? void 0 : session.user) || null);
+          const { data: aalData } = await supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel();
+          const { currentLevel, nextLevel } = aalData ?? {};
+          debugLog("[AuthProvider] getInitialSession AAL", { currentLevel, nextLevel, email: (_a = session.user) == null ? void 0 : _a.email });
+          if (currentLevel === "aal1" && nextLevel === "aal2") {
+            debugLog("[AuthProvider] getInitialSession: aal1 session with enrolled factor → mfaState: challenge");
+            setMfaState("challenge");
+            return;
+          }
+          setUser(session.user);
         } catch (error2) {
+          debugLog("[AuthProvider] getInitialSession error", error2.message);
           setError(error2.message);
         } finally {
           setLoading(false);
@@ -892,10 +905,18 @@
       debugLog("[MFAEnrollment] mounted", { required });
       let cancelled = false;
       const enroll = async () => {
+        var _a;
         setLoading(true);
         setError(null);
-        debugLog("[MFAEnrollment] calling mfa.enroll...");
         try {
+          const { data: factorsData } = await supabaseClient.auth.mfa.listFactors();
+          debugLog("[MFAEnrollment] existing factors", factorsData);
+          const pending = (_a = factorsData == null ? void 0 : factorsData.totp) == null ? void 0 : _a.find((f) => f.status === "unverified");
+          if (pending) {
+            debugLog("[MFAEnrollment] unverified factor found, unenrolling to get fresh QR", pending.id);
+            await supabaseClient.auth.mfa.unenroll({ factorId: pending.id });
+          }
+          debugLog("[MFAEnrollment] calling mfa.enroll...");
           const { data, error: enrollError } = await supabaseClient.auth.mfa.enroll({
             factorType: "totp",
             friendlyName: "Authenticator App"
