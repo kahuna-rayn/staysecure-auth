@@ -383,7 +383,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
       debugLog('[ResetPassword] ✅ password reset complete')
       setSuccess('Password reset successfully! Your account has been activated. Redirecting to login...')
       await supabaseClient.auth.signOut()
-      setTimeout(() => navigate('/', { replace: true }), 1500)
+      setTimeout(() => navigate(clientPrefix || '/', { replace: true }), 1500)
     } catch (err: any) {
       console.error('[ResetPassword] ❌ Exception caught:', {
         message: err?.message,
@@ -498,7 +498,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
               </Button>
 
               <div className="text-center">
-                <Button variant="outline" onClick={() => navigate('/')} className="w-full" disabled={loading}>
+                <Button variant="outline" onClick={() => navigate(clientPrefix || '/')} className="w-full" disabled={loading}>
                   Back to Login
                 </Button>
               </div>

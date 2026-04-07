@@ -715,6 +715,9 @@ const ForgotPassword = ({ displayName }) => {
   const [resetLinkSent, setResetLinkSent] = useState(false);
   const { resetPassword } = useAuth();
   const badgeText = displayName || null;
+  const reserved = ["admin", "activate-account", "reset-password", "forgot-password", "email-notifications"];
+  const pathParts = location.pathname.split("/").filter(Boolean);
+  const clientPrefix = pathParts[0] && !reserved.includes(pathParts[0]) ? `/${pathParts[0]}` : "";
   useEffect(() => {
     var _a;
     if ((_a = location.state) == null ? void 0 : _a.authError) {
@@ -794,7 +797,7 @@ const ForgotPassword = ({ displayName }) => {
           {
             variant: "link",
             className: "p-0 h-auto text-teal-600",
-            onClick: () => navigate("/"),
+            onClick: () => navigate(clientPrefix || "/"),
             children: "← Back to Sign In"
           }
         ) })
@@ -1540,7 +1543,7 @@ const ResetPassword = ({ displayName }) => {
       debugLog("[ResetPassword] ✅ password reset complete");
       setSuccess("Password reset successfully! Your account has been activated. Redirecting to login...");
       await supabaseClient.auth.signOut();
-      setTimeout(() => navigate("/", { replace: true }), 1500);
+      setTimeout(() => navigate(clientPrefix || "/", { replace: true }), 1500);
     } catch (err) {
       console.error("[ResetPassword] ❌ Exception caught:", {
         message: err == null ? void 0 : err.message,
@@ -1633,7 +1636,7 @@ const ResetPassword = ({ displayName }) => {
           (loading || verifying) && /* @__PURE__ */ jsx(Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
           "Reset Password"
         ] }),
-        /* @__PURE__ */ jsx("div", { className: "text-center", children: /* @__PURE__ */ jsx(Button, { variant: "outline", onClick: () => navigate("/"), className: "w-full", disabled: loading, children: "Back to Login" }) })
+        /* @__PURE__ */ jsx("div", { className: "text-center", children: /* @__PURE__ */ jsx(Button, { variant: "outline", onClick: () => navigate(clientPrefix || "/"), className: "w-full", disabled: loading, children: "Back to Login" }) })
       ] }) })
     ] })
   ] }) });

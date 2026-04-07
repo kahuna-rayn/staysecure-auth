@@ -27,6 +27,11 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ displayName }) => {
   // Use displayName from props (passed by consuming app)
   const badgeText = displayName || null;
 
+  // Preserve client path segment (e.g. /rayn) when navigating back to login
+  const reserved = ['admin', 'activate-account', 'reset-password', 'forgot-password', 'email-notifications'];
+  const pathParts = location.pathname.split('/').filter(Boolean);
+  const clientPrefix = pathParts[0] && !reserved.includes(pathParts[0]) ? `/${pathParts[0]}` : '';
+
   // Check for error message from navigation state (e.g., expired link)
   useEffect(() => {
     if (location.state?.authError) {
@@ -131,7 +136,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ displayName }) => {
               <Button
                 variant="link"
                 className="p-0 h-auto text-teal-600"
-                onClick={() => navigate('/')}
+                onClick={() => navigate(clientPrefix || '/')}
               >
                 ← Back to Sign In
               </Button>
