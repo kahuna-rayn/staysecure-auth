@@ -1122,7 +1122,7 @@ const MFAEnrollment = ({
 };
 const LoginForm = ({ displayName }) => {
   const navigate = useNavigate();
-  useLocation();
+  const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -1130,6 +1130,9 @@ const LoginForm = ({ displayName }) => {
   const [success, setSuccess] = useState("");
   const { signIn, error, loading: authLoading, mfaState, clearMfaState, supabaseClient } = useAuth();
   const badgeText = displayName || null;
+  const reserved = ["admin", "activate-account", "reset-password", "forgot-password", "email-notifications"];
+  const pathParts = location.pathname.split("/").filter(Boolean);
+  const clientPrefix = pathParts[0] && !reserved.includes(pathParts[0]) ? `/${pathParts[0]}` : "";
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -1244,7 +1247,7 @@ const LoginForm = ({ displayName }) => {
             variant: "link",
             type: "button",
             onClick: () => {
-              navigate("/forgot-password");
+              navigate(`${clientPrefix}/forgot-password`);
             },
             children: "Forgot Password?"
           }
@@ -1265,6 +1268,9 @@ const ResetPassword = ({ displayName }) => {
   const navigate = useNavigate();
   const { supabaseClient, resetPassword } = useAuth();
   const badgeText = displayName || null;
+  const reserved = ["admin", "activate-account", "reset-password", "forgot-password", "email-notifications"];
+  const pathParts = location.pathname.split("/").filter(Boolean);
+  const clientPrefix = pathParts[0] && !reserved.includes(pathParts[0]) ? `/${pathParts[0]}` : "";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -1278,7 +1284,7 @@ const ResetPassword = ({ displayName }) => {
   useEffect(() => {
     var _a, _b;
     if (((_a = location.state) == null ? void 0 : _a.authError) && ((_b = location.state) == null ? void 0 : _b.expiredLink)) {
-      navigate("/forgot-password", {
+      navigate(`${clientPrefix}/forgot-password`, {
         replace: true,
         state: {
           authError: location.state.authError
@@ -1322,7 +1328,7 @@ const ResetPassword = ({ displayName }) => {
         const errorCode = hashParams.get("error_code");
         if (errorCode === "otp_expired" || hash.includes("error_code=otp_expired")) {
           debugLog("[ResetPassword] OTP expired, redirecting");
-          navigate("/forgot-password", {
+          navigate(`${clientPrefix}/forgot-password`, {
             replace: true,
             state: {
               authError: "This password reset link has expired. Please enter your email address below to request a new one."
@@ -1338,7 +1344,7 @@ const ResetPassword = ({ displayName }) => {
           if (verifyError) {
             console.error("[ResetPassword] ❌ verifyOtp error:", verifyError.message);
             if (((_a = verifyError.message) == null ? void 0 : _a.includes("expired")) || ((_b = verifyError.message) == null ? void 0 : _b.includes("otp_expired"))) {
-              navigate("/forgot-password", {
+              navigate(`${clientPrefix}/forgot-password`, {
                 replace: true,
                 state: {
                   authError: "This password reset link has expired. Please enter your email address below to request a new one."
@@ -1462,7 +1468,7 @@ const ResetPassword = ({ displayName }) => {
             setLoading(false);
             return;
           } else {
-            navigate("/forgot-password", {
+            navigate(`${clientPrefix}/forgot-password`, {
               replace: true,
               state: {
                 authError: "Your password reset session has expired. Please enter your email address below to request a new one."
@@ -1475,7 +1481,7 @@ const ResetPassword = ({ displayName }) => {
           if (!sessionAfterError) {
             console.error("[ResetPassword] ❌ Session lost after updateUser error");
           }
-          navigate("/forgot-password", {
+          navigate(`${clientPrefix}/forgot-password`, {
             replace: true,
             state: {
               authError: "Your password reset link has expired or was already used. Please enter your email address below to request a new one."
@@ -1490,7 +1496,7 @@ const ResetPassword = ({ displayName }) => {
         }
         const sessionStillValid = !!((_f = sessionAfterError == null ? void 0 : sessionAfterError.user) == null ? void 0 : _f.email);
         if (!sessionStillValid) {
-          navigate("/forgot-password", {
+          navigate(`${clientPrefix}/forgot-password`, {
             replace: true,
             state: {
               authError: "Your password reset session has expired. Please enter your email address below to request a new one."
@@ -1509,7 +1515,7 @@ const ResetPassword = ({ displayName }) => {
         if (msg.includes("same")) {
           const sessionStillValid = !!((_g = sessionAfterDataError == null ? void 0 : sessionAfterDataError.user) == null ? void 0 : _g.email);
           if (!sessionStillValid) {
-            navigate("/forgot-password", {
+            navigate(`${clientPrefix}/forgot-password`, {
               replace: true,
               state: {
                 authError: "Your password reset session has expired. Please enter your email address below to request a new one."

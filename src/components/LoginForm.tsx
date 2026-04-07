@@ -32,6 +32,11 @@ const LoginForm: React.FC<LoginFormProps> = ({ displayName }) => {
   // Use displayName from props (passed by consuming app)
   const badgeText = displayName || null;
 
+  // Preserve client path segment (e.g. /rayn) when navigating away from login
+  const reserved = ['admin', 'activate-account', 'reset-password', 'forgot-password', 'email-notifications'];
+  const pathParts = location.pathname.split('/').filter(Boolean);
+  const clientPrefix = pathParts[0] && !reserved.includes(pathParts[0]) ? `/${pathParts[0]}` : '';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -171,7 +176,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ displayName }) => {
               variant="link" 
               type="button"
               onClick={() => {
-                navigate('/forgot-password');
+                navigate(`${clientPrefix}/forgot-password`);
               }}
             >
               Forgot Password?

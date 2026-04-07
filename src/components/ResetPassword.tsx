@@ -32,6 +32,11 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
   // Use displayName from props (passed by consuming app)
   const badgeText = displayName || null
 
+  // Preserve client path segment (e.g. /rayn) when navigating back to forgot-password
+  const reserved = ['admin', 'activate-account', 'reset-password', 'forgot-password', 'email-notifications'];
+  const pathParts = location.pathname.split('/').filter(Boolean);
+  const clientPrefix = pathParts[0] && !reserved.includes(pathParts[0]) ? `/${pathParts[0]}` : '';
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -47,7 +52,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
   // If we arrive here with an expired link state, redirect to forgot-password
   useEffect(() => {
     if (location.state?.authError && location.state?.expiredLink) {
-      navigate('/forgot-password', {
+      navigate(`${clientPrefix}/forgot-password`, {
         replace: true,
         state: {
           authError: location.state.authError
@@ -100,7 +105,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
         const errorCode = hashParams.get('error_code')
         if (errorCode === 'otp_expired' || hash.includes('error_code=otp_expired')) {
           debugLog('[ResetPassword] OTP expired, redirecting')
-          navigate('/forgot-password', {
+          navigate(`${clientPrefix}/forgot-password`, {
             replace: true,
             state: {
               authError: 'This password reset link has expired. Please enter your email address below to request a new one.'
@@ -119,7 +124,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
             console.error('[ResetPassword] ❌ verifyOtp error:', verifyError.message)
             // Check if it's an expired link - redirect to forgot-password
             if (verifyError.message?.includes('expired') || verifyError.message?.includes('otp_expired')) {
-              navigate('/forgot-password', {
+              navigate(`${clientPrefix}/forgot-password`, {
                 replace: true,
                 state: {
                   authError: 'This password reset link has expired. Please enter your email address below to request a new one.'
@@ -288,7 +293,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
             return // Exit early - do not proceed to success
           } else {
             // Session was invalidated - redirect to forgot-password
-            navigate('/forgot-password', {
+            navigate(`${clientPrefix}/forgot-password`, {
               replace: true,
               state: {
                 authError: 'Your password reset session has expired. Please enter your email address below to request a new one.'
@@ -303,7 +308,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
           if (!sessionAfterError) {
             console.error('[ResetPassword] ❌ Session lost after updateUser error')
           }
-          navigate('/forgot-password', {
+          navigate(`${clientPrefix}/forgot-password`, {
             replace: true,
             state: {
               authError: 'Your password reset link has expired or was already used. Please enter your email address below to request a new one.'
@@ -322,7 +327,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
         // For other errors, check if session is still valid for retry
         const sessionStillValid = !!sessionAfterError?.user?.email
         if (!sessionStillValid) {
-          navigate('/forgot-password', {
+          navigate(`${clientPrefix}/forgot-password`, {
             replace: true,
             state: {
               authError: 'Your password reset session has expired. Please enter your email address below to request a new one.'
@@ -348,7 +353,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ displayName }) => {
         if (msg.includes('same')) {
           const sessionStillValid = !!sessionAfterDataError?.user?.email
           if (!sessionStillValid) {
-            navigate('/forgot-password', {
+            navigate(`${clientPrefix}/forgot-password`, {
               replace: true,
               state: {
                 authError: 'Your password reset session has expired. Please enter your email address below to request a new one.'
