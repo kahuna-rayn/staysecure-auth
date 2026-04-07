@@ -166,6 +166,19 @@ export const AuthProvider: React.FC<{
 
       debugLog('[AuthProvider] signIn success', data.user?.email);
 
+      // ── Inactive account gate ─────────────────────────────────────────────
+      const { data: profileData } = await supabaseClient
+        .from('profiles')
+        .select('status')
+        .eq('id', data.user.id)
+        .single();
+
+      if (profileData?.status === 'Inactive') {
+        await supabaseClient.auth.signOut();
+        throw new Error('Your account has been deactivated. Please contact your administrator.');
+      }
+      // ── end Inactive gate ─────────────────────────────────────────────────
+
       // ── MFA check ────────────────────────────────────────────────────────
       const { data: aalData, error: aalError } = await supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel();
       if (aalError) {

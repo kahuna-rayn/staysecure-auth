@@ -106,6 +106,11 @@ const AuthProvider = ({ config, children }) => {
       });
       if (error2) throw error2;
       debugLog("[AuthProvider] signIn success", (_a = data.user) == null ? void 0 : _a.email);
+      const { data: profileData } = await supabaseClient.from("profiles").select("status").eq("id", data.user.id).single();
+      if ((profileData == null ? void 0 : profileData.status) === "Inactive") {
+        await supabaseClient.auth.signOut();
+        throw new Error("Your account has been deactivated. Please contact your administrator.");
+      }
       const { data: aalData, error: aalError } = await supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel();
       if (aalError) {
         debugLog("[AuthProvider] AAL check error", aalError.message);
