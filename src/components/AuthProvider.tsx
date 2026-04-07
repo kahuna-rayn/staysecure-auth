@@ -137,6 +137,68 @@ export const AuthProvider: React.FC<{
           return;
         }
 
+        // ── OAuth JIT provisioning + inactive gate ────────────────────────────
+        // signIn() handles this for password-based logins. For OAuth (Entra SSO)
+        // the SIGNED_IN event fires here without going through signIn(), so we
+        // must run the same checks on this path.
+        if (event === 'SIGNED_IN' && session?.user) {
+          const provider = session.user.app_metadata?.provider;
+          const isOAuth = provider && provider !== 'email';
+          debugLog('[AuthProvider] SIGNED_IN provider:', provider, 'isOAuth:', isOAuth);
+
+          if (isOAuth) {
+            try {
+              const userId = session.user.id;
+              const email = session.user.email ?? '';
+              const fullName = session.user.user_metadata?.full_name
+                ?? session.user.user_metadata?.name
+                ?? '';
+              // Entra object ID for stable identity linking
+              const entraOid = session.user.user_metadata?.sub
+                ?? session.user.user_metadata?.provider_id
+                ?? null;
+
+              // JIT: ensure a profiles row exists for this user
+              const { data: existing } = await supabaseClient
+                .from('profiles')
+                .select('id, status, entra_oid')
+                .eq('id', userId)
+                .maybeSingle();
+
+              if (!existing) {
+                debugLog('[AuthProvider] JIT creating profile for', email);
+                await supabaseClient.from('profiles').insert({
+                  id: userId,
+                  email,
+                  full_name: fullName,
+                  status: 'Active',
+                  entra_oid: entraOid,
+                });
+              } else {
+                // Update entra_oid if not yet stored
+                if (entraOid && !existing.entra_oid) {
+                  await supabaseClient
+                    .from('profiles')
+                    .update({ entra_oid: entraOid })
+                    .eq('id', userId);
+                }
+
+                // Inactive gate — same as password path
+                if (existing.status === 'Inactive') {
+                  debugLog('[AuthProvider] OAuth user is Inactive → signing out');
+                  await supabaseClient.auth.signOut();
+                  setError('Your account has been deactivated. Please contact your administrator.');
+                  setLoading(false);
+                  return;
+                }
+              }
+            } catch (err: any) {
+              debugLog('[AuthProvider] OAuth JIT error', err.message);
+            }
+          }
+        }
+        // ── end OAuth JIT ─────────────────────────────────────────────────────
+
         setUser(session?.user || null);
         setLoading(false);
 

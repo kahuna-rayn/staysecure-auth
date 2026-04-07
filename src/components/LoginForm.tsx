@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
 import { debugLog } from '../utils/debugLog';
@@ -26,6 +26,8 @@ const LoginForm: React.FC<LoginFormProps> = ({ displayName }) => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [success, setSuccess] = useState('');
+  const [ssoLoading, setSsoLoading] = useState(false);
+  const [entraEnabled, setEntraEnabled] = useState(false);
 
   const { signIn, error, loading: authLoading, mfaState, clearMfaState, supabaseClient } = useAuth();
 
@@ -33,9 +35,23 @@ const LoginForm: React.FC<LoginFormProps> = ({ displayName }) => {
   const badgeText = displayName || null;
 
   // Preserve client path segment (e.g. /rayn) when navigating away from login
-  const reserved = ['admin', 'activate-account', 'reset-password', 'forgot-password', 'email-notifications'];
+  const reserved = ['admin', 'activate-account', 'reset-password', 'forgot-password', 'email-notifications', 'auth'];
   const pathParts = location.pathname.split('/').filter(Boolean);
   const clientPrefix = pathParts[0] && !reserved.includes(pathParts[0]) ? `/${pathParts[0]}` : '';
+
+  // Check if Microsoft SSO is enabled for this org (unauthenticated query via RPC)
+  useEffect(() => {
+    if (!supabaseClient) return;
+    supabaseClient.rpc('get_org_sso_config').then(({ data, error }: { data: any; error: any }) => {
+      if (error) {
+        debugLog('[LoginForm] get_org_sso_config error', error.message);
+        return;
+      }
+      const row = Array.isArray(data) ? data[0] : data;
+      debugLog('[LoginForm] sso config', row);
+      setEntraEnabled(!!row?.entra_enabled);
+    });
+  }, [supabaseClient]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,6 +64,28 @@ const LoginForm: React.FC<LoginFormProps> = ({ displayName }) => {
       debugLog('[LoginForm] login failed', error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleMicrosoftSignIn = async () => {
+    if (!supabaseClient) return;
+    setSsoLoading(true);
+    try {
+      const redirectTo = `${window.location.origin}${clientPrefix}/auth/callback`;
+      debugLog('[LoginForm] signInWithOAuth azure → redirectTo', redirectTo);
+      const { error } = await supabaseClient.auth.signInWithOAuth({
+        provider: 'azure',
+        options: {
+          redirectTo,
+          scopes: 'openid email profile',
+          queryParams: { prompt: 'select_account' },
+        },
+      });
+      if (error) throw error;
+      // Browser will redirect to Microsoft — no further action needed here
+    } catch (err: any) {
+      debugLog('[LoginForm] Microsoft sign-in error', err.message);
+      setSsoLoading(false);
     }
   };
 
@@ -170,6 +208,38 @@ const LoginForm: React.FC<LoginFormProps> = ({ displayName }) => {
             {(loading || authLoading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Sign In
           </Button>
+
+          {entraEnabled && (
+            <>
+              <div className="relative my-2">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">or</span>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full gap-2"
+                disabled={ssoLoading}
+                onClick={handleMicrosoftSignIn}
+              >
+                {ssoLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 21 21" className="h-4 w-4">
+                    <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+                    <rect x="11" y="1" width="9" height="9" fill="#00a4ef"/>
+                    <rect x="1" y="11" width="9" height="9" fill="#7fba00"/>
+                    <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+                  </svg>
+                )}
+                Sign in with Microsoft
+              </Button>
+            </>
+          )}
           
           <div className="text-center">
             <Button 

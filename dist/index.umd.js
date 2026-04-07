@@ -68,12 +68,49 @@
       getInitialSession();
       const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(
         async (event, session) => {
-          var _a;
+          var _a, _b, _c, _d, _e, _f;
           debugLog("[AuthProvider] onAuthStateChange", event, ((_a = session == null ? void 0 : session.user) == null ? void 0 : _a.email) ?? "no user");
           if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && mfaCheckInProgress.current) {
             debugLog("[AuthProvider]", event, "suppressed — MFA/session check in progress");
             setLoading(false);
             return;
+          }
+          if (event === "SIGNED_IN" && (session == null ? void 0 : session.user)) {
+            const provider = (_b = session.user.app_metadata) == null ? void 0 : _b.provider;
+            const isOAuth = provider && provider !== "email";
+            debugLog("[AuthProvider] SIGNED_IN provider:", provider, "isOAuth:", isOAuth);
+            if (isOAuth) {
+              try {
+                const userId = session.user.id;
+                const email = session.user.email ?? "";
+                const fullName = ((_c = session.user.user_metadata) == null ? void 0 : _c.full_name) ?? ((_d = session.user.user_metadata) == null ? void 0 : _d.name) ?? "";
+                const entraOid = ((_e = session.user.user_metadata) == null ? void 0 : _e.sub) ?? ((_f = session.user.user_metadata) == null ? void 0 : _f.provider_id) ?? null;
+                const { data: existing } = await supabaseClient.from("profiles").select("id, status, entra_oid").eq("id", userId).maybeSingle();
+                if (!existing) {
+                  debugLog("[AuthProvider] JIT creating profile for", email);
+                  await supabaseClient.from("profiles").insert({
+                    id: userId,
+                    email,
+                    full_name: fullName,
+                    status: "Active",
+                    entra_oid: entraOid
+                  });
+                } else {
+                  if (entraOid && !existing.entra_oid) {
+                    await supabaseClient.from("profiles").update({ entra_oid: entraOid }).eq("id", userId);
+                  }
+                  if (existing.status === "Inactive") {
+                    debugLog("[AuthProvider] OAuth user is Inactive → signing out");
+                    await supabaseClient.auth.signOut();
+                    setError("Your account has been deactivated. Please contact your administrator.");
+                    setLoading(false);
+                    return;
+                  }
+                }
+              } catch (err) {
+                debugLog("[AuthProvider] OAuth JIT error", err.message);
+              }
+            }
           }
           setUser((session == null ? void 0 : session.user) || null);
           setLoading(false);
@@ -1128,11 +1165,25 @@
     const [loading, setLoading] = React.useState(false);
     const [showPassword, setShowPassword] = React.useState(false);
     const [success, setSuccess] = React.useState("");
+    const [ssoLoading, setSsoLoading] = React.useState(false);
+    const [entraEnabled, setEntraEnabled] = React.useState(false);
     const { signIn, error, loading: authLoading, mfaState, clearMfaState, supabaseClient } = useAuth();
     const badgeText = displayName || null;
-    const reserved = ["admin", "activate-account", "reset-password", "forgot-password", "email-notifications"];
+    const reserved = ["admin", "activate-account", "reset-password", "forgot-password", "email-notifications", "auth"];
     const pathParts = location.pathname.split("/").filter(Boolean);
     const clientPrefix = pathParts[0] && !reserved.includes(pathParts[0]) ? `/${pathParts[0]}` : "";
+    React.useEffect(() => {
+      if (!supabaseClient) return;
+      supabaseClient.rpc("get_org_sso_config").then(({ data, error: error2 }) => {
+        if (error2) {
+          debugLog("[LoginForm] get_org_sso_config error", error2.message);
+          return;
+        }
+        const row = Array.isArray(data) ? data[0] : data;
+        debugLog("[LoginForm] sso config", row);
+        setEntraEnabled(!!(row == null ? void 0 : row.entra_enabled));
+      });
+    }, [supabaseClient]);
     const handleSubmit = async (e) => {
       e.preventDefault();
       setLoading(true);
@@ -1143,6 +1194,26 @@
         debugLog("[LoginForm] login failed", error2.message);
       } finally {
         setLoading(false);
+      }
+    };
+    const handleMicrosoftSignIn = async () => {
+      if (!supabaseClient) return;
+      setSsoLoading(true);
+      try {
+        const redirectTo = `${window.location.origin}${clientPrefix}/auth/callback`;
+        debugLog("[LoginForm] signInWithOAuth azure → redirectTo", redirectTo);
+        const { error: error2 } = await supabaseClient.auth.signInWithOAuth({
+          provider: "azure",
+          options: {
+            redirectTo,
+            scopes: "openid email profile",
+            queryParams: { prompt: "select_account" }
+          }
+        });
+        if (error2) throw error2;
+      } catch (err) {
+        debugLog("[LoginForm] Microsoft sign-in error", err.message);
+        setSsoLoading(false);
       }
     };
     const handleMfaSuccess = () => {
@@ -1240,6 +1311,31 @@
           /* @__PURE__ */ jsxRuntime.jsxs(button.Button, { type: "submit", className: "w-full", disabled: loading || authLoading, children: [
             (loading || authLoading) && /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
             "Sign In"
+          ] }),
+          entraEnabled && /* @__PURE__ */ jsxRuntime.jsxs(jsxRuntime.Fragment, { children: [
+            /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "relative my-2", children: [
+              /* @__PURE__ */ jsxRuntime.jsx("div", { className: "absolute inset-0 flex items-center", children: /* @__PURE__ */ jsxRuntime.jsx("span", { className: "w-full border-t" }) }),
+              /* @__PURE__ */ jsxRuntime.jsx("div", { className: "relative flex justify-center text-xs uppercase", children: /* @__PURE__ */ jsxRuntime.jsx("span", { className: "bg-background px-2 text-muted-foreground", children: "or" }) })
+            ] }),
+            /* @__PURE__ */ jsxRuntime.jsxs(
+              button.Button,
+              {
+                type: "button",
+                variant: "outline",
+                className: "w-full gap-2",
+                disabled: ssoLoading,
+                onClick: handleMicrosoftSignIn,
+                children: [
+                  ssoLoading ? /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Loader2, { className: "h-4 w-4 animate-spin" }) : /* @__PURE__ */ jsxRuntime.jsxs("svg", { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 21 21", className: "h-4 w-4", children: [
+                    /* @__PURE__ */ jsxRuntime.jsx("rect", { x: "1", y: "1", width: "9", height: "9", fill: "#f25022" }),
+                    /* @__PURE__ */ jsxRuntime.jsx("rect", { x: "11", y: "1", width: "9", height: "9", fill: "#00a4ef" }),
+                    /* @__PURE__ */ jsxRuntime.jsx("rect", { x: "1", y: "11", width: "9", height: "9", fill: "#7fba00" }),
+                    /* @__PURE__ */ jsxRuntime.jsx("rect", { x: "11", y: "11", width: "9", height: "9", fill: "#ffb900" })
+                  ] }),
+                  "Sign in with Microsoft"
+                ]
+              }
+            )
           ] }),
           /* @__PURE__ */ jsxRuntime.jsx("div", { className: "text-center", children: /* @__PURE__ */ jsxRuntime.jsx(
             button.Button,
