@@ -10,6 +10,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import AuthBranding from './AuthBranding';
+import MFAChallenge from './MFAChallenge';
+import MFAEnrollment from './MFAEnrollment';
 
 interface LoginFormProps {
   /** Optional displayName badge text. If not provided, badge won't show. */
@@ -24,9 +26,9 @@ const LoginForm: React.FC<LoginFormProps> = ({ displayName }) => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [success, setSuccess] = useState('');
-  
-  const { signIn, error, loading: authLoading } = useAuth();
-  
+
+  const { signIn, error, loading: authLoading, mfaState, clearMfaState, supabaseClient } = useAuth();
+
   // Use displayName from props (passed by consuming app)
   const badgeText = displayName || null;
 
@@ -43,6 +45,51 @@ const LoginForm: React.FC<LoginFormProps> = ({ displayName }) => {
       setLoading(false);
     }
   };
+
+  const handleMfaSuccess = () => {
+    clearMfaState();
+    // Navigation is handled by the consuming app reacting to user state change
+  };
+
+  const handleMfaCancel = () => {
+    // Sign out and return to login form
+    supabaseClient?.auth.signOut();
+    clearMfaState();
+    setPassword('');
+  };
+
+  // ── MFA intercept screens ─────────────────────────────────────────────────
+  if (mfaState === 'challenge') {
+    return (
+      <MFAChallenge
+        supabaseClient={supabaseClient}
+        onSuccess={handleMfaSuccess}
+        onCancel={handleMfaCancel}
+      />
+    );
+  }
+
+  if (mfaState === 'enroll') {
+    return (
+      <MFAEnrollment
+        supabaseClient={supabaseClient}
+        onSuccess={handleMfaSuccess}
+        required
+      />
+    );
+  }
+
+  if (mfaState === 'prompt') {
+    return (
+      <MFAEnrollment
+        supabaseClient={supabaseClient}
+        onSuccess={handleMfaSuccess}
+        onSkip={handleMfaSuccess}
+        required={false}
+      />
+    );
+  }
+  // ── end MFA intercept ─────────────────────────────────────────────────────
 
 
   return (

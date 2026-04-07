@@ -1,5 +1,5 @@
 import { jsx, jsxs, Fragment } from "react/jsx-runtime";
-import { createContext, useState, useEffect, useContext, useRef, useCallback } from "react";
+import React, { createContext, useState, useEffect, useContext, useRef, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { EyeOff, Eye, Loader2 } from "lucide-react";
+import { EyeOff, Eye, Loader2, ShieldCheck, Check, Copy } from "lucide-react";
 import raynLogo from "@/assets/rayn-logo.png";
 import { supabase } from "@/integrations/supabase/client";
 const debugLog = (...args) => {
@@ -21,6 +21,9 @@ const defaultAuthContext = {
   loading: true,
   error: null,
   supabaseClient: null,
+  mfaState: "none",
+  clearMfaState: () => {
+  },
   signIn: async () => {
   },
   signUp: async () => {
@@ -36,50 +39,107 @@ const defaultAuthContext = {
   changePassword: async () => ({ success: false, error: "Not configured" })
 };
 const AuthProvider = ({ config, children }) => {
-  const { supabaseClient } = config;
+  const { supabaseClient, mfa: mfaConfig } = config;
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [mfaState, setMfaState] = useState("none");
+  const mfaCheckInProgress = React.useRef(true);
   useEffect(() => {
     const getInitialSession = async () => {
+      var _a;
       try {
         const { data: { session }, error: error2 } = await supabaseClient.auth.getSession();
-        if (error2) {
-          throw error2;
+        if (error2) throw error2;
+        if (!session) {
+          debugLog("[AuthProvider] getInitialSession: no session");
+          setUser(null);
+          return;
         }
-        setUser((session == null ? void 0 : session.user) || null);
+        const { data: aalData } = await supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel();
+        const { currentLevel, nextLevel } = aalData ?? {};
+        debugLog("[AuthProvider] getInitialSession AAL", { currentLevel, nextLevel, email: (_a = session.user) == null ? void 0 : _a.email });
+        if (currentLevel === "aal1" && nextLevel === "aal2") {
+          debugLog("[AuthProvider] getInitialSession: aal1 session with enrolled factor → mfaState: challenge");
+          setMfaState("challenge");
+          return;
+        }
+        setUser(session.user);
       } catch (error2) {
+        debugLog("[AuthProvider] getInitialSession error", error2.message);
         setError(error2.message);
       } finally {
+        mfaCheckInProgress.current = false;
         setLoading(false);
       }
     };
     getInitialSession();
     const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(
       async (event, session) => {
+        var _a;
+        debugLog("[AuthProvider] onAuthStateChange", event, ((_a = session == null ? void 0 : session.user) == null ? void 0 : _a.email) ?? "no user");
+        if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && mfaCheckInProgress.current) {
+          debugLog("[AuthProvider]", event, "suppressed — MFA/session check in progress");
+          setLoading(false);
+          return;
+        }
         setUser((session == null ? void 0 : session.user) || null);
         setLoading(false);
+        if (event === "SIGNED_OUT") {
+          debugLog("[AuthProvider] SIGNED_OUT → clearing mfaState");
+          setMfaState("none");
+        }
       }
     );
     return () => subscription.unsubscribe();
   }, [supabaseClient]);
   const signIn = async (email, password) => {
+    var _a;
     try {
       setLoading(true);
       setError(null);
+      setMfaState("none");
+      mfaCheckInProgress.current = true;
       const { data, error: error2 } = await supabaseClient.auth.signInWithPassword({
         email,
         password
       });
-      if (error2) {
-        throw error2;
+      if (error2) throw error2;
+      debugLog("[AuthProvider] signIn success", (_a = data.user) == null ? void 0 : _a.email);
+      const { data: aalData, error: aalError } = await supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aalError) {
+        debugLog("[AuthProvider] AAL check error", aalError.message);
       }
+      const { currentLevel, nextLevel } = aalData ?? {};
+      debugLog("[AuthProvider] AAL levels", { currentLevel, nextLevel });
+      if (currentLevel === "aal1" && nextLevel === "aal2") {
+        debugLog("[AuthProvider] → mfaState: challenge (factor enrolled, not yet verified)");
+        setMfaState("challenge");
+        return;
+      }
+      if (nextLevel === "aal1") {
+        debugLog("[AuthProvider] No factor enrolled; checking requireEnrollment...");
+        const shouldForce = (mfaConfig == null ? void 0 : mfaConfig.requireEnrollment) ? await mfaConfig.requireEnrollment(data.user, supabaseClient) : false;
+        debugLog("[AuthProvider] requireEnrollment →", shouldForce);
+        if (shouldForce) {
+          debugLog("[AuthProvider] → mfaState: enroll (mandatory)");
+          setMfaState("enroll");
+          return;
+        }
+        debugLog("[AuthProvider] → mfaState: prompt (optional nudge)");
+        setMfaState("prompt");
+      }
+      debugLog("[AuthProvider] → no MFA gate; setting user now");
+      setUser(data.user);
     } catch (error2) {
+      debugLog("[AuthProvider] signIn error", error2.message);
       setError(error2.message);
     } finally {
+      mfaCheckInProgress.current = false;
       setLoading(false);
     }
   };
+  const clearMfaState = () => setMfaState("none");
   const signUp = async (email, password, fullName) => {
     try {
       setLoading(true);
@@ -257,6 +317,8 @@ const AuthProvider = ({ config, children }) => {
     loading,
     error,
     supabaseClient,
+    mfaState,
+    clearMfaState,
     signIn,
     signUp,
     signOut,
@@ -740,6 +802,324 @@ const ForgotPassword = ({ displayName }) => {
     ] })
   ] }) });
 };
+const MFAChallenge = ({ supabaseClient, onSuccess, onCancel }) => {
+  const [code, setCode] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const inputRef = useRef(null);
+  useEffect(() => {
+    var _a;
+    debugLog("[MFAChallenge] mounted");
+    (_a = inputRef.current) == null ? void 0 : _a.focus();
+  }, []);
+  const handleVerify = async (e) => {
+    var _a, _b;
+    e.preventDefault();
+    if (code.length !== 6) {
+      setError("Please enter a 6-digit code.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    debugLog("[MFAChallenge] verifying code...");
+    try {
+      const { data: factorsData, error: factorsError } = await supabaseClient.auth.mfa.listFactors();
+      if (factorsError) throw factorsError;
+      debugLog("[MFAChallenge] factors", factorsData);
+      ((factorsData == null ? void 0 : factorsData.totp) ?? []).forEach((f, i) => {
+        debugLog(`[MFAChallenge] totp[${i}]`, { id: f.id, status: f.status, friendlyName: f.friendly_name, createdAt: f.created_at });
+      });
+      const totpFactor = (_a = factorsData == null ? void 0 : factorsData.totp) == null ? void 0 : _a.find((f) => f.status === "verified");
+      if (!totpFactor) {
+        debugLog("[MFAChallenge] no verified factor found — cannot challenge");
+        throw new Error("NO_VERIFIED_FACTOR");
+      }
+      debugLog("[MFAChallenge] using factor", { id: totpFactor.id, status: totpFactor.status });
+      const { data: challengeData, error: challengeError } = await supabaseClient.auth.mfa.challenge({
+        factorId: totpFactor.id
+      });
+      if (challengeError) {
+        debugLog("[MFAChallenge] challenge error", { message: challengeError.message, status: challengeError.status, code: challengeError.code });
+        throw challengeError;
+      }
+      debugLog("[MFAChallenge] challenge created", challengeData.id);
+      const { error: verifyError } = await supabaseClient.auth.mfa.verify({
+        factorId: totpFactor.id,
+        challengeId: challengeData.id,
+        code
+      });
+      if (verifyError) {
+        debugLog("[MFAChallenge] verify error (raw)", { message: verifyError.message, status: verifyError.status, code: verifyError.code, details: verifyError });
+        throw verifyError;
+      }
+      debugLog("[MFAChallenge] verify success → calling onSuccess");
+      onSuccess();
+    } catch (err) {
+      const msg = (err == null ? void 0 : err.message) ?? "Verification failed.";
+      debugLog("[MFAChallenge] caught error", { message: msg, status: err == null ? void 0 : err.status, code: err == null ? void 0 : err.code });
+      if (msg === "NO_VERIFIED_FACTOR") {
+        setError("Your two-factor setup is incomplete. Please sign out and log in again to re-enroll.");
+        return;
+      }
+      setError(
+        msg.toLowerCase().includes("invalid") || msg.toLowerCase().includes("token") || msg.toLowerCase().includes("totp") ? "Incorrect code. Check your authenticator app and try again." : msg
+      );
+      setCode("");
+      (_b = inputRef.current) == null ? void 0 : _b.focus();
+    } finally {
+      setLoading(false);
+    }
+  };
+  return /* @__PURE__ */ jsxs("div", { className: "w-full max-w-md mx-auto space-y-6", children: [
+    /* @__PURE__ */ jsx(AuthBranding, { size: "large" }),
+    /* @__PURE__ */ jsxs(Card, { children: [
+      /* @__PURE__ */ jsxs(CardHeader, { children: [
+        /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-2", children: [
+          /* @__PURE__ */ jsx(ShieldCheck, { className: "h-5 w-5 text-primary" }),
+          /* @__PURE__ */ jsx(CardTitle, { children: "Two-Factor Authentication" })
+        ] }),
+        /* @__PURE__ */ jsx(CardDescription, { children: "Enter the 6-digit code from your authenticator app to continue." })
+      ] }),
+      /* @__PURE__ */ jsx(CardContent, { children: /* @__PURE__ */ jsxs("form", { onSubmit: handleVerify, className: "space-y-4", children: [
+        error && /* @__PURE__ */ jsx(Alert, { variant: "destructive", children: /* @__PURE__ */ jsx(AlertDescription, { children: error }) }),
+        /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
+          /* @__PURE__ */ jsx(Label, { htmlFor: "mfa-code", children: "Authenticator Code" }),
+          /* @__PURE__ */ jsx(
+            Input,
+            {
+              id: "mfa-code",
+              ref: inputRef,
+              type: "text",
+              inputMode: "numeric",
+              pattern: "[0-9]*",
+              maxLength: 6,
+              value: code,
+              onChange: (e) => setCode(e.target.value.replace(/\D/g, "")),
+              placeholder: "000000",
+              className: "text-center text-2xl tracking-widest font-mono",
+              autoComplete: "one-time-code",
+              disabled: loading
+            }
+          )
+        ] }),
+        /* @__PURE__ */ jsxs(Button, { type: "submit", className: "w-full", disabled: loading || code.length !== 6, children: [
+          loading && /* @__PURE__ */ jsx(Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
+          "Verify"
+        ] }),
+        onCancel && /* @__PURE__ */ jsx("div", { className: "text-center", children: /* @__PURE__ */ jsx(Button, { variant: "link", type: "button", onClick: onCancel, disabled: loading, children: "Back to sign in" }) })
+      ] }) })
+    ] })
+  ] });
+};
+const MFAEnrollment = ({
+  supabaseClient,
+  onSuccess,
+  onSkip,
+  required = false
+}) => {
+  const [step, setStep] = useState("qr");
+  const [factorId, setFactorId] = useState("");
+  const [qrCode, setQrCode] = useState("");
+  const [secret, setSecret] = useState("");
+  const [code, setCode] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [copied, setCopied] = useState(false);
+  const inputRef = useRef(null);
+  useEffect(() => {
+    debugLog("[MFAEnrollment] mounted", { required });
+    let cancelled = false;
+    const enroll = async () => {
+      var _a;
+      setLoading(true);
+      setError(null);
+      try {
+        const { data: factorsData } = await supabaseClient.auth.mfa.listFactors();
+        debugLog("[MFAEnrollment] existing factors", factorsData);
+        const pending = (_a = factorsData == null ? void 0 : factorsData.totp) == null ? void 0 : _a.find((f) => f.status === "unverified");
+        if (pending) {
+          debugLog("[MFAEnrollment] unverified factor found, unenrolling to get fresh QR", pending.id);
+          await supabaseClient.auth.mfa.unenroll({ factorId: pending.id });
+        }
+        debugLog("[MFAEnrollment] calling mfa.enroll...");
+        const { data, error: enrollError } = await supabaseClient.auth.mfa.enroll({
+          factorType: "totp",
+          friendlyName: "Authenticator App"
+        });
+        if (enrollError) throw enrollError;
+        debugLog("[MFAEnrollment] enroll success, factorId:", data.id);
+        if (!cancelled) {
+          setFactorId(data.id);
+          setQrCode(data.totp.qr_code);
+          setSecret(data.totp.secret);
+        }
+      } catch (err) {
+        debugLog("[MFAEnrollment] enroll error", err == null ? void 0 : err.message);
+        if (!cancelled) setError((err == null ? void 0 : err.message) ?? "Could not start enrollment. Please try again.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    enroll();
+    return () => {
+      cancelled = true;
+    };
+  }, [supabaseClient]);
+  useEffect(() => {
+    var _a;
+    if (step === "verify") (_a = inputRef.current) == null ? void 0 : _a.focus();
+  }, [step]);
+  const copySecret = async () => {
+    await navigator.clipboard.writeText(secret);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2e3);
+  };
+  const handleVerify = async (e) => {
+    var _a;
+    e.preventDefault();
+    if (code.length !== 6) {
+      setError("Please enter a 6-digit code.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    debugLog("[MFAEnrollment] verifying enrollment code for factorId", factorId);
+    try {
+      const { data: challengeData, error: challengeError } = await supabaseClient.auth.mfa.challenge({
+        factorId
+      });
+      if (challengeError) throw challengeError;
+      debugLog("[MFAEnrollment] challenge created", challengeData.id);
+      const { error: verifyError } = await supabaseClient.auth.mfa.verify({
+        factorId,
+        challengeId: challengeData.id,
+        code
+      });
+      if (verifyError) throw verifyError;
+      const { data: { user } } = await supabaseClient.auth.getUser();
+      if (user == null ? void 0 : user.id) {
+        const { error: profileError } = await supabaseClient.from("profiles").update({ two_factor_enabled: true }).eq("id", user.id);
+        if (profileError) {
+          debugLog("[MFAEnrollment] warning: could not set two_factor_enabled on profile", profileError.message);
+        } else {
+          debugLog("[MFAEnrollment] profiles.two_factor_enabled set to true");
+        }
+      }
+      debugLog("[MFAEnrollment] enrollment verified → calling onSuccess");
+      onSuccess();
+    } catch (err) {
+      const msg = (err == null ? void 0 : err.message) ?? "Verification failed.";
+      debugLog("[MFAEnrollment] verify error", msg);
+      setError(
+        msg.toLowerCase().includes("invalid") || msg.toLowerCase().includes("token") ? "Incorrect code. Make sure your device clock is accurate and try again." : msg
+      );
+      setCode("");
+      (_a = inputRef.current) == null ? void 0 : _a.focus();
+    } finally {
+      setLoading(false);
+    }
+  };
+  return /* @__PURE__ */ jsxs("div", { className: "w-full max-w-md mx-auto space-y-6", children: [
+    /* @__PURE__ */ jsx(AuthBranding, { size: "large" }),
+    /* @__PURE__ */ jsxs(Card, { children: [
+      /* @__PURE__ */ jsxs(CardHeader, { children: [
+        /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-2", children: [
+          /* @__PURE__ */ jsx(ShieldCheck, { className: "h-5 w-5 text-primary" }),
+          /* @__PURE__ */ jsx(CardTitle, { children: "Set Up Two-Factor Authentication" })
+        ] }),
+        /* @__PURE__ */ jsx(CardDescription, { children: required ? "Your account requires two-factor authentication. Set it up to continue." : "Add an extra layer of security to your account." })
+      ] }),
+      /* @__PURE__ */ jsxs(CardContent, { children: [
+        error && /* @__PURE__ */ jsx(Alert, { variant: "destructive", className: "mb-4", children: /* @__PURE__ */ jsx(AlertDescription, { children: error }) }),
+        step === "qr" && /* @__PURE__ */ jsxs("div", { className: "space-y-5", children: [
+          /* @__PURE__ */ jsxs("ol", { className: "text-sm text-muted-foreground space-y-1 list-decimal list-inside", children: [
+            /* @__PURE__ */ jsx("li", { children: "Install an authenticator app (Google Authenticator, Authy, 1Password, etc.)" }),
+            /* @__PURE__ */ jsx("li", { children: "Scan the QR code below, or enter the secret key manually" }),
+            /* @__PURE__ */ jsxs("li", { children: [
+              "Click ",
+              /* @__PURE__ */ jsx("strong", { children: "Next" }),
+              " to verify the setup"
+            ] })
+          ] }),
+          loading && /* @__PURE__ */ jsx("div", { className: "flex justify-center py-8", children: /* @__PURE__ */ jsx(Loader2, { className: "h-8 w-8 animate-spin text-muted-foreground" }) }),
+          qrCode && !loading && /* @__PURE__ */ jsxs("div", { className: "flex flex-col items-center gap-4", children: [
+            /* @__PURE__ */ jsx("div", { className: "border rounded-lg p-3 bg-white", children: /* @__PURE__ */ jsx("img", { src: qrCode, alt: "MFA QR code", className: "w-48 h-48" }) }),
+            secret && /* @__PURE__ */ jsxs("div", { className: "w-full space-y-1", children: [
+              /* @__PURE__ */ jsx(Label, { className: "text-xs text-muted-foreground", children: "Or enter the key manually:" }),
+              /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-2", children: [
+                /* @__PURE__ */ jsx("code", { className: "flex-1 rounded bg-muted px-3 py-2 text-xs font-mono tracking-wider break-all", children: secret }),
+                /* @__PURE__ */ jsx(
+                  Button,
+                  {
+                    type: "button",
+                    variant: "outline",
+                    size: "sm",
+                    onClick: copySecret,
+                    className: "shrink-0",
+                    children: copied ? /* @__PURE__ */ jsx(Check, { className: "h-4 w-4" }) : /* @__PURE__ */ jsx(Copy, { className: "h-4 w-4" })
+                  }
+                )
+              ] })
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { className: "flex gap-3", children: [
+            /* @__PURE__ */ jsx(
+              Button,
+              {
+                className: "flex-1",
+                disabled: !qrCode || loading,
+                onClick: () => setStep("verify"),
+                children: "Next — Enter Code"
+              }
+            ),
+            !required && onSkip && /* @__PURE__ */ jsx(Button, { variant: "outline", type: "button", onClick: onSkip, disabled: loading, children: "Skip for now" })
+          ] })
+        ] }),
+        step === "verify" && /* @__PURE__ */ jsxs("form", { onSubmit: handleVerify, className: "space-y-4", children: [
+          /* @__PURE__ */ jsx("p", { className: "text-sm text-muted-foreground", children: "Enter the 6-digit code from your authenticator app to confirm setup." }),
+          /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
+            /* @__PURE__ */ jsx(Label, { htmlFor: "enroll-code", children: "Authenticator Code" }),
+            /* @__PURE__ */ jsx(
+              Input,
+              {
+                id: "enroll-code",
+                ref: inputRef,
+                type: "text",
+                inputMode: "numeric",
+                pattern: "[0-9]*",
+                maxLength: 6,
+                value: code,
+                onChange: (e) => setCode(e.target.value.replace(/\D/g, "")),
+                placeholder: "000000",
+                className: "text-center text-2xl tracking-widest font-mono",
+                autoComplete: "one-time-code",
+                disabled: loading
+              }
+            )
+          ] }),
+          /* @__PURE__ */ jsxs(Button, { type: "submit", className: "w-full", disabled: loading || code.length !== 6, children: [
+            loading && /* @__PURE__ */ jsx(Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
+            "Confirm & Enable 2FA"
+          ] }),
+          /* @__PURE__ */ jsx("div", { className: "text-center", children: /* @__PURE__ */ jsx(
+            Button,
+            {
+              variant: "link",
+              type: "button",
+              onClick: () => {
+                setStep("qr");
+                setCode("");
+                setError(null);
+              },
+              disabled: loading,
+              children: "Back to QR code"
+            }
+          ) })
+        ] })
+      ] })
+    ] })
+  ] });
+};
 const LoginForm = ({ displayName }) => {
   const navigate = useNavigate();
   useLocation();
@@ -748,7 +1128,7 @@ const LoginForm = ({ displayName }) => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [success, setSuccess] = useState("");
-  const { signIn, error, loading: authLoading } = useAuth();
+  const { signIn, error, loading: authLoading, mfaState, clearMfaState, supabaseClient } = useAuth();
   const badgeText = displayName || null;
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -762,6 +1142,45 @@ const LoginForm = ({ displayName }) => {
       setLoading(false);
     }
   };
+  const handleMfaSuccess = () => {
+    clearMfaState();
+  };
+  const handleMfaCancel = () => {
+    supabaseClient == null ? void 0 : supabaseClient.auth.signOut();
+    clearMfaState();
+    setPassword("");
+  };
+  if (mfaState === "challenge") {
+    return /* @__PURE__ */ jsx(
+      MFAChallenge,
+      {
+        supabaseClient,
+        onSuccess: handleMfaSuccess,
+        onCancel: handleMfaCancel
+      }
+    );
+  }
+  if (mfaState === "enroll") {
+    return /* @__PURE__ */ jsx(
+      MFAEnrollment,
+      {
+        supabaseClient,
+        onSuccess: handleMfaSuccess,
+        required: true
+      }
+    );
+  }
+  if (mfaState === "prompt") {
+    return /* @__PURE__ */ jsx(
+      MFAEnrollment,
+      {
+        supabaseClient,
+        onSuccess: handleMfaSuccess,
+        onSkip: handleMfaSuccess,
+        required: false
+      }
+    );
+  }
   return /* @__PURE__ */ jsxs("div", { className: "w-full max-w-md mx-auto space-y-6", children: [
     /* @__PURE__ */ jsx(AuthBranding, { size: "large" }),
     /* @__PURE__ */ jsxs(Card, { children: [
@@ -1442,6 +1861,8 @@ export {
   AuthProvider,
   ForgotPassword,
   LoginForm,
+  MFAChallenge,
+  MFAEnrollment,
   ResetPassword,
   SignUpForm,
   createUseAuth,

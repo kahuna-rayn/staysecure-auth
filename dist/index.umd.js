@@ -1,18 +1,21 @@
 (function(global, factory) {
   typeof exports === "object" && typeof module !== "undefined" ? factory(exports, require("react/jsx-runtime"), require("react"), require("react-router-dom"), require("@/components/ui/button"), require("@/components/ui/input"), require("@/components/ui/label"), require("@/components/ui/card"), require("@/components/ui/alert"), require("@/components/ui/badge"), require("lucide-react"), require("@/assets/rayn-logo.png"), require("@/integrations/supabase/client")) : typeof define === "function" && define.amd ? define(["exports", "react/jsx-runtime", "react", "react-router-dom", "@/components/ui/button", "@/components/ui/input", "@/components/ui/label", "@/components/ui/card", "@/components/ui/alert", "@/components/ui/badge", "lucide-react", "@/assets/rayn-logo.png", "@/integrations/supabase/client"], factory) : (global = typeof globalThis !== "undefined" ? globalThis : global || self, factory(global.StaySecureAuth = {}, global["react/jsx-runtime"], global.React, global.reactRouterDom, global.button, global.input, global.label, global.card, global.alert, global.badge, global.lucideReact, global.raynLogo, global.client));
-})(this, function(exports2, jsxRuntime, react, reactRouterDom, button, input, label, card, alert, badge, lucideReact, raynLogo, client) {
+})(this, function(exports2, jsxRuntime, React, reactRouterDom, button, input, label, card, alert, badge, lucideReact, raynLogo, client) {
   "use strict";
   const debugLog = (...args) => {
     if (typeof window !== "undefined" && window.__DEBUG__) {
       console.log("[AUTH]", ...args);
     }
   };
-  const AuthContext = react.createContext(null);
+  const AuthContext = React.createContext(null);
   const defaultAuthContext = {
     user: null,
     loading: true,
     error: null,
     supabaseClient: null,
+    mfaState: "none",
+    clearMfaState: () => {
+    },
     signIn: async () => {
     },
     signUp: async () => {
@@ -28,50 +31,107 @@
     changePassword: async () => ({ success: false, error: "Not configured" })
   };
   const AuthProvider = ({ config, children }) => {
-    const { supabaseClient } = config;
-    const [user, setUser] = react.useState(null);
-    const [loading, setLoading] = react.useState(true);
-    const [error, setError] = react.useState(null);
-    react.useEffect(() => {
+    const { supabaseClient, mfa: mfaConfig } = config;
+    const [user, setUser] = React.useState(null);
+    const [loading, setLoading] = React.useState(true);
+    const [error, setError] = React.useState(null);
+    const [mfaState, setMfaState] = React.useState("none");
+    const mfaCheckInProgress = React.useRef(true);
+    React.useEffect(() => {
       const getInitialSession = async () => {
+        var _a;
         try {
           const { data: { session }, error: error2 } = await supabaseClient.auth.getSession();
-          if (error2) {
-            throw error2;
+          if (error2) throw error2;
+          if (!session) {
+            debugLog("[AuthProvider] getInitialSession: no session");
+            setUser(null);
+            return;
           }
-          setUser((session == null ? void 0 : session.user) || null);
+          const { data: aalData } = await supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel();
+          const { currentLevel, nextLevel } = aalData ?? {};
+          debugLog("[AuthProvider] getInitialSession AAL", { currentLevel, nextLevel, email: (_a = session.user) == null ? void 0 : _a.email });
+          if (currentLevel === "aal1" && nextLevel === "aal2") {
+            debugLog("[AuthProvider] getInitialSession: aal1 session with enrolled factor → mfaState: challenge");
+            setMfaState("challenge");
+            return;
+          }
+          setUser(session.user);
         } catch (error2) {
+          debugLog("[AuthProvider] getInitialSession error", error2.message);
           setError(error2.message);
         } finally {
+          mfaCheckInProgress.current = false;
           setLoading(false);
         }
       };
       getInitialSession();
       const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(
         async (event, session) => {
+          var _a;
+          debugLog("[AuthProvider] onAuthStateChange", event, ((_a = session == null ? void 0 : session.user) == null ? void 0 : _a.email) ?? "no user");
+          if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && mfaCheckInProgress.current) {
+            debugLog("[AuthProvider]", event, "suppressed — MFA/session check in progress");
+            setLoading(false);
+            return;
+          }
           setUser((session == null ? void 0 : session.user) || null);
           setLoading(false);
+          if (event === "SIGNED_OUT") {
+            debugLog("[AuthProvider] SIGNED_OUT → clearing mfaState");
+            setMfaState("none");
+          }
         }
       );
       return () => subscription.unsubscribe();
     }, [supabaseClient]);
     const signIn = async (email, password) => {
+      var _a;
       try {
         setLoading(true);
         setError(null);
+        setMfaState("none");
+        mfaCheckInProgress.current = true;
         const { data, error: error2 } = await supabaseClient.auth.signInWithPassword({
           email,
           password
         });
-        if (error2) {
-          throw error2;
+        if (error2) throw error2;
+        debugLog("[AuthProvider] signIn success", (_a = data.user) == null ? void 0 : _a.email);
+        const { data: aalData, error: aalError } = await supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel();
+        if (aalError) {
+          debugLog("[AuthProvider] AAL check error", aalError.message);
         }
+        const { currentLevel, nextLevel } = aalData ?? {};
+        debugLog("[AuthProvider] AAL levels", { currentLevel, nextLevel });
+        if (currentLevel === "aal1" && nextLevel === "aal2") {
+          debugLog("[AuthProvider] → mfaState: challenge (factor enrolled, not yet verified)");
+          setMfaState("challenge");
+          return;
+        }
+        if (nextLevel === "aal1") {
+          debugLog("[AuthProvider] No factor enrolled; checking requireEnrollment...");
+          const shouldForce = (mfaConfig == null ? void 0 : mfaConfig.requireEnrollment) ? await mfaConfig.requireEnrollment(data.user, supabaseClient) : false;
+          debugLog("[AuthProvider] requireEnrollment →", shouldForce);
+          if (shouldForce) {
+            debugLog("[AuthProvider] → mfaState: enroll (mandatory)");
+            setMfaState("enroll");
+            return;
+          }
+          debugLog("[AuthProvider] → mfaState: prompt (optional nudge)");
+          setMfaState("prompt");
+        }
+        debugLog("[AuthProvider] → no MFA gate; setting user now");
+        setUser(data.user);
       } catch (error2) {
+        debugLog("[AuthProvider] signIn error", error2.message);
         setError(error2.message);
       } finally {
+        mfaCheckInProgress.current = false;
         setLoading(false);
       }
     };
+    const clearMfaState = () => setMfaState("none");
     const signUp = async (email, password, fullName) => {
       try {
         setLoading(true);
@@ -249,6 +309,8 @@
       loading,
       error,
       supabaseClient,
+      mfaState,
+      clearMfaState,
       signIn,
       signUp,
       signOut,
@@ -260,7 +322,7 @@
     return /* @__PURE__ */ jsxRuntime.jsx(AuthContext.Provider, { value, children });
   };
   const useAuth = () => {
-    const context = react.useContext(AuthContext);
+    const context = React.useContext(AuthContext);
     if (!context) {
       console.warn("useAuth called outside AuthProvider, using default context");
       return defaultAuthContext;
@@ -295,21 +357,21 @@
     const location = reactRouterDom.useLocation();
     const navigate = reactRouterDom.useNavigate();
     const { activateUser, error: authError, loading: authLoading, signOut, supabaseClient, sendActivationEmail } = useAuth();
-    const [email, setEmail] = react.useState("");
-    const [password, setPassword] = react.useState("");
-    const [confirmPassword, setConfirmPassword] = react.useState("");
-    const [loading, setLoading] = react.useState(false);
-    const [error, setError] = react.useState("");
-    const [success, setSuccess] = react.useState("");
-    const [showPassword, setShowPassword] = react.useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = react.useState(false);
-    const clientPathRef = react.useRef("");
-    const [requestingNewLink, setRequestingNewLink] = react.useState(false);
-    const [newLinkRequested, setNewLinkRequested] = react.useState(false);
-    const [isExpiredLink, setIsExpiredLink] = react.useState(false);
+    const [email, setEmail] = React.useState("");
+    const [password, setPassword] = React.useState("");
+    const [confirmPassword, setConfirmPassword] = React.useState("");
+    const [loading, setLoading] = React.useState(false);
+    const [error, setError] = React.useState("");
+    const [success, setSuccess] = React.useState("");
+    const [showPassword, setShowPassword] = React.useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
+    const clientPathRef = React.useRef("");
+    const [requestingNewLink, setRequestingNewLink] = React.useState(false);
+    const [newLinkRequested, setNewLinkRequested] = React.useState(false);
+    const [isExpiredLink, setIsExpiredLink] = React.useState(false);
     const searchParams = new URLSearchParams(location.search);
     const badgeText = displayName || null;
-    react.useEffect(() => {
+    React.useEffect(() => {
       if (typeof window !== "undefined") {
         const pathParts = window.location.pathname.split("/").filter(Boolean);
         const clientId = pathParts[0];
@@ -324,7 +386,7 @@
         }
       }
     }, []);
-    react.useEffect(() => {
+    React.useEffect(() => {
       var _a;
       if ((_a = location.state) == null ? void 0 : _a.authError) {
         setError(location.state.authError);
@@ -333,7 +395,7 @@
         }
       }
     }, [location.state]);
-    react.useEffect(() => {
+    React.useEffect(() => {
       if (!error) return;
       if (error.includes("Password must be at least 12 characters")) {
         if (password && isStrongPassword$1(password)) {
@@ -348,7 +410,7 @@
         }
       }
     }, [password, confirmPassword, error]);
-    react.useEffect(() => {
+    React.useEffect(() => {
       const run = async () => {
         var _a, _b;
         const backupHash = typeof window !== "undefined" ? sessionStorage.getItem("activation_hash_backup") : null;
@@ -624,7 +686,7 @@
   };
   const AuthEventRedirect = () => {
     const navigate = reactRouterDom.useNavigate();
-    react.useEffect(() => {
+    React.useEffect(() => {
       const { data: { subscription } } = client.supabase.auth.onAuthStateChange((event) => {
         if (event === "PASSWORD_RECOVERY") {
           const hash = window.location.hash || "";
@@ -638,14 +700,14 @@
   const ForgotPassword = ({ displayName }) => {
     const location = reactRouterDom.useLocation();
     const navigate = reactRouterDom.useNavigate();
-    const [email, setEmail] = react.useState("");
-    const [loading, setLoading] = react.useState(false);
-    const [message, setMessage] = react.useState("");
-    const [isError, setIsError] = react.useState(false);
-    const [resetLinkSent, setResetLinkSent] = react.useState(false);
+    const [email, setEmail] = React.useState("");
+    const [loading, setLoading] = React.useState(false);
+    const [message, setMessage] = React.useState("");
+    const [isError, setIsError] = React.useState(false);
+    const [resetLinkSent, setResetLinkSent] = React.useState(false);
     const { resetPassword } = useAuth();
     const badgeText = displayName || null;
-    react.useEffect(() => {
+    React.useEffect(() => {
       var _a;
       if ((_a = location.state) == null ? void 0 : _a.authError) {
         setMessage(location.state.authError);
@@ -653,7 +715,7 @@
         setResetLinkSent(false);
       }
     }, [location.state]);
-    react.useEffect(() => {
+    React.useEffect(() => {
       if (location.hash && (location.hash.includes("access_token") || location.hash.includes("refresh_token"))) {
         const newUrl = window.location.pathname + (location.search || "");
         window.history.replaceState({}, "", newUrl);
@@ -732,15 +794,333 @@
       ] })
     ] }) });
   };
+  const MFAChallenge = ({ supabaseClient, onSuccess, onCancel }) => {
+    const [code, setCode] = React.useState("");
+    const [loading, setLoading] = React.useState(false);
+    const [error, setError] = React.useState(null);
+    const inputRef = React.useRef(null);
+    React.useEffect(() => {
+      var _a;
+      debugLog("[MFAChallenge] mounted");
+      (_a = inputRef.current) == null ? void 0 : _a.focus();
+    }, []);
+    const handleVerify = async (e) => {
+      var _a, _b;
+      e.preventDefault();
+      if (code.length !== 6) {
+        setError("Please enter a 6-digit code.");
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      debugLog("[MFAChallenge] verifying code...");
+      try {
+        const { data: factorsData, error: factorsError } = await supabaseClient.auth.mfa.listFactors();
+        if (factorsError) throw factorsError;
+        debugLog("[MFAChallenge] factors", factorsData);
+        ((factorsData == null ? void 0 : factorsData.totp) ?? []).forEach((f, i) => {
+          debugLog(`[MFAChallenge] totp[${i}]`, { id: f.id, status: f.status, friendlyName: f.friendly_name, createdAt: f.created_at });
+        });
+        const totpFactor = (_a = factorsData == null ? void 0 : factorsData.totp) == null ? void 0 : _a.find((f) => f.status === "verified");
+        if (!totpFactor) {
+          debugLog("[MFAChallenge] no verified factor found — cannot challenge");
+          throw new Error("NO_VERIFIED_FACTOR");
+        }
+        debugLog("[MFAChallenge] using factor", { id: totpFactor.id, status: totpFactor.status });
+        const { data: challengeData, error: challengeError } = await supabaseClient.auth.mfa.challenge({
+          factorId: totpFactor.id
+        });
+        if (challengeError) {
+          debugLog("[MFAChallenge] challenge error", { message: challengeError.message, status: challengeError.status, code: challengeError.code });
+          throw challengeError;
+        }
+        debugLog("[MFAChallenge] challenge created", challengeData.id);
+        const { error: verifyError } = await supabaseClient.auth.mfa.verify({
+          factorId: totpFactor.id,
+          challengeId: challengeData.id,
+          code
+        });
+        if (verifyError) {
+          debugLog("[MFAChallenge] verify error (raw)", { message: verifyError.message, status: verifyError.status, code: verifyError.code, details: verifyError });
+          throw verifyError;
+        }
+        debugLog("[MFAChallenge] verify success → calling onSuccess");
+        onSuccess();
+      } catch (err) {
+        const msg = (err == null ? void 0 : err.message) ?? "Verification failed.";
+        debugLog("[MFAChallenge] caught error", { message: msg, status: err == null ? void 0 : err.status, code: err == null ? void 0 : err.code });
+        if (msg === "NO_VERIFIED_FACTOR") {
+          setError("Your two-factor setup is incomplete. Please sign out and log in again to re-enroll.");
+          return;
+        }
+        setError(
+          msg.toLowerCase().includes("invalid") || msg.toLowerCase().includes("token") || msg.toLowerCase().includes("totp") ? "Incorrect code. Check your authenticator app and try again." : msg
+        );
+        setCode("");
+        (_b = inputRef.current) == null ? void 0 : _b.focus();
+      } finally {
+        setLoading(false);
+      }
+    };
+    return /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "w-full max-w-md mx-auto space-y-6", children: [
+      /* @__PURE__ */ jsxRuntime.jsx(AuthBranding, { size: "large" }),
+      /* @__PURE__ */ jsxRuntime.jsxs(card.Card, { children: [
+        /* @__PURE__ */ jsxRuntime.jsxs(card.CardHeader, { children: [
+          /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "flex items-center gap-2", children: [
+            /* @__PURE__ */ jsxRuntime.jsx(lucideReact.ShieldCheck, { className: "h-5 w-5 text-primary" }),
+            /* @__PURE__ */ jsxRuntime.jsx(card.CardTitle, { children: "Two-Factor Authentication" })
+          ] }),
+          /* @__PURE__ */ jsxRuntime.jsx(card.CardDescription, { children: "Enter the 6-digit code from your authenticator app to continue." })
+        ] }),
+        /* @__PURE__ */ jsxRuntime.jsx(card.CardContent, { children: /* @__PURE__ */ jsxRuntime.jsxs("form", { onSubmit: handleVerify, className: "space-y-4", children: [
+          error && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { variant: "destructive", children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: error }) }),
+          /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
+            /* @__PURE__ */ jsxRuntime.jsx(label.Label, { htmlFor: "mfa-code", children: "Authenticator Code" }),
+            /* @__PURE__ */ jsxRuntime.jsx(
+              input.Input,
+              {
+                id: "mfa-code",
+                ref: inputRef,
+                type: "text",
+                inputMode: "numeric",
+                pattern: "[0-9]*",
+                maxLength: 6,
+                value: code,
+                onChange: (e) => setCode(e.target.value.replace(/\D/g, "")),
+                placeholder: "000000",
+                className: "text-center text-2xl tracking-widest font-mono",
+                autoComplete: "one-time-code",
+                disabled: loading
+              }
+            )
+          ] }),
+          /* @__PURE__ */ jsxRuntime.jsxs(button.Button, { type: "submit", className: "w-full", disabled: loading || code.length !== 6, children: [
+            loading && /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
+            "Verify"
+          ] }),
+          onCancel && /* @__PURE__ */ jsxRuntime.jsx("div", { className: "text-center", children: /* @__PURE__ */ jsxRuntime.jsx(button.Button, { variant: "link", type: "button", onClick: onCancel, disabled: loading, children: "Back to sign in" }) })
+        ] }) })
+      ] })
+    ] });
+  };
+  const MFAEnrollment = ({
+    supabaseClient,
+    onSuccess,
+    onSkip,
+    required = false
+  }) => {
+    const [step, setStep] = React.useState("qr");
+    const [factorId, setFactorId] = React.useState("");
+    const [qrCode, setQrCode] = React.useState("");
+    const [secret, setSecret] = React.useState("");
+    const [code, setCode] = React.useState("");
+    const [loading, setLoading] = React.useState(false);
+    const [error, setError] = React.useState(null);
+    const [copied, setCopied] = React.useState(false);
+    const inputRef = React.useRef(null);
+    React.useEffect(() => {
+      debugLog("[MFAEnrollment] mounted", { required });
+      let cancelled = false;
+      const enroll = async () => {
+        var _a;
+        setLoading(true);
+        setError(null);
+        try {
+          const { data: factorsData } = await supabaseClient.auth.mfa.listFactors();
+          debugLog("[MFAEnrollment] existing factors", factorsData);
+          const pending = (_a = factorsData == null ? void 0 : factorsData.totp) == null ? void 0 : _a.find((f) => f.status === "unverified");
+          if (pending) {
+            debugLog("[MFAEnrollment] unverified factor found, unenrolling to get fresh QR", pending.id);
+            await supabaseClient.auth.mfa.unenroll({ factorId: pending.id });
+          }
+          debugLog("[MFAEnrollment] calling mfa.enroll...");
+          const { data, error: enrollError } = await supabaseClient.auth.mfa.enroll({
+            factorType: "totp",
+            friendlyName: "Authenticator App"
+          });
+          if (enrollError) throw enrollError;
+          debugLog("[MFAEnrollment] enroll success, factorId:", data.id);
+          if (!cancelled) {
+            setFactorId(data.id);
+            setQrCode(data.totp.qr_code);
+            setSecret(data.totp.secret);
+          }
+        } catch (err) {
+          debugLog("[MFAEnrollment] enroll error", err == null ? void 0 : err.message);
+          if (!cancelled) setError((err == null ? void 0 : err.message) ?? "Could not start enrollment. Please try again.");
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+      };
+      enroll();
+      return () => {
+        cancelled = true;
+      };
+    }, [supabaseClient]);
+    React.useEffect(() => {
+      var _a;
+      if (step === "verify") (_a = inputRef.current) == null ? void 0 : _a.focus();
+    }, [step]);
+    const copySecret = async () => {
+      await navigator.clipboard.writeText(secret);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2e3);
+    };
+    const handleVerify = async (e) => {
+      var _a;
+      e.preventDefault();
+      if (code.length !== 6) {
+        setError("Please enter a 6-digit code.");
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      debugLog("[MFAEnrollment] verifying enrollment code for factorId", factorId);
+      try {
+        const { data: challengeData, error: challengeError } = await supabaseClient.auth.mfa.challenge({
+          factorId
+        });
+        if (challengeError) throw challengeError;
+        debugLog("[MFAEnrollment] challenge created", challengeData.id);
+        const { error: verifyError } = await supabaseClient.auth.mfa.verify({
+          factorId,
+          challengeId: challengeData.id,
+          code
+        });
+        if (verifyError) throw verifyError;
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if (user == null ? void 0 : user.id) {
+          const { error: profileError } = await supabaseClient.from("profiles").update({ two_factor_enabled: true }).eq("id", user.id);
+          if (profileError) {
+            debugLog("[MFAEnrollment] warning: could not set two_factor_enabled on profile", profileError.message);
+          } else {
+            debugLog("[MFAEnrollment] profiles.two_factor_enabled set to true");
+          }
+        }
+        debugLog("[MFAEnrollment] enrollment verified → calling onSuccess");
+        onSuccess();
+      } catch (err) {
+        const msg = (err == null ? void 0 : err.message) ?? "Verification failed.";
+        debugLog("[MFAEnrollment] verify error", msg);
+        setError(
+          msg.toLowerCase().includes("invalid") || msg.toLowerCase().includes("token") ? "Incorrect code. Make sure your device clock is accurate and try again." : msg
+        );
+        setCode("");
+        (_a = inputRef.current) == null ? void 0 : _a.focus();
+      } finally {
+        setLoading(false);
+      }
+    };
+    return /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "w-full max-w-md mx-auto space-y-6", children: [
+      /* @__PURE__ */ jsxRuntime.jsx(AuthBranding, { size: "large" }),
+      /* @__PURE__ */ jsxRuntime.jsxs(card.Card, { children: [
+        /* @__PURE__ */ jsxRuntime.jsxs(card.CardHeader, { children: [
+          /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "flex items-center gap-2", children: [
+            /* @__PURE__ */ jsxRuntime.jsx(lucideReact.ShieldCheck, { className: "h-5 w-5 text-primary" }),
+            /* @__PURE__ */ jsxRuntime.jsx(card.CardTitle, { children: "Set Up Two-Factor Authentication" })
+          ] }),
+          /* @__PURE__ */ jsxRuntime.jsx(card.CardDescription, { children: required ? "Your account requires two-factor authentication. Set it up to continue." : "Add an extra layer of security to your account." })
+        ] }),
+        /* @__PURE__ */ jsxRuntime.jsxs(card.CardContent, { children: [
+          error && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { variant: "destructive", className: "mb-4", children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: error }) }),
+          step === "qr" && /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-5", children: [
+            /* @__PURE__ */ jsxRuntime.jsxs("ol", { className: "text-sm text-muted-foreground space-y-1 list-decimal list-inside", children: [
+              /* @__PURE__ */ jsxRuntime.jsx("li", { children: "Install an authenticator app (Google Authenticator, Authy, 1Password, etc.)" }),
+              /* @__PURE__ */ jsxRuntime.jsx("li", { children: "Scan the QR code below, or enter the secret key manually" }),
+              /* @__PURE__ */ jsxRuntime.jsxs("li", { children: [
+                "Click ",
+                /* @__PURE__ */ jsxRuntime.jsx("strong", { children: "Next" }),
+                " to verify the setup"
+              ] })
+            ] }),
+            loading && /* @__PURE__ */ jsxRuntime.jsx("div", { className: "flex justify-center py-8", children: /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Loader2, { className: "h-8 w-8 animate-spin text-muted-foreground" }) }),
+            qrCode && !loading && /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "flex flex-col items-center gap-4", children: [
+              /* @__PURE__ */ jsxRuntime.jsx("div", { className: "border rounded-lg p-3 bg-white", children: /* @__PURE__ */ jsxRuntime.jsx("img", { src: qrCode, alt: "MFA QR code", className: "w-48 h-48" }) }),
+              secret && /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "w-full space-y-1", children: [
+                /* @__PURE__ */ jsxRuntime.jsx(label.Label, { className: "text-xs text-muted-foreground", children: "Or enter the key manually:" }),
+                /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "flex items-center gap-2", children: [
+                  /* @__PURE__ */ jsxRuntime.jsx("code", { className: "flex-1 rounded bg-muted px-3 py-2 text-xs font-mono tracking-wider break-all", children: secret }),
+                  /* @__PURE__ */ jsxRuntime.jsx(
+                    button.Button,
+                    {
+                      type: "button",
+                      variant: "outline",
+                      size: "sm",
+                      onClick: copySecret,
+                      className: "shrink-0",
+                      children: copied ? /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Check, { className: "h-4 w-4" }) : /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Copy, { className: "h-4 w-4" })
+                    }
+                  )
+                ] })
+              ] })
+            ] }),
+            /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "flex gap-3", children: [
+              /* @__PURE__ */ jsxRuntime.jsx(
+                button.Button,
+                {
+                  className: "flex-1",
+                  disabled: !qrCode || loading,
+                  onClick: () => setStep("verify"),
+                  children: "Next — Enter Code"
+                }
+              ),
+              !required && onSkip && /* @__PURE__ */ jsxRuntime.jsx(button.Button, { variant: "outline", type: "button", onClick: onSkip, disabled: loading, children: "Skip for now" })
+            ] })
+          ] }),
+          step === "verify" && /* @__PURE__ */ jsxRuntime.jsxs("form", { onSubmit: handleVerify, className: "space-y-4", children: [
+            /* @__PURE__ */ jsxRuntime.jsx("p", { className: "text-sm text-muted-foreground", children: "Enter the 6-digit code from your authenticator app to confirm setup." }),
+            /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [
+              /* @__PURE__ */ jsxRuntime.jsx(label.Label, { htmlFor: "enroll-code", children: "Authenticator Code" }),
+              /* @__PURE__ */ jsxRuntime.jsx(
+                input.Input,
+                {
+                  id: "enroll-code",
+                  ref: inputRef,
+                  type: "text",
+                  inputMode: "numeric",
+                  pattern: "[0-9]*",
+                  maxLength: 6,
+                  value: code,
+                  onChange: (e) => setCode(e.target.value.replace(/\D/g, "")),
+                  placeholder: "000000",
+                  className: "text-center text-2xl tracking-widest font-mono",
+                  autoComplete: "one-time-code",
+                  disabled: loading
+                }
+              )
+            ] }),
+            /* @__PURE__ */ jsxRuntime.jsxs(button.Button, { type: "submit", className: "w-full", disabled: loading || code.length !== 6, children: [
+              loading && /* @__PURE__ */ jsxRuntime.jsx(lucideReact.Loader2, { className: "mr-2 h-4 w-4 animate-spin" }),
+              "Confirm & Enable 2FA"
+            ] }),
+            /* @__PURE__ */ jsxRuntime.jsx("div", { className: "text-center", children: /* @__PURE__ */ jsxRuntime.jsx(
+              button.Button,
+              {
+                variant: "link",
+                type: "button",
+                onClick: () => {
+                  setStep("qr");
+                  setCode("");
+                  setError(null);
+                },
+                disabled: loading,
+                children: "Back to QR code"
+              }
+            ) })
+          ] })
+        ] })
+      ] })
+    ] });
+  };
   const LoginForm = ({ displayName }) => {
     const navigate = reactRouterDom.useNavigate();
     reactRouterDom.useLocation();
-    const [email, setEmail] = react.useState("");
-    const [password, setPassword] = react.useState("");
-    const [loading, setLoading] = react.useState(false);
-    const [showPassword, setShowPassword] = react.useState(false);
-    const [success, setSuccess] = react.useState("");
-    const { signIn, error, loading: authLoading } = useAuth();
+    const [email, setEmail] = React.useState("");
+    const [password, setPassword] = React.useState("");
+    const [loading, setLoading] = React.useState(false);
+    const [showPassword, setShowPassword] = React.useState(false);
+    const [success, setSuccess] = React.useState("");
+    const { signIn, error, loading: authLoading, mfaState, clearMfaState, supabaseClient } = useAuth();
     const badgeText = displayName || null;
     const handleSubmit = async (e) => {
       e.preventDefault();
@@ -754,6 +1134,45 @@
         setLoading(false);
       }
     };
+    const handleMfaSuccess = () => {
+      clearMfaState();
+    };
+    const handleMfaCancel = () => {
+      supabaseClient == null ? void 0 : supabaseClient.auth.signOut();
+      clearMfaState();
+      setPassword("");
+    };
+    if (mfaState === "challenge") {
+      return /* @__PURE__ */ jsxRuntime.jsx(
+        MFAChallenge,
+        {
+          supabaseClient,
+          onSuccess: handleMfaSuccess,
+          onCancel: handleMfaCancel
+        }
+      );
+    }
+    if (mfaState === "enroll") {
+      return /* @__PURE__ */ jsxRuntime.jsx(
+        MFAEnrollment,
+        {
+          supabaseClient,
+          onSuccess: handleMfaSuccess,
+          required: true
+        }
+      );
+    }
+    if (mfaState === "prompt") {
+      return /* @__PURE__ */ jsxRuntime.jsx(
+        MFAEnrollment,
+        {
+          supabaseClient,
+          onSuccess: handleMfaSuccess,
+          onSkip: handleMfaSuccess,
+          required: false
+        }
+      );
+    }
     return /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "w-full max-w-md mx-auto space-y-6", children: [
       /* @__PURE__ */ jsxRuntime.jsx(AuthBranding, { size: "large" }),
       /* @__PURE__ */ jsxRuntime.jsxs(card.Card, { children: [
@@ -838,17 +1257,17 @@
     const navigate = reactRouterDom.useNavigate();
     const { supabaseClient, resetPassword } = useAuth();
     const badgeText = displayName || null;
-    const [email, setEmail] = react.useState("");
-    const [password, setPassword] = react.useState("");
-    const [confirmPassword, setConfirmPassword] = react.useState("");
-    const [loading, setLoading] = react.useState(false);
-    const [verifying, setVerifying] = react.useState(true);
-    const [error, setError] = react.useState("");
-    const [success, setSuccess] = react.useState("");
-    const [showPassword, setShowPassword] = react.useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = react.useState(false);
-    const initializedRef = react.useRef(false);
-    react.useEffect(() => {
+    const [email, setEmail] = React.useState("");
+    const [password, setPassword] = React.useState("");
+    const [confirmPassword, setConfirmPassword] = React.useState("");
+    const [loading, setLoading] = React.useState(false);
+    const [verifying, setVerifying] = React.useState(true);
+    const [error, setError] = React.useState("");
+    const [success, setSuccess] = React.useState("");
+    const [showPassword, setShowPassword] = React.useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
+    const initializedRef = React.useRef(false);
+    React.useEffect(() => {
       var _a, _b;
       if (((_a = location.state) == null ? void 0 : _a.authError) && ((_b = location.state) == null ? void 0 : _b.expiredLink)) {
         navigate("/forgot-password", {
@@ -866,7 +1285,7 @@
       url.searchParams.delete("token_hash");
       window.history.replaceState({}, document.title, url.toString());
     };
-    react.useEffect(() => {
+    React.useEffect(() => {
       if (initializedRef.current) return;
       initializedRef.current = true;
       const { data: sub } = supabaseClient.auth.onAuthStateChange((event, session) => {
@@ -967,7 +1386,7 @@
       void run();
       return () => sub.subscription.unsubscribe();
     }, [location.hash, location.search, supabaseClient]);
-    react.useEffect(() => {
+    React.useEffect(() => {
       if (!error) return;
       if (error.includes("Password must be at least 12 characters")) {
         if (password && isStrongPassword(password)) {
@@ -1206,12 +1625,12 @@
     ] }) });
   };
   const SignUpForm = ({ onSwitchToLogin }) => {
-    const [email, setEmail] = react.useState("");
-    const [password, setPassword] = react.useState("");
-    const [fullName, setFullName] = react.useState("");
-    const [loading, setLoading] = react.useState(false);
-    const [error, setError] = react.useState("");
-    const [success, setSuccess] = react.useState("");
+    const [email, setEmail] = React.useState("");
+    const [password, setPassword] = React.useState("");
+    const [fullName, setFullName] = React.useState("");
+    const [loading, setLoading] = React.useState(false);
+    const [error, setError] = React.useState("");
+    const [success, setSuccess] = React.useState("");
     const { signUp } = useAuth();
     const handleSubmit = async (e) => {
       e.preventDefault();
@@ -1287,12 +1706,12 @@
   const createUseAuth = (dependencies) => {
     return () => {
       const { supabaseClient } = dependencies;
-      const [authState, setAuthState] = react.useState({
+      const [authState, setAuthState] = React.useState({
         user: null,
         loading: true,
         error: null
       });
-      const signIn = react.useCallback(async (email, password) => {
+      const signIn = React.useCallback(async (email, password) => {
         try {
           setAuthState((prev) => ({ ...prev, loading: true, error: null }));
           const { data, error } = await supabaseClient.auth.signInWithPassword({
@@ -1311,7 +1730,7 @@
           }));
         }
       }, [supabaseClient]);
-      const signUp = react.useCallback(async (email, password, fullName) => {
+      const signUp = React.useCallback(async (email, password, fullName) => {
         try {
           setAuthState((prev) => ({ ...prev, loading: true, error: null }));
           const { data, error } = await supabaseClient.auth.signUp({
@@ -1335,7 +1754,7 @@
           }));
         }
       }, [supabaseClient]);
-      const signOut = react.useCallback(async () => {
+      const signOut = React.useCallback(async () => {
         try {
           setAuthState((prev) => ({ ...prev, loading: true, error: null }));
           const { error } = await supabaseClient.auth.signOut();
@@ -1351,7 +1770,7 @@
           }));
         }
       }, [supabaseClient]);
-      const resetPassword = react.useCallback(async (email) => {
+      const resetPassword = React.useCallback(async (email) => {
         try {
           setAuthState((prev) => ({ ...prev, loading: true, error: null }));
           const { error } = await supabaseClient.auth.resetPasswordForEmail(email);
@@ -1367,7 +1786,7 @@
           }));
         }
       }, [supabaseClient]);
-      const activateUser = react.useCallback(async (password) => {
+      const activateUser = React.useCallback(async (password) => {
         try {
           setAuthState((prev) => ({ ...prev, loading: true, error: null }));
           const { error } = await supabaseClient.auth.updateUser({
@@ -1385,7 +1804,7 @@
           }));
         }
       }, [supabaseClient]);
-      react.useEffect(() => {
+      React.useEffect(() => {
         const getInitialSession = async () => {
           try {
             const { data: { session }, error } = await supabaseClient.auth.getSession();
@@ -1433,6 +1852,8 @@
   exports2.AuthProvider = AuthProvider;
   exports2.ForgotPassword = ForgotPassword;
   exports2.LoginForm = LoginForm;
+  exports2.MFAChallenge = MFAChallenge;
+  exports2.MFAEnrollment = MFAEnrollment;
   exports2.ResetPassword = ResetPassword;
   exports2.SignUpForm = SignUpForm;
   exports2.createUseAuth = createUseAuth;

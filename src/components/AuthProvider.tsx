@@ -2,16 +2,37 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { debugLog } from '../utils/debugLog';
 
-interface AuthConfig {
-  supabaseClient: any;
-  redirectTo?: string;
+/** What the app knows about the current user's role — passed in so the auth
+ *  module stays decoupled from app-specific role logic. */
+export interface MFAConfig {
+  /**
+   * Return true if this user must enroll MFA before entering the app.
+   * Receives the Supabase auth user and the supabase client so it can query
+   * profiles (e.g. check access_level) if needed. May be async.
+   */
+  requireEnrollment?: (user: any, supabaseClient: any) => boolean | Promise<boolean>;
 }
 
-interface AuthContextValue {
+export interface AuthConfig {
+  supabaseClient: any;
+  redirectTo?: string;
+  mfa?: MFAConfig;
+}
+
+/** Possible MFA states surfaced to consuming components. */
+export type MFAState =
+  | 'none'      // No MFA action needed — proceed normally
+  | 'challenge' // User has a factor enrolled; must verify before entering app
+  | 'enroll'    // User must enroll (mandatory per requireEnrollment rule)
+  | 'prompt';   // User has no factor but enrollment is optional — show nudge
+
+export interface AuthContextValue {
   user: any | null;
   loading: boolean;
   error: string | null;
   supabaseClient: any;
+  mfaState: MFAState;
+  clearMfaState: () => void;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, fullName?: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -29,6 +50,8 @@ const defaultAuthContext: AuthContextValue = {
   loading: true,
   error: null,
   supabaseClient: null,
+  mfaState: 'none',
+  clearMfaState: () => {},
   signIn: async () => {},
   signUp: async () => {},
   signOut: async () => {},
@@ -42,27 +65,56 @@ export const AuthProvider: React.FC<{
   config: AuthConfig;
   children: React.ReactNode;
 }> = ({ config, children }) => {
-  const { supabaseClient } = config;
+  const { supabaseClient, mfa: mfaConfig } = config;
   const [user, setUser] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mfaState, setMfaState] = useState<MFAState>('none');
+  // True while either the initial session restore OR a signIn is running its
+  // MFA check — prevents onAuthStateChange from setting user prematurely.
+  // Initialized to true so that SIGNED_IN / INITIAL_SESSION events fired
+  // before getInitialSession completes are suppressed.
+  const mfaCheckInProgress = React.useRef(true);
 
   // Service role client removed - using Supabase's built-in validation instead
 
   useEffect(() => {
-    // Get initial session
+    // Get initial session — also checks AAL so that a persisted aal1 session
+    // for a user with an enrolled factor can't bypass MFA via page refresh.
     const getInitialSession = async () => {
       try {
         const { data: { session }, error } = await supabaseClient.auth.getSession();
-        
-        if (error) {
-          throw error;
+        if (error) throw error;
+
+        if (!session) {
+          debugLog('[AuthProvider] getInitialSession: no session');
+          setUser(null);
+          return;
         }
 
-        setUser(session?.user || null);
+        // Check assurance level of the restored session.
+        const { data: aalData } = await supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel();
+        const { currentLevel, nextLevel } = aalData ?? {};
+        debugLog('[AuthProvider] getInitialSession AAL', { currentLevel, nextLevel, email: session.user?.email });
+
+        if (currentLevel === 'aal1' && nextLevel === 'aal2') {
+          // User has an enrolled factor but this restored session hasn't been
+          // verified yet (e.g. page refresh after failed or incomplete MFA).
+          // Hold back user — keep LoginForm visible so the challenge can be shown.
+          debugLog('[AuthProvider] getInitialSession: aal1 session with enrolled factor → mfaState: challenge');
+          setMfaState('challenge');
+          return;
+        }
+
+        // Session is either already aal2, or user has no factor — set user normally.
+        setUser(session.user);
       } catch (error: any) {
+        debugLog('[AuthProvider] getInitialSession error', error.message);
         setError(error.message);
       } finally {
+        // Release the gate so subsequent onAuthStateChange events (e.g.
+        // TOKEN_REFRESHED after mfa.verify(), or sign-out) are handled normally.
+        mfaCheckInProgress.current = false;
         setLoading(false);
       }
     };
@@ -72,8 +124,26 @@ export const AuthProvider: React.FC<{
     // Listen for auth changes
     const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(
       async (event: string, session: any) => {
+        debugLog('[AuthProvider] onAuthStateChange', event, session?.user?.email ?? 'no user');
+
+        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && mfaCheckInProgress.current) {
+          // Either getInitialSession or signIn is running its async MFA/AAL check.
+          // Suppress setting user until that check completes — otherwise the app
+          // navigates to the dashboard before MFA is verified.
+          // TOKEN_REFRESHED (fired after mfa.verify()) is intentionally NOT
+          // suppressed here so successful MFA verification sets the user normally.
+          debugLog('[AuthProvider]', event, 'suppressed — MFA/session check in progress');
+          setLoading(false);
+          return;
+        }
+
         setUser(session?.user || null);
         setLoading(false);
+
+        if (event === 'SIGNED_OUT') {
+          debugLog('[AuthProvider] SIGNED_OUT → clearing mfaState');
+          setMfaState('none');
+        }
       }
     );
 
@@ -84,21 +154,68 @@ export const AuthProvider: React.FC<{
     try {
       setLoading(true);
       setError(null);
-      
+      setMfaState('none');
+      mfaCheckInProgress.current = true;
+
       const { data, error } = await supabaseClient.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) {
-        throw error;
+      if (error) throw error;
+
+      debugLog('[AuthProvider] signIn success', data.user?.email);
+
+      // ── MFA check ────────────────────────────────────────────────────────
+      const { data: aalData, error: aalError } = await supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aalError) {
+        debugLog('[AuthProvider] AAL check error', aalError.message);
       }
+      const { currentLevel, nextLevel } = aalData ?? {};
+      debugLog('[AuthProvider] AAL levels', { currentLevel, nextLevel });
+
+      if (currentLevel === 'aal1' && nextLevel === 'aal2') {
+        // User has an enrolled factor but hasn't verified this session yet.
+        // Keep user null — LoginForm will show MFAChallenge.
+        // TOKEN_REFRESHED fires after mfa.verify() and sets user.
+        debugLog('[AuthProvider] → mfaState: challenge (factor enrolled, not yet verified)');
+        setMfaState('challenge');
+        return;
+      }
+
+      if (nextLevel === 'aal1') {
+        // No factors enrolled — check if enrollment should be forced
+        debugLog('[AuthProvider] No factor enrolled; checking requireEnrollment...');
+        const shouldForce = mfaConfig?.requireEnrollment
+          ? await mfaConfig.requireEnrollment(data.user, supabaseClient)
+          : false;
+        debugLog('[AuthProvider] requireEnrollment →', shouldForce);
+        if (shouldForce) {
+          // Keep user null — LoginForm will show MFAEnrollment.
+          // TOKEN_REFRESHED fires after mfa.verify() and sets user.
+          debugLog('[AuthProvider] → mfaState: enroll (mandatory)');
+          setMfaState('enroll');
+          return;
+        }
+        // Optional nudge — user can skip, so set user immediately.
+        debugLog('[AuthProvider] → mfaState: prompt (optional nudge)');
+        setMfaState('prompt');
+      }
+
+      // No MFA action required — set user now (onAuthStateChange was suppressed).
+      debugLog('[AuthProvider] → no MFA gate; setting user now');
+      setUser(data.user);
+      // ── end MFA check ─────────────────────────────────────────────────────
     } catch (error: any) {
+      debugLog('[AuthProvider] signIn error', error.message);
       setError(error.message);
     } finally {
+      mfaCheckInProgress.current = false;
       setLoading(false);
     }
   };
+
+  const clearMfaState = () => setMfaState('none');
 
   const signUp = async (email: string, password: string, fullName?: string) => {
     try {
@@ -335,6 +452,8 @@ export const AuthProvider: React.FC<{
     loading,
     error,
     supabaseClient,
+    mfaState,
+    clearMfaState,
     signIn,
     signUp,
     signOut,
