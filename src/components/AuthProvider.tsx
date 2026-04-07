@@ -98,9 +98,16 @@ export const AuthProvider: React.FC<{
         debugLog('[AuthProvider] getInitialSession AAL', { currentLevel, nextLevel, email: session.user?.email });
 
         if (currentLevel === 'aal1' && nextLevel === 'aal2') {
-          // User has an enrolled factor but this restored session hasn't been
-          // verified yet (e.g. page refresh after failed or incomplete MFA).
-          // Hold back user — keep LoginForm visible so the challenge can be shown.
+          // For OAuth/SSO users (e.g. Entra), the IdP already handled MFA —
+          // don't stack our TOTP challenge on top of it.
+          const provider = session.user.app_metadata?.provider;
+          const isOAuth = provider && provider !== 'email';
+          if (isOAuth) {
+            debugLog('[AuthProvider] getInitialSession: OAuth session (provider:', provider, ') — skipping TOTP challenge');
+            setUser(session.user);
+            return;
+          }
+          // Password-based user with enrolled factor — require TOTP challenge.
           debugLog('[AuthProvider] getInitialSession: aal1 session with enrolled factor → mfaState: challenge');
           setMfaState('challenge');
           return;

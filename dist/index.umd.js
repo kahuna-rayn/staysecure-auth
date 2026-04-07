@@ -39,7 +39,7 @@
     const mfaCheckInProgress = React.useRef(true);
     React.useEffect(() => {
       const getInitialSession = async () => {
-        var _a;
+        var _a, _b;
         try {
           const { data: { session }, error: error2 } = await supabaseClient.auth.getSession();
           if (error2) throw error2;
@@ -52,6 +52,13 @@
           const { currentLevel, nextLevel } = aalData ?? {};
           debugLog("[AuthProvider] getInitialSession AAL", { currentLevel, nextLevel, email: (_a = session.user) == null ? void 0 : _a.email });
           if (currentLevel === "aal1" && nextLevel === "aal2") {
+            const provider = (_b = session.user.app_metadata) == null ? void 0 : _b.provider;
+            const isOAuth = provider && provider !== "email";
+            if (isOAuth) {
+              debugLog("[AuthProvider] getInitialSession: OAuth session (provider:", provider, ") — skipping TOTP challenge");
+              setUser(session.user);
+              return;
+            }
             debugLog("[AuthProvider] getInitialSession: aal1 session with enrolled factor → mfaState: challenge");
             setMfaState("challenge");
             return;
