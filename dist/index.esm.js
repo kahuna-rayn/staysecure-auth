@@ -47,7 +47,7 @@ const AuthProvider = ({ config, children }) => {
   const mfaCheckInProgress = React.useRef(true);
   useEffect(() => {
     const getInitialSession = async () => {
-      var _a, _b;
+      var _a, _b, _c;
       try {
         const { data: { session }, error: error2 } = await supabaseClient.auth.getSession();
         if (error2) throw error2;
@@ -60,10 +60,17 @@ const AuthProvider = ({ config, children }) => {
         const { currentLevel, nextLevel } = aalData ?? {};
         debugLog("[AuthProvider] getInitialSession AAL", { currentLevel, nextLevel, email: (_a = session.user) == null ? void 0 : _a.email });
         if (currentLevel === "aal1" && nextLevel === "aal2") {
-          const provider = (_b = session.user.app_metadata) == null ? void 0 : _b.provider;
-          const isOAuth = provider && provider !== "email";
-          if (isOAuth) {
-            debugLog("[AuthProvider] getInitialSession: OAuth session (provider:", provider, ") — skipping TOTP challenge");
+          const identities = session.user.identities ?? [];
+          const providers = ((_b = session.user.app_metadata) == null ? void 0 : _b.providers) ?? [];
+          const primaryProvider = ((_c = session.user.app_metadata) == null ? void 0 : _c.provider) ?? "email";
+          debugLog("[AuthProvider] getInitialSession AAL challenge check", {
+            primaryProvider,
+            providers,
+            identityProviders: identities.map((i) => i.provider)
+          });
+          const hasOAuthIdentity = identities.some((i) => i.provider !== "email") || providers.some((p) => p !== "email");
+          if (hasOAuthIdentity) {
+            debugLog("[AuthProvider] getInitialSession: OAuth identity detected — skipping TOTP challenge");
             setUser(session.user);
             return;
           }

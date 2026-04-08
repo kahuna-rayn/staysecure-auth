@@ -100,14 +100,25 @@ export const AuthProvider: React.FC<{
         if (currentLevel === 'aal1' && nextLevel === 'aal2') {
           // For OAuth/SSO users (e.g. Entra), the IdP already handled MFA —
           // don't stack our TOTP challenge on top of it.
-          const provider = session.user.app_metadata?.provider;
-          const isOAuth = provider && provider !== 'email';
-          if (isOAuth) {
-            debugLog('[AuthProvider] getInitialSession: OAuth session (provider:', provider, ') — skipping TOTP challenge');
+          // Check identities array rather than app_metadata.provider, because
+          // for accounts originally created via email/password and later linked
+          // to Azure, provider stays 'email' but identities includes 'azure'.
+          const identities: any[] = session.user.identities ?? [];
+          const providers: string[] = session.user.app_metadata?.providers ?? [];
+          const primaryProvider: string = session.user.app_metadata?.provider ?? 'email';
+          debugLog('[AuthProvider] getInitialSession AAL challenge check', {
+            primaryProvider,
+            providers,
+            identityProviders: identities.map((i: any) => i.provider),
+          });
+          const hasOAuthIdentity = identities.some((i: any) => i.provider !== 'email')
+            || providers.some((p: string) => p !== 'email');
+          if (hasOAuthIdentity) {
+            debugLog('[AuthProvider] getInitialSession: OAuth identity detected — skipping TOTP challenge');
             setUser(session.user);
             return;
           }
-          // Password-based user with enrolled factor — require TOTP challenge.
+          // Password-only user with enrolled factor — require TOTP challenge.
           debugLog('[AuthProvider] getInitialSession: aal1 session with enrolled factor → mfaState: challenge');
           setMfaState('challenge');
           return;
