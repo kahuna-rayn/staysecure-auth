@@ -257,6 +257,16 @@ export const AuthProvider: React.FC<{
         await supabaseClient.auth.signOut();
         throw new Error('Your account has been deactivated. Please contact your administrator.');
       }
+
+      // Auto-activate pending accounts on successful sign-in (handles cases where the user
+      // logged in with the temp password instead of going through the activation email flow)
+      if (profileData?.status === 'Pending' || profileData?.status === 'pending') {
+        await supabaseClient
+          .from('profiles')
+          .update({ status: 'Active' })
+          .eq('id', data.user.id);
+        debugLog('[AuthProvider] Auto-activated pending account on sign-in', data.user.email);
+      }
       // ── end Inactive gate ─────────────────────────────────────────────────
 
       // ── MFA check ────────────────────────────────────────────────────────
@@ -493,19 +503,26 @@ export const AuthProvider: React.FC<{
         throw signInError;
       }
       
-      // Update user status to Active in profiles table (fallback if Edge Function didn't do it)
+      // Update user status to Active — retry up to 3 times to handle transient DB errors
       if (signInData.user) {
-        const { error: profileError } = await supabaseClient
-          .from('profiles')
-          .update({ status: 'Active' })
-          .eq('id', signInData.user.id);
-          
-        if (profileError) {
-          console.error('❌ Profile update error:', profileError);
-          // Don't throw - activation was successful
+        let activated = false;
+        for (let attempt = 1; attempt <= 3 && !activated; attempt++) {
+          const { error: profileError } = await supabaseClient
+            .from('profiles')
+            .update({ status: 'Active' })
+            .eq('id', signInData.user.id);
+          if (!profileError) {
+            activated = true;
+          } else {
+            console.error(`❌ Profile activation update failed (attempt ${attempt}/3):`, profileError);
+            if (attempt < 3) await new Promise(r => setTimeout(r, 300 * attempt));
+          }
+        }
+        if (!activated) {
+          console.error('❌ Profile activation update failed after 3 attempts — user may still appear Pending');
         }
       }
-      
+
       debugLog('[AuthProvider] ✅ user activated', signInData.user?.email);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');

@@ -174,19 +174,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw signInError;
       }
       
-      // Update user status to Active in profiles table (fallback if Edge Function didn't do it)
+      // Update user status to Active — retry up to 3 times to handle transient DB errors
       if (signInData.user) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({ status: 'Active' })
-          .eq('id', signInData.user.id);
-          
-        if (profileError) {
-          console.error('❌ Profile update error:', profileError);
-          // Don't throw - activation was successful
+        let activated = false;
+        for (let attempt = 1; attempt <= 3 && !activated; attempt++) {
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .update({ status: 'Active' })
+            .eq('id', signInData.user.id);
+          if (!profileError) {
+            activated = true;
+          } else {
+            console.error(`❌ Profile activation update failed (attempt ${attempt}/3):`, profileError);
+            if (attempt < 3) await new Promise(r => setTimeout(r, 300 * attempt));
+          }
+        }
+        if (!activated) {
+          console.error('❌ Profile activation update failed after 3 attempts — user may still appear Pending');
         }
       }
-      
+
       debugLog('[useAuth] ✅ user activated', signInData.user?.email);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');

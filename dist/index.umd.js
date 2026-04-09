@@ -154,6 +154,10 @@
           await supabaseClient.auth.signOut();
           throw new Error("Your account has been deactivated. Please contact your administrator.");
         }
+        if ((profileData == null ? void 0 : profileData.status) === "Pending" || (profileData == null ? void 0 : profileData.status) === "pending") {
+          await supabaseClient.from("profiles").update({ status: "Active" }).eq("id", data.user.id);
+          debugLog("[AuthProvider] Auto-activated pending account on sign-in", data.user.email);
+        }
         const { data: aalData, error: aalError } = await supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel();
         if (aalError) {
           debugLog("[AuthProvider] AAL check error", aalError.message);
@@ -323,9 +327,18 @@
           throw signInError;
         }
         if (signInData.user) {
-          const { error: profileError } = await supabaseClient.from("profiles").update({ status: "Active" }).eq("id", signInData.user.id);
-          if (profileError) {
-            console.error("❌ Profile update error:", profileError);
+          let activated = false;
+          for (let attempt = 1; attempt <= 3 && !activated; attempt++) {
+            const { error: profileError } = await supabaseClient.from("profiles").update({ status: "Active" }).eq("id", signInData.user.id);
+            if (!profileError) {
+              activated = true;
+            } else {
+              console.error(`❌ Profile activation update failed (attempt ${attempt}/3):`, profileError);
+              if (attempt < 3) await new Promise((r) => setTimeout(r, 300 * attempt));
+            }
+          }
+          if (!activated) {
+            console.error("❌ Profile activation update failed after 3 attempts — user may still appear Pending");
           }
         }
         debugLog("[AuthProvider] ✅ user activated", (_a = signInData.user) == null ? void 0 : _a.email);
