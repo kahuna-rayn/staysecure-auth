@@ -75,8 +75,16 @@ export const AuthProvider: React.FC<{
   // Initialized to true so that SIGNED_IN / INITIAL_SESSION events fired
   // before getInitialSession completes are suppressed.
   const mfaCheckInProgress = React.useRef(true);
+  // Mirrors user state so event listeners (visibilitychange) can read
+  // the current value without stale closure issues.
+  const userRef = React.useRef<any>(null);
 
   // Service role client removed - using Supabase's built-in validation instead
+
+  // Keep userRef in sync so the visibilitychange handler sees the current value.
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   useEffect(() => {
     // Get initial session — also checks AAL so that a persisted aal1 session
@@ -217,17 +225,46 @@ export const AuthProvider: React.FC<{
         }
         // ── end OAuth JIT ─────────────────────────────────────────────────────
 
-        setUser(session?.user || null);
-        setLoading(false);
-
         if (event === 'SIGNED_OUT') {
           debugLog('[AuthProvider] SIGNED_OUT → clearing mfaState');
           setMfaState('none');
+          // If the user was logged in and this wasn't triggered by a manual
+          // signOut() call (which clears userRef first), mark session as expired
+          // so the login form can show a helpful message.
+          if (userRef.current) {
+            sessionStorage.setItem('auth_session_expired', '1');
+          }
         }
+
+        setUser(session?.user || null);
+        setLoading(false);
       }
     );
 
-    return () => subscription.unsubscribe();
+    // Revalidate session whenever the user returns to this tab. This catches
+    // time-box and inactivity timeouts that Supabase enforced while the tab
+    // was hidden — without this, the app keeps showing stale "logged-in" UI
+    // until the JWT's own expiry fires the SIGNED_OUT event.
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState !== 'visible') return;
+      if (!userRef.current) return; // not logged in, nothing to check
+      try {
+        const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+        if (sessionError || !session) {
+          sessionStorage.setItem('auth_session_expired', '1');
+          await supabaseClient.auth.signOut();
+        }
+      } catch {
+        // ignore — network errors shouldn't force a sign-out
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      subscription.unsubscribe();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [supabaseClient]);
 
   const signIn = async (email: string, password: string) => {
@@ -236,6 +273,7 @@ export const AuthProvider: React.FC<{
       setError(null);
       setMfaState('none');
       mfaCheckInProgress.current = true;
+      sessionStorage.removeItem('auth_session_expired');
 
       const { data, error } = await supabaseClient.auth.signInWithPassword({
         email,
@@ -351,6 +389,9 @@ export const AuthProvider: React.FC<{
     try {
       setLoading(true);
       setError(null);
+      // Clear userRef before signOut so the SIGNED_OUT handler doesn't treat
+      // this intentional logout as a session expiry.
+      userRef.current = null;
 
       const { error } = await supabaseClient.auth.signOut();
 

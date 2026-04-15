@@ -28,6 +28,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ displayName }) => {
   const [success, setSuccess] = useState('');
   const [ssoLoading, setSsoLoading] = useState(false);
   const [entraEnabled, setEntraEnabled] = useState(false);
+  const [sessionExpiredMsg, setSessionExpiredMsg] = useState<string | null>(null);
 
   const { signIn, error, loading: authLoading, mfaState, clearMfaState, supabaseClient } = useAuth();
 
@@ -38,6 +39,17 @@ const LoginForm: React.FC<LoginFormProps> = ({ displayName }) => {
   const reserved = ['admin', 'activate-account', 'reset-password', 'forgot-password', 'email-notifications', 'auth'];
   const pathParts = location.pathname.split('/').filter(Boolean);
   const clientPrefix = pathParts[0] && !reserved.includes(pathParts[0]) ? `/${pathParts[0]}` : '';
+
+  // Show a session-expired banner if the previous session was terminated by
+  // Supabase's inactivity timeout or time-box, then clear the flag so it only
+  // shows once.
+  useEffect(() => {
+    const expired = sessionStorage.getItem('auth_session_expired');
+    if (expired) {
+      setSessionExpiredMsg('Your session has expired. Please sign in again.');
+      sessionStorage.removeItem('auth_session_expired');
+    }
+  }, []);
 
   // Check if Microsoft SSO is enabled for this org (unauthenticated query via RPC)
   useEffect(() => {
@@ -154,6 +166,12 @@ const LoginForm: React.FC<LoginFormProps> = ({ displayName }) => {
         </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {sessionExpiredMsg && (
+            <Alert className="border-amber-200 bg-amber-50">
+              <AlertDescription className="text-amber-800">{sessionExpiredMsg}</AlertDescription>
+            </Alert>
+          )}
+
           {error && (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>
