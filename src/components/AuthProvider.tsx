@@ -75,9 +75,11 @@ export const AuthProvider: React.FC<{
   // Initialized to true so that SIGNED_IN / INITIAL_SESSION events fired
   // before getInitialSession completes are suppressed.
   const mfaCheckInProgress = React.useRef(true);
+  /** Blocks `onAuthStateChange` from setting `user` while MFA challenge/enroll is incomplete (late INITIAL_SESSION). */
+  const mfaPendingGateRef = React.useRef<'challenge' | 'enroll' | null>(null);
   // Mirrors user state so event listeners (visibilitychange) can read
   // the current value without stale closure issues.
-  const userRef = React.useRef<any>(null);
+  const userRef = React.useRef<any | null>(null);
 
   // Service role client removed - using Supabase's built-in validation instead
 
@@ -85,6 +87,11 @@ export const AuthProvider: React.FC<{
   useEffect(() => {
     userRef.current = user;
   }, [user]);
+
+  const clearMfaState = React.useCallback(() => {
+    mfaPendingGateRef.current = null;
+    setMfaState('none');
+  }, []);
 
   useEffect(() => {
     // Get initial session — also checks AAL so that a persisted aal1 session
@@ -96,6 +103,7 @@ export const AuthProvider: React.FC<{
 
         if (!session) {
           debugLog('[AuthProvider] getInitialSession: no session');
+          mfaPendingGateRef.current = null;
           setUser(null);
           return;
         }
@@ -123,16 +131,35 @@ export const AuthProvider: React.FC<{
             || providers.some((p: string) => p !== 'email');
           if (hasOAuthIdentity) {
             debugLog('[AuthProvider] getInitialSession: OAuth identity detected — skipping TOTP challenge');
+            mfaPendingGateRef.current = null;
             setUser(session.user);
             return;
           }
           // Password-only user with enrolled factor — require TOTP challenge.
           debugLog('[AuthProvider] getInitialSession: aal1 session with enrolled factor → mfaState: challenge');
+          mfaPendingGateRef.current = 'challenge';
           setMfaState('challenge');
           return;
         }
 
-        // Session is either already aal2, or user has no factor — set user normally.
+        // Mirror signIn(): mandatory enrollment uses aal1 with no aal2 step-up yet —
+        // without this branch, refresh restores JWT and skips MFA enrollment.
+        if (nextLevel === 'aal1') {
+          const shouldForce = mfaConfig?.requireEnrollment
+            ? await mfaConfig.requireEnrollment(session.user, supabaseClient)
+            : false;
+          debugLog('[AuthProvider] getInitialSession requireEnrollment →', shouldForce);
+          if (shouldForce) {
+            debugLog('[AuthProvider] getInitialSession → mfaState: enroll (mandatory)');
+            mfaPendingGateRef.current = 'enroll';
+            setMfaState('enroll');
+            return;
+          }
+          debugLog('[AuthProvider] getInitialSession → mfaState: prompt (optional nudge)');
+          setMfaState('prompt');
+        }
+
+        mfaPendingGateRef.current = null;
         setUser(session.user);
       } catch (error: any) {
         debugLog('[AuthProvider] getInitialSession error', error.message);
@@ -227,6 +254,7 @@ export const AuthProvider: React.FC<{
 
         if (event === 'SIGNED_OUT') {
           debugLog('[AuthProvider] SIGNED_OUT → clearing mfaState');
+          mfaPendingGateRef.current = null;
           setMfaState('none');
           // If the user was logged in and this wasn't triggered by a manual
           // signOut() call (which clears userRef first), mark session as expired
@@ -234,6 +262,25 @@ export const AuthProvider: React.FC<{
           if (userRef.current) {
             sessionStorage.setItem('auth_session_expired', '1');
           }
+        }
+
+        // Don't promote to logged-in UI while challenge/enroll is still required
+        // (session exists in storage but user must not bypass MFA).
+        if (
+          session?.user &&
+          mfaPendingGateRef.current &&
+          event !== 'TOKEN_REFRESHED' &&
+          event !== 'SIGNED_OUT'
+        ) {
+          debugLog('[AuthProvider] onAuthStateChange: MFA gate active — skip setUser', {
+            event,
+            gate: mfaPendingGateRef.current,
+          });
+          setLoading(false);
+          return;
+        }
+        if (event === 'TOKEN_REFRESHED' && mfaPendingGateRef.current) {
+          mfaPendingGateRef.current = null;
         }
 
         setUser(session?.user || null);
@@ -265,12 +312,13 @@ export const AuthProvider: React.FC<{
       subscription.unsubscribe();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [supabaseClient]);
+  }, [supabaseClient, mfaConfig, clearMfaState]);
 
   const signIn = async (email: string, password: string) => {
     try {
       setLoading(true);
       setError(null);
+      mfaPendingGateRef.current = null;
       setMfaState('none');
       mfaCheckInProgress.current = true;
       sessionStorage.removeItem('auth_session_expired');
@@ -320,6 +368,7 @@ export const AuthProvider: React.FC<{
         // Keep user null — LoginForm will show MFAChallenge.
         // TOKEN_REFRESHED fires after mfa.verify() and sets user.
         debugLog('[AuthProvider] → mfaState: challenge (factor enrolled, not yet verified)');
+        mfaPendingGateRef.current = 'challenge';
         setMfaState('challenge');
         return;
       }
@@ -335,6 +384,7 @@ export const AuthProvider: React.FC<{
           // Keep user null — LoginForm will show MFAEnrollment.
           // TOKEN_REFRESHED fires after mfa.verify() and sets user.
           debugLog('[AuthProvider] → mfaState: enroll (mandatory)');
+          mfaPendingGateRef.current = 'enroll';
           setMfaState('enroll');
           return;
         }
@@ -345,6 +395,7 @@ export const AuthProvider: React.FC<{
 
       // No MFA action required — set user now (onAuthStateChange was suppressed).
       debugLog('[AuthProvider] → no MFA gate; setting user now');
+      mfaPendingGateRef.current = null;
       setUser(data.user);
       // ── end MFA check ─────────────────────────────────────────────────────
     } catch (error: any) {
@@ -355,8 +406,6 @@ export const AuthProvider: React.FC<{
       setLoading(false);
     }
   };
-
-  const clearMfaState = () => setMfaState('none');
 
   const signUp = async (email: string, password: string, fullName?: string) => {
     try {

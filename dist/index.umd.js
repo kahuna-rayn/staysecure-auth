@@ -37,6 +37,15 @@
     const [error, setError] = React.useState(null);
     const [mfaState, setMfaState] = React.useState("none");
     const mfaCheckInProgress = React.useRef(true);
+    const mfaPendingGateRef = React.useRef(null);
+    const userRef = React.useRef(null);
+    React.useEffect(() => {
+      userRef.current = user;
+    }, [user]);
+    const clearMfaState = React.useCallback(() => {
+      mfaPendingGateRef.current = null;
+      setMfaState("none");
+    }, []);
     React.useEffect(() => {
       const getInitialSession = async () => {
         var _a, _b, _c;
@@ -45,6 +54,7 @@
           if (error2) throw error2;
           if (!session) {
             debugLog("[AuthProvider] getInitialSession: no session");
+            mfaPendingGateRef.current = null;
             setUser(null);
             return;
           }
@@ -63,13 +73,28 @@
             const hasOAuthIdentity = identities.some((i) => i.provider !== "email") || providers.some((p) => p !== "email");
             if (hasOAuthIdentity) {
               debugLog("[AuthProvider] getInitialSession: OAuth identity detected — skipping TOTP challenge");
+              mfaPendingGateRef.current = null;
               setUser(session.user);
               return;
             }
             debugLog("[AuthProvider] getInitialSession: aal1 session with enrolled factor → mfaState: challenge");
+            mfaPendingGateRef.current = "challenge";
             setMfaState("challenge");
             return;
           }
+          if (nextLevel === "aal1") {
+            const shouldForce = (mfaConfig == null ? void 0 : mfaConfig.requireEnrollment) ? await mfaConfig.requireEnrollment(session.user, supabaseClient) : false;
+            debugLog("[AuthProvider] getInitialSession requireEnrollment →", shouldForce);
+            if (shouldForce) {
+              debugLog("[AuthProvider] getInitialSession → mfaState: enroll (mandatory)");
+              mfaPendingGateRef.current = "enroll";
+              setMfaState("enroll");
+              return;
+            }
+            debugLog("[AuthProvider] getInitialSession → mfaState: prompt (optional nudge)");
+            setMfaState("prompt");
+          }
+          mfaPendingGateRef.current = null;
           setUser(session.user);
         } catch (error2) {
           debugLog("[AuthProvider] getInitialSession error", error2.message);
@@ -126,23 +151,56 @@
               }
             }
           }
-          setUser((session == null ? void 0 : session.user) || null);
-          setLoading(false);
           if (event === "SIGNED_OUT") {
             debugLog("[AuthProvider] SIGNED_OUT → clearing mfaState");
+            mfaPendingGateRef.current = null;
             setMfaState("none");
+            if (userRef.current) {
+              sessionStorage.setItem("auth_session_expired", "1");
+            }
           }
+          if ((session == null ? void 0 : session.user) && mfaPendingGateRef.current && event !== "TOKEN_REFRESHED" && event !== "SIGNED_OUT") {
+            debugLog("[AuthProvider] onAuthStateChange: MFA gate active — skip setUser", {
+              event,
+              gate: mfaPendingGateRef.current
+            });
+            setLoading(false);
+            return;
+          }
+          if (event === "TOKEN_REFRESHED" && mfaPendingGateRef.current) {
+            mfaPendingGateRef.current = null;
+          }
+          setUser((session == null ? void 0 : session.user) || null);
+          setLoading(false);
         }
       );
-      return () => subscription.unsubscribe();
-    }, [supabaseClient]);
+      const handleVisibilityChange = async () => {
+        if (document.visibilityState !== "visible") return;
+        if (!userRef.current) return;
+        try {
+          const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+          if (sessionError || !session) {
+            sessionStorage.setItem("auth_session_expired", "1");
+            await supabaseClient.auth.signOut();
+          }
+        } catch {
+        }
+      };
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+      return () => {
+        subscription.unsubscribe();
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+      };
+    }, [supabaseClient, mfaConfig, clearMfaState]);
     const signIn = async (email, password) => {
       var _a;
       try {
         setLoading(true);
         setError(null);
+        mfaPendingGateRef.current = null;
         setMfaState("none");
         mfaCheckInProgress.current = true;
+        sessionStorage.removeItem("auth_session_expired");
         const { data, error: error2 } = await supabaseClient.auth.signInWithPassword({
           email,
           password
@@ -166,6 +224,7 @@
         debugLog("[AuthProvider] AAL levels", { currentLevel, nextLevel });
         if (currentLevel === "aal1" && nextLevel === "aal2") {
           debugLog("[AuthProvider] → mfaState: challenge (factor enrolled, not yet verified)");
+          mfaPendingGateRef.current = "challenge";
           setMfaState("challenge");
           return;
         }
@@ -175,6 +234,7 @@
           debugLog("[AuthProvider] requireEnrollment →", shouldForce);
           if (shouldForce) {
             debugLog("[AuthProvider] → mfaState: enroll (mandatory)");
+            mfaPendingGateRef.current = "enroll";
             setMfaState("enroll");
             return;
           }
@@ -182,6 +242,7 @@
           setMfaState("prompt");
         }
         debugLog("[AuthProvider] → no MFA gate; setting user now");
+        mfaPendingGateRef.current = null;
         setUser(data.user);
       } catch (error2) {
         debugLog("[AuthProvider] signIn error", error2.message);
@@ -191,7 +252,6 @@
         setLoading(false);
       }
     };
-    const clearMfaState = () => setMfaState("none");
     const signUp = async (email, password, fullName) => {
       try {
         setLoading(true);
@@ -220,6 +280,7 @@
       try {
         setLoading(true);
         setError(null);
+        userRef.current = null;
         const { error: error2 } = await supabaseClient.auth.signOut();
         if (error2) {
           throw error2;
@@ -979,7 +1040,8 @@
     supabaseClient,
     onSuccess,
     onSkip,
-    required = false
+    required = false,
+    issuer
   }) => {
     const [step, setStep] = React.useState("qr");
     const [factorId, setFactorId] = React.useState("");
@@ -1005,10 +1067,11 @@
             debugLog("[MFAEnrollment] unverified factor found, unenrolling to get fresh QR", pending.id);
             await supabaseClient.auth.mfa.unenroll({ factorId: pending.id });
           }
-          debugLog("[MFAEnrollment] calling mfa.enroll...");
+          debugLog("[MFAEnrollment] calling mfa.enroll...", issuer ? { issuer } : {});
           const { data, error: enrollError } = await supabaseClient.auth.mfa.enroll({
             factorType: "totp",
-            friendlyName: "Authenticator App"
+            friendlyName: "Authenticator App",
+            ...issuer ? { issuer } : {}
           });
           if (enrollError) throw enrollError;
           debugLog("[MFAEnrollment] enroll success, factorId:", data.id);
@@ -1028,7 +1091,7 @@
       return () => {
         cancelled = true;
       };
-    }, [supabaseClient]);
+    }, [supabaseClient, issuer]);
     React.useEffect(() => {
       var _a;
       if (step === "verify") (_a = inputRef.current) == null ? void 0 : _a.focus();
@@ -1184,7 +1247,7 @@
       ] })
     ] });
   };
-  const LoginForm = ({ displayName }) => {
+  const LoginForm = ({ displayName, mfaIssuer }) => {
     const navigate = reactRouterDom.useNavigate();
     const location = reactRouterDom.useLocation();
     const [email, setEmail] = React.useState("");
@@ -1194,11 +1257,19 @@
     const [success, setSuccess] = React.useState("");
     const [ssoLoading, setSsoLoading] = React.useState(false);
     const [entraEnabled, setEntraEnabled] = React.useState(false);
+    const [sessionExpiredMsg, setSessionExpiredMsg] = React.useState(null);
     const { signIn, error, loading: authLoading, mfaState, clearMfaState, supabaseClient } = useAuth();
     const badgeText = displayName || null;
     const reserved = ["admin", "activate-account", "reset-password", "forgot-password", "email-notifications", "auth"];
     const pathParts = location.pathname.split("/").filter(Boolean);
     const clientPrefix = pathParts[0] && !reserved.includes(pathParts[0]) ? `/${pathParts[0]}` : "";
+    React.useEffect(() => {
+      const expired = sessionStorage.getItem("auth_session_expired");
+      if (expired) {
+        setSessionExpiredMsg("Your session has expired. Please sign in again.");
+        sessionStorage.removeItem("auth_session_expired");
+      }
+    }, []);
     React.useEffect(() => {
       if (!supabaseClient) return;
       supabaseClient.rpc("get_org_sso_config").then(({ data, error: error2 }) => {
@@ -1261,13 +1332,15 @@
         }
       );
     }
+    const mfaIssuerTrimmed = (mfaIssuer == null ? void 0 : mfaIssuer.trim()) || void 0;
     if (mfaState === "enroll") {
       return /* @__PURE__ */ jsxRuntime.jsx(
         MFAEnrollment,
         {
           supabaseClient,
           onSuccess: handleMfaSuccess,
-          required: true
+          required: true,
+          issuer: mfaIssuerTrimmed
         }
       );
     }
@@ -1278,7 +1351,8 @@
           supabaseClient,
           onSuccess: handleMfaSuccess,
           onSkip: handleMfaSuccess,
-          required: false
+          required: false,
+          issuer: mfaIssuerTrimmed
         }
       );
     }
@@ -1293,6 +1367,7 @@
           /* @__PURE__ */ jsxRuntime.jsx(card.CardDescription, { children: "Enter your email and password to access your learning dashboard" })
         ] }),
         /* @__PURE__ */ jsxRuntime.jsx(card.CardContent, { children: /* @__PURE__ */ jsxRuntime.jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
+          sessionExpiredMsg && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { className: "border-amber-200 bg-amber-50", children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { className: "text-amber-800", children: sessionExpiredMsg }) }),
           error && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { variant: "destructive", children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: error }) }),
           success && /* @__PURE__ */ jsxRuntime.jsx(alert.Alert, { children: /* @__PURE__ */ jsxRuntime.jsx(alert.AlertDescription, { children: success }) }),
           /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "space-y-2", children: [

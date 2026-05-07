@@ -16,9 +16,14 @@ import MFAEnrollment from './MFAEnrollment';
 interface LoginFormProps {
   /** Optional displayName badge text. If not provided, badge won't show. */
   displayName?: string | null;
+  /**
+   * Optional TOTP issuer for MFA enrollment QR (e.g. include client slug).
+   * Shown in authenticator apps; keeps entries distinct per tenant.
+   */
+  mfaIssuer?: string | null;
 }
 
-const LoginForm: React.FC<LoginFormProps> = ({ displayName }) => {
+const LoginForm: React.FC<LoginFormProps> = ({ displayName, mfaIssuer }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [email, setEmail] = useState('');
@@ -124,12 +129,15 @@ const LoginForm: React.FC<LoginFormProps> = ({ displayName }) => {
     );
   }
 
+  const mfaIssuerTrimmed = mfaIssuer?.trim() || undefined;
+
   if (mfaState === 'enroll') {
     return (
       <MFAEnrollment
         supabaseClient={supabaseClient}
         onSuccess={handleMfaSuccess}
         required
+        issuer={mfaIssuerTrimmed}
       />
     );
   }
@@ -141,6 +149,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ displayName }) => {
         onSuccess={handleMfaSuccess}
         onSkip={handleMfaSuccess}
         required={false}
+        issuer={mfaIssuerTrimmed}
       />
     );
   }

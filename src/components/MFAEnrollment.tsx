@@ -16,6 +16,11 @@ interface MFAEnrollmentProps {
   onSkip?: () => void;
   /** Whether enrollment is mandatory (hides skip, shows blocking message). */
   required?: boolean;
+  /**
+   * TOTP issuer label embedded in the MFA QR (shown in authenticator apps).
+   * Pass a tenant-specific value (e.g. client slug) so entries are distinct per Supabase project.
+   */
+  issuer?: string;
 }
 
 type Step = 'qr' | 'verify';
@@ -25,6 +30,7 @@ const MFAEnrollment: React.FC<MFAEnrollmentProps> = ({
   onSuccess,
   onSkip,
   required = false,
+  issuer,
 }) => {
   const [step, setStep] = useState<Step>('qr');
   const [factorId, setFactorId] = useState<string>('');
@@ -57,10 +63,11 @@ const MFAEnrollment: React.FC<MFAEnrollmentProps> = ({
           await supabaseClient.auth.mfa.unenroll({ factorId: pending.id });
         }
 
-        debugLog('[MFAEnrollment] calling mfa.enroll...');
+        debugLog('[MFAEnrollment] calling mfa.enroll...', issuer ? { issuer } : {});
         const { data, error: enrollError } = await supabaseClient.auth.mfa.enroll({
           factorType: 'totp',
           friendlyName: 'Authenticator App',
+          ...(issuer ? { issuer } : {}),
         });
         if (enrollError) throw enrollError;
         debugLog('[MFAEnrollment] enroll success, factorId:', data.id);
@@ -78,7 +85,7 @@ const MFAEnrollment: React.FC<MFAEnrollmentProps> = ({
     };
     enroll();
     return () => { cancelled = true; };
-  }, [supabaseClient]);
+  }, [supabaseClient, issuer]);
 
   useEffect(() => {
     if (step === 'verify') inputRef.current?.focus();
