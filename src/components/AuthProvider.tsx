@@ -33,6 +33,8 @@ export interface AuthContextValue {
   supabaseClient: any;
   mfaState: MFAState;
   clearMfaState: () => void;
+  /** After MFA verify: load session, set user, then clear MFA UI. Avoids login flash when TOKEN_REFRESHED races React state. */
+  completeMfaSuccess: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, fullName?: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -52,6 +54,7 @@ const defaultAuthContext: AuthContextValue = {
   supabaseClient: null,
   mfaState: 'none',
   clearMfaState: () => {},
+  completeMfaSuccess: async () => {},
   signIn: async () => {},
   signUp: async () => {},
   signOut: async () => {},
@@ -92,6 +95,29 @@ export const AuthProvider: React.FC<{
     mfaPendingGateRef.current = null;
     setMfaState('none');
   }, []);
+
+  const completeMfaSuccess = React.useCallback(async () => {
+    try {
+      const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+      if (sessionError) throw sessionError;
+      let nextUser = session?.user ?? null;
+      if (!nextUser) {
+        const { data: { user: u }, error: userError } = await supabaseClient.auth.getUser();
+        if (userError) throw userError;
+        nextUser = u;
+      }
+      mfaPendingGateRef.current = null;
+      setMfaState('none');
+      setUser(nextUser);
+      debugLog('[AuthProvider] completeMfaSuccess → user restored from session');
+    } catch (e: any) {
+      debugLog('[AuthProvider] completeMfaSuccess error', e?.message);
+      mfaPendingGateRef.current = null;
+      setMfaState('none');
+    } finally {
+      setLoading(false);
+    }
+  }, [supabaseClient]);
 
   useEffect(() => {
     // Get initial session — also checks AAL so that a persisted aal1 session
@@ -654,6 +680,7 @@ export const AuthProvider: React.FC<{
     supabaseClient,
     mfaState,
     clearMfaState,
+    completeMfaSuccess,
     signIn,
     signUp,
     signOut,

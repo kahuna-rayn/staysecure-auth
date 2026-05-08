@@ -24,6 +24,8 @@ const defaultAuthContext = {
   mfaState: "none",
   clearMfaState: () => {
   },
+  completeMfaSuccess: async () => {
+  },
   signIn: async () => {
   },
   signUp: async () => {
@@ -54,6 +56,28 @@ const AuthProvider = ({ config, children }) => {
     mfaPendingGateRef.current = null;
     setMfaState("none");
   }, []);
+  const completeMfaSuccess = React.useCallback(async () => {
+    try {
+      const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+      if (sessionError) throw sessionError;
+      let nextUser = (session == null ? void 0 : session.user) ?? null;
+      if (!nextUser) {
+        const { data: { user: u }, error: userError } = await supabaseClient.auth.getUser();
+        if (userError) throw userError;
+        nextUser = u;
+      }
+      mfaPendingGateRef.current = null;
+      setMfaState("none");
+      setUser(nextUser);
+      debugLog("[AuthProvider] completeMfaSuccess → user restored from session");
+    } catch (e) {
+      debugLog("[AuthProvider] completeMfaSuccess error", e == null ? void 0 : e.message);
+      mfaPendingGateRef.current = null;
+      setMfaState("none");
+    } finally {
+      setLoading(false);
+    }
+  }, [supabaseClient]);
   useEffect(() => {
     const getInitialSession = async () => {
       var _a, _b, _c;
@@ -449,6 +473,7 @@ const AuthProvider = ({ config, children }) => {
     supabaseClient,
     mfaState,
     clearMfaState,
+    completeMfaSuccess,
     signIn,
     signUp,
     signOut,
@@ -1266,7 +1291,7 @@ const LoginForm = ({ displayName, mfaIssuer }) => {
   const [ssoLoading, setSsoLoading] = useState(false);
   const [entraEnabled, setEntraEnabled] = useState(false);
   const [sessionExpiredMsg, setSessionExpiredMsg] = useState(null);
-  const { signIn, error, loading: authLoading, mfaState, clearMfaState, supabaseClient } = useAuth();
+  const { signIn, error, loading: authLoading, mfaState, clearMfaState, completeMfaSuccess, supabaseClient } = useAuth();
   const badgeText = displayName || null;
   const reserved = ["admin", "activate-account", "reset-password", "forgot-password", "email-notifications", "auth"];
   const pathParts = location.pathname.split("/").filter(Boolean);
@@ -1323,7 +1348,7 @@ const LoginForm = ({ displayName, mfaIssuer }) => {
     }
   };
   const handleMfaSuccess = () => {
-    clearMfaState();
+    void completeMfaSuccess();
   };
   const handleMfaCancel = () => {
     supabaseClient == null ? void 0 : supabaseClient.auth.signOut();

@@ -35,7 +35,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ displayName, mfaIssuer }) => {
   const [entraEnabled, setEntraEnabled] = useState(false);
   const [sessionExpiredMsg, setSessionExpiredMsg] = useState<string | null>(null);
 
-  const { signIn, error, loading: authLoading, mfaState, clearMfaState, supabaseClient } = useAuth();
+  const { signIn, error, loading: authLoading, mfaState, clearMfaState, completeMfaSuccess, supabaseClient } = useAuth();
 
   // Use displayName from props (passed by consuming app)
   const badgeText = displayName || null;
@@ -107,8 +107,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ displayName, mfaIssuer }) => {
   };
 
   const handleMfaSuccess = () => {
-    clearMfaState();
-    // Navigation is handled by the consuming app reacting to user state change
+    void completeMfaSuccess();
   };
 
   const handleMfaCancel = () => {
