@@ -239,7 +239,7 @@ const AuthProvider = ({ config, children }) => {
       });
       if (error2) throw error2;
       debugLog("[AuthProvider] signIn success", (_a = data.user) == null ? void 0 : _a.email);
-      const { data: profileData } = await supabaseClient.from("profiles").select("status").eq("id", data.user.id).single();
+      const { data: profileData } = await supabaseClient.from("profiles").select("status, two_factor_enabled").eq("id", data.user.id).single();
       if ((profileData == null ? void 0 : profileData.status) === "Inactive") {
         await supabaseClient.auth.signOut();
         throw new Error("Your account has been deactivated. Please contact your administrator.");
@@ -255,6 +255,15 @@ const AuthProvider = ({ config, children }) => {
       const { currentLevel, nextLevel } = aalData ?? {};
       debugLog("[AuthProvider] AAL levels", { currentLevel, nextLevel });
       if (currentLevel === "aal1" && nextLevel === "aal2") {
+        if ((profileData == null ? void 0 : profileData.two_factor_enabled) === false) {
+          const shouldForce = (mfaConfig == null ? void 0 : mfaConfig.requireEnrollment) ? await mfaConfig.requireEnrollment(data.user, supabaseClient) : false;
+          if (shouldForce) {
+            debugLog("[AuthProvider] → mfaState: enroll (orphaned factor — two_factor_enabled=false)");
+            mfaPendingGateRef.current = "enroll";
+            setMfaState("enroll");
+            return;
+          }
+        }
         debugLog("[AuthProvider] → mfaState: challenge (factor enrolled, not yet verified)");
         mfaPendingGateRef.current = "challenge";
         setMfaState("challenge");
@@ -1089,16 +1098,15 @@ const MFAEnrollment = ({
     debugLog("[MFAEnrollment] mounted", { required });
     let cancelled = false;
     const enroll = async () => {
-      var _a;
       setLoading(true);
       setError(null);
       try {
         const { data: factorsData } = await supabaseClient.auth.mfa.listFactors();
         debugLog("[MFAEnrollment] existing factors", factorsData);
-        const pending = (_a = factorsData == null ? void 0 : factorsData.totp) == null ? void 0 : _a.find((f) => f.status === "unverified");
-        if (pending) {
-          debugLog("[MFAEnrollment] unverified factor found, unenrolling to get fresh QR", pending.id);
-          await supabaseClient.auth.mfa.unenroll({ factorId: pending.id });
+        for (const factor of (factorsData == null ? void 0 : factorsData.totp) ?? []) {
+          debugLog("[MFAEnrollment] unenrolling existing factor", factor.id, factor.status);
+          const { error: unenrollError } = await supabaseClient.auth.mfa.unenroll({ factorId: factor.id });
+          if (unenrollError) throw unenrollError;
         }
         debugLog("[MFAEnrollment] calling mfa.enroll...", issuer ? { issuer } : {});
         const { data, error: enrollError } = await supabaseClient.auth.mfa.enroll({

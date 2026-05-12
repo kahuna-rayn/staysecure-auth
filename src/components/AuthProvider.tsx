@@ -361,7 +361,7 @@ export const AuthProvider: React.FC<{
       // ── Inactive account gate ─────────────────────────────────────────────
       const { data: profileData } = await supabaseClient
         .from('profiles')
-        .select('status')
+        .select('status, two_factor_enabled')
         .eq('id', data.user.id)
         .single();
 
@@ -390,6 +390,21 @@ export const AuthProvider: React.FC<{
       debugLog('[AuthProvider] AAL levels', { currentLevel, nextLevel });
 
       if (currentLevel === 'aal1' && nextLevel === 'aal2') {
+        // Supabase says there's a verified factor, but if profiles.two_factor_enabled
+        // is false the factor is orphaned (enrollment succeeded in Auth but the profile
+        // update failed, or the factor was never properly cleaned up). Treat it as a
+        // fresh enrollment rather than a challenge so MFAEnrollment can wipe and redo it.
+        if (profileData?.two_factor_enabled === false) {
+          const shouldForce = mfaConfig?.requireEnrollment
+            ? await mfaConfig.requireEnrollment(data.user, supabaseClient)
+            : false;
+          if (shouldForce) {
+            debugLog('[AuthProvider] → mfaState: enroll (orphaned factor — two_factor_enabled=false)');
+            mfaPendingGateRef.current = 'enroll';
+            setMfaState('enroll');
+            return;
+          }
+        }
         // User has an enrolled factor but hasn't verified this session yet.
         // Keep user null — LoginForm will show MFAChallenge.
         // TOKEN_REFRESHED fires after mfa.verify() and sets user.

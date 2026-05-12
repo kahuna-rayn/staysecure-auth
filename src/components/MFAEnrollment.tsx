@@ -42,8 +42,9 @@ const MFAEnrollment: React.FC<MFAEnrollmentProps> = ({
   const [copied, setCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Enroll a new TOTP factor on mount — reuse any existing unverified factor
-  // rather than calling enroll() again (Supabase rejects a second pending factor).
+  // Unenroll any existing TOTP factors and enroll a fresh one on mount.
+  // Handles dangling unverified factors and orphaned verified factors
+  // (AuthProvider re-routes those here when profiles.two_factor_enabled is false).
   useEffect(() => {
     debugLog('[MFAEnrollment] mounted', { required });
     let cancelled = false;
@@ -51,16 +52,16 @@ const MFAEnrollment: React.FC<MFAEnrollmentProps> = ({
       setLoading(true);
       setError(null);
       try {
-        // Check for an existing unverified (pending) TOTP factor first.
+        // Remove all existing TOTP factors before enrolling fresh.
+        // This handles both dangling unverified factors (nextLevel stays aal1) and
+        // orphaned verified factors where profiles.two_factor_enabled is false
+        // (AuthProvider re-routes those here instead of to MFAChallenge).
         const { data: factorsData } = await supabaseClient.auth.mfa.listFactors();
         debugLog('[MFAEnrollment] existing factors', factorsData);
-        const pending = factorsData?.totp?.find((f: any) => f.status === 'unverified');
-
-        if (pending) {
-          // Reuse the pending factor — but we can't retrieve the QR code again
-          // from Supabase after initial enroll(), so unenroll and re-enroll.
-          debugLog('[MFAEnrollment] unverified factor found, unenrolling to get fresh QR', pending.id);
-          await supabaseClient.auth.mfa.unenroll({ factorId: pending.id });
+        for (const factor of (factorsData?.totp ?? [])) {
+          debugLog('[MFAEnrollment] unenrolling existing factor', factor.id, factor.status);
+          const { error: unenrollError } = await supabaseClient.auth.mfa.unenroll({ factorId: factor.id });
+          if (unenrollError) throw unenrollError;
         }
 
         debugLog('[MFAEnrollment] calling mfa.enroll...', issuer ? { issuer } : {});
